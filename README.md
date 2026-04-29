@@ -2,65 +2,137 @@
 
 Trust-first, SOC 2-ready bank statement converter for accountants and bookkeepers.
 
-This repo holds the SaaS product. Audit history lives one level up at `../runs/`. Project README at `../README.md`.
+Files auto-delete in 24 hours. Every server-side write produces an audit event. Multi-tenant by workspace from day one.
+
+## Status
+
+Phase 1 (Trust-Native MVP) under construction. Wave 0 scaffold and Wave 1 connector layer are complete. Wave 2 server actions and auth land next.
 
 ## Stack
 
 - Next.js 16 (App Router) + React 19 + TypeScript + Tailwind 4
-- Supabase Auth + Supabase Postgres with RLS
-- AWS S3 (uploads + 24h lifecycle delete) + AWS Textract (OCR) + AWS KMS (CMK)
+- Supabase Auth + Postgres with RLS
+- AWS S3 (uploads, 24h lifecycle delete) + Textract (OCR) + KMS (CMK)
 - Stripe Checkout + Customer Portal + signed webhooks
-- Resend (transactional email) + Sentry (errors) + Upstash Redis (rate limit + idempotency)
+- Resend (email) + Sentry (errors) + Upstash Redis (rate limit + idempotency)
 - Hosted on Vercel
+- pnpm 10 as package manager
 
-## Status
+## Bring up on a fresh machine
 
-Phase 1 (Trust-Native MVP) under construction. See `docs/specs/` and `docs/adr/`.
+The fastest path: clone, install, fill `.env.local`, then ask Claude Code to set up the rest.
 
-## Local development
+### 1. Clone and install
 
-Prereqs: Node 20+, pnpm 10+, a Supabase project, AWS account, Stripe test account, Resend, Sentry, Upstash. See `docs/specs/wave-0-provisioning-handoff.md`.
+```bash
+git clone https://github.com/PLKNoko/prizm.git
+cd prizm
+pnpm install
+```
+
+If `pnpm` is missing: `npm install -g pnpm@10` first.
+
+### 2. Fill `.env.local`
 
 ```bash
 cp .env.example .env.local
-# fill in .env.local
-pnpm install
-pnpm dev          # http://localhost:3000
-pnpm test         # Vitest unit + integration
-pnpm test:e2e     # Playwright E2E
-pnpm verify       # full pre-commit gate
 ```
+
+Open `.env.local` and fill the values. The file documents what each one needs. Sandbox-safe values (Supabase URL, Stripe price IDs) are already baked in. The rest are secrets you keep elsewhere (Vercel env, password manager, or whatever the team uses).
+
+Minimum to run `pnpm dev`:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `STRIPE_SECRET_KEY` (sandbox `sk_test_...`)
+
+### 3. Verify
+
+```bash
+pnpm verify       # format + lint + typecheck + test
+pnpm dev          # http://localhost:3000
+curl http://localhost:3000/api/health   # shallow connector check
+curl http://localhost:3000/api/health?deep=true   # live ping each connector
+```
+
+### 4. Hand off to Claude Code (optional)
+
+Open this directory in Claude Code and ask:
+
+> Set up PRIZM. Read README.md, CLAUDE.md, and docs/specs/wave-0-provisioning-step-by-step.md, then walk me through what is missing on this machine.
+
+Claude reads the project memory and onboarding doc, asks you about MCP connectors and AWS credentials, and provisions whatever the home machine is missing.
+
+## External services
+
+PRIZM depends on six external accounts. Provisioning details live in `docs/specs/wave-0-provisioning-step-by-step.md`.
+
+| Service | Status | Notes |
+| --- | --- | --- |
+| Cloudflare | Domain `prizmview.app` registered | Zone import file at `infra/cloudflare/prizmview-app.zone` |
+| Supabase | Project `dcirauvtuvvokvcwczft` (us-east-1) live | Migration 0001 applied. RLS on all 8 tables. |
+| Stripe | Sandbox account `acct_1TRZFv44hvL1QSxT` | 4 products + 4 subscription prices created. Overage meter pending. |
+| Resend | Account exists | Domain DKIM pending DNS import |
+| Upstash Redis | DB `close-stag-109648` (us-east-1) | Rate limit + idempotency |
+| AWS | Pending | S3, Textract, KMS to be provisioned via aws-api MCP |
 
 ## Layout
 
 ```
-prizm/product/
+prizm/
 ├── app/                            # Next.js App Router
-│   ├── (marketing)/                # public pages
+│   ├── (marketing)/                # public pages (landing, pricing, security, etc.)
 │   ├── (dashboard)/                # authenticated app
 │   ├── (auth)/                     # login + register
-│   └── api/v1/                     # public REST API
+│   └── api/                        # route handlers (health, status, v1, webhooks)
 ├── components/                     # ui, marketing, dashboard
 ├── lib/
-│   ├── server/                     # server-only code
-│   ├── shared/                     # iso (types, validators)
+│   ├── server/                     # server-only connectors and helpers
+│   ├── shared/                     # iso (db-types, env)
 │   └── client/                     # browser-only utilities
 ├── content/                        # MDX for docs, security, privacy
 ├── public/.well-known/             # security.txt + privacy-manifest.json
 ├── supabase/migrations/            # sequential SQL migrations
-├── infra/                          # Terraform / CDK
+├── infra/cloudflare/               # BIND zone file for DNS import
 ├── tests/{unit,integration,e2e}/
-├── docs/{adr,ux,compliance,specs,runbooks,build-handoffs}/
+├── docs/
+│   ├── adr/                        # architecture decision records (8 entries)
+│   └── specs/                      # provisioning + wave specs
+├── scripts/                        # local utility scripts (seed-stripe, etc.)
 └── .github/workflows/              # CI
+```
+
+## Common commands
+
+```bash
+pnpm dev                # next dev (Turbopack)
+pnpm build              # next build
+pnpm start              # production server
+
+pnpm lint               # eslint
+pnpm format             # prettier --write .
+pnpm format:check       # prettier --check .
+pnpm typecheck          # tsc --noEmit
+pnpm test               # vitest run
+pnpm test:watch         # vitest interactive
+pnpm test:coverage      # vitest with v8 coverage
+pnpm test:e2e           # playwright
+pnpm verify             # format:check + lint + typecheck + test (CI gate)
+
+pnpm seed:stripe        # idempotent Stripe sandbox provisioning
+                        # requires STRIPE_SECRET_KEY in .env.local
+                        # creates products, prices, billing meter, metered overage price
 ```
 
 ## Conventions
 
-- Writing protocol per `../../CLAUDE.md` (no em dashes, no semicolons in prose, banned word list).
-- Karpathy guidelines for code: minimum that solves the problem, surgical changes, verifiable success criterion per recommendation.
-- Every architecture decision goes through an ADR. See `docs/adr/`.
-- Every server-side action that touches user data writes an audit event. See `lib/server/audit.ts`.
+- **Karpathy guidelines**: minimum that solves the problem, surgical changes, verifiable success criteria. See `docs/adr/`.
+- **Writing protocol**: short sentences, active voice, no em dashes, no semicolons in prose, banned word list. See `CLAUDE.md`.
+- **Every architecture decision goes through an ADR**. `docs/adr/000-template.md`.
+- **Every server-side action that touches user data writes an audit event**. `lib/server/audit.ts`.
+- **Connectors are lazy singletons with a `pingX()` helper** so `/api/health` can introspect them. `lib/server/{supabase,stripe,s3,textract,resend,ratelimit,audit,sentry}.ts`.
 
 ## License
 
-TBD before launch.
+Proprietary. All rights reserved until further notice.
