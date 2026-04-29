@@ -1,0 +1,63 @@
+;; -------------------------------------------------------------------
+;; Cloudflare DNS import for prizmview.app
+;; PRIZM Phase 1: Vercel + Resend + DMARC monitor
+;;
+;; Import path:
+;;   dash.cloudflare.com -> prizmview.app -> DNS -> Records
+;;     -> "Advanced" -> "Import and Export" -> "Import DNS Records"
+;;     -> upload this file
+;;
+;; AFTER IMPORT, do these two things in the dashboard:
+;;
+;;   1. Set the @ A record and the www CNAME to "DNS only" (gray cloud,
+;;      proxy off). Vercel terminates TLS itself; orange-cloud proxy
+;;      breaks the certificate handshake. Cloudflare's import defaults
+;;      A and CNAME records to PROXIED, you must toggle them off.
+;;
+;;   2. Replace the resend._domainkey TXT value with the real DKIM
+;;      string from your Resend dashboard. The placeholder below will
+;;      not pass DKIM verification.
+;;
+;; If you already have an MX record on the apex (Google Workspace,
+;; Fastmail, etc.) for receiving mail, leave it alone. The Resend MX
+;; below is on the "send." subdomain only, for bounce/feedback handling.
+;; -------------------------------------------------------------------
+
+$ORIGIN prizmview.app.
+$TTL 1
+
+;; --- Vercel apex (set proxy = OFF after import) ---
+@                       1   IN  A       76.76.21.21
+
+;; --- Vercel www (set proxy = OFF after import) ---
+www                     1   IN  CNAME   cname.vercel-dns.com.
+
+;; --- Resend bounce-receiving MX on the send. subdomain ---
+send                    1   IN  MX      10 feedback-smtp.us-east-1.amazonses.com.
+
+;; --- Resend SPF, scoped to the send. subdomain ---
+send                    1   IN  TXT     "v=spf1 include:amazonses.com ~all"
+
+;; --- Resend DKIM ---
+;; REPLACE the value below with the exact DKIM string from your Resend
+;; domain setup page. The Resend value typically looks like:
+;;   "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBi..."
+;; If the value exceeds 255 chars, BIND requires splitting into
+;; consecutive quoted strings, e.g.
+;;   "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3..." "...AB+ALIDAQAB"
+;; Cloudflare's import handles that concatenation correctly.
+resend._domainkey       1   IN  TXT     "REPLACE_WITH_RESEND_DKIM_VALUE"
+
+;; --- DMARC monitoring policy (no enforcement yet) ---
+;; Start at p=none for the first 30 days to monitor without bouncing
+;; legitimate mail. Move to p=quarantine then p=reject after the
+;; aggregate reports look clean. Add rua=mailto:dmarc@prizmview.app
+;; only once that mailbox exists.
+_dmarc                  1   IN  TXT     "v=DMARC1; p=none"
+
+;; --- (optional) CAA record for Let's Encrypt + Vercel ---
+;; Add this row only if your zone already has any CAA records. If it
+;; has none, leave CAA out; the absence is permissive and Vercel's
+;; auto-SSL via Let's Encrypt will work.
+;;
+;; @                    1   IN  CAA     0 issue "letsencrypt.org"
