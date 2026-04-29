@@ -18,7 +18,9 @@ export type AuditEventInput = {
   actorUserAgent?: string | null
 }
 
-export async function recordAuditEvent(input: AuditEventInput): Promise<{ ok: boolean; error?: string; id?: string }> {
+export async function recordAuditEvent(
+  input: AuditEventInput,
+): Promise<{ ok: boolean; error?: string; id?: string }> {
   try {
     const client = getServiceRoleClient()
     const payload = {

@@ -68,14 +68,14 @@ Claude reads the project memory and onboarding doc, asks you about MCP connector
 
 PRIZM depends on six external accounts. Provisioning details live in `docs/specs/wave-0-provisioning-step-by-step.md`.
 
-| Service | Status | Notes |
-| --- | --- | --- |
-| Cloudflare | Domain `prizmview.app` registered | Zone import file at `infra/cloudflare/prizmview-app.zone` |
-| Supabase | Project `dcirauvtuvvokvcwczft` (us-east-1) live | Migration 0001 applied. RLS on all 8 tables. |
-| Stripe | Sandbox account `acct_1TRZFv44hvL1QSxT` | 4 products + 4 subscription prices created. Overage meter pending. |
-| Resend | Account exists | Domain DKIM pending DNS import |
-| Upstash Redis | DB `close-stag-109648` (us-east-1) | Rate limit + idempotency |
-| AWS | Pending | S3, Textract, KMS to be provisioned via aws-api MCP |
+| Service       | Status                                          | Notes                                                              |
+| ------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
+| Cloudflare    | Domain `prizmview.app` registered               | Zone import file at `infra/cloudflare/prizmview-app.zone`          |
+| Supabase      | Project `dcirauvtuvvokvcwczft` (us-east-1) live | Migration 0001 applied. RLS on all 8 tables.                       |
+| Stripe        | Sandbox account `acct_1TRZFv44hvL1QSxT`         | 4 products + 4 subscription prices created. Overage meter pending. |
+| Resend        | Account exists                                  | Domain DKIM pending DNS import                                     |
+| Upstash Redis | DB `close-stag-109648` (us-east-1)              | Rate limit + idempotency                                           |
+| AWS           | Pending                                         | S3, Textract, KMS to be provisioned via aws-api MCP                |
 
 ## Layout
 

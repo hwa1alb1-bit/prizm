@@ -18,7 +18,9 @@ export function getServiceRoleClient(): SupabaseClient<Database> {
   const url = publicEnv.NEXT_PUBLIC_SUPABASE_URL
   const key = serverEnv.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) {
-    throw new Error('Supabase service role client requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY')
+    throw new Error(
+      'Supabase service role client requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY',
+    )
   }
   cachedAdmin = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -30,7 +32,9 @@ export function getServerClient(accessToken?: string | null): SupabaseClient<Dat
   const url = publicEnv.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) {
-    throw new Error('Supabase server client requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    throw new Error(
+      'Supabase server client requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    )
   }
   return createClient<Database>(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },

@@ -42,8 +42,18 @@ const PRODUCTS: ProductSpec[] = [
     name: 'PRIZM Starter',
     description: '200 pages per month, $0.04 per page overage',
     prices: [
-      { id_env: 'STRIPE_PRICE_STARTER_MONTHLY', nickname: 'Starter Monthly', unit_amount: 1900, interval: 'month' },
-      { id_env: 'STRIPE_PRICE_STARTER_ANNUAL', nickname: 'Starter Annual', unit_amount: 19_000, interval: 'year' },
+      {
+        id_env: 'STRIPE_PRICE_STARTER_MONTHLY',
+        nickname: 'Starter Monthly',
+        unit_amount: 1900,
+        interval: 'month',
+      },
+      {
+        id_env: 'STRIPE_PRICE_STARTER_ANNUAL',
+        nickname: 'Starter Annual',
+        unit_amount: 19_000,
+        interval: 'year',
+      },
     ],
   },
   {
@@ -51,8 +61,18 @@ const PRODUCTS: ProductSpec[] = [
     name: 'PRIZM Pro',
     description: '1,000 pages per month, $0.04 per page overage',
     prices: [
-      { id_env: 'STRIPE_PRICE_PRO_MONTHLY', nickname: 'Pro Monthly', unit_amount: 4900, interval: 'month' },
-      { id_env: 'STRIPE_PRICE_PRO_ANNUAL', nickname: 'Pro Annual', unit_amount: 49_000, interval: 'year' },
+      {
+        id_env: 'STRIPE_PRICE_PRO_MONTHLY',
+        nickname: 'Pro Monthly',
+        unit_amount: 4900,
+        interval: 'month',
+      },
+      {
+        id_env: 'STRIPE_PRICE_PRO_ANNUAL',
+        nickname: 'Pro Annual',
+        unit_amount: 49_000,
+        interval: 'year',
+      },
     ],
   },
   {
