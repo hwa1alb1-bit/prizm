@@ -13,7 +13,7 @@ Every error response follows RFC 7807 `application/problem+json`:
 
 ```json
 {
-  "type": "https://prizm.app/errors/<code>",
+  "type": "https://prizmview.app/errors/<code>",
   "title": "Human-readable title",
   "status": 400,
   "detail": "Human-readable detail. May include user-facing remediation.",

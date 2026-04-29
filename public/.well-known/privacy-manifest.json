@@ -1,11 +1,11 @@
 {
-  "$schema": "https://prizm.app/schemas/privacy-manifest-v1.json",
+  "$schema": "https://prizmview.app/schemas/privacy-manifest-v1.json",
   "version": "1",
   "product": "PRIZM",
   "controller": {
     "name": "PRIZM",
-    "contact": "privacy@prizm.app",
-    "dpo": "dpo@prizm.app"
+    "contact": "privacy@prizmview.app",
+    "dpo": "dpo@prizmview.app"
   },
   "lawful_bases": {
     "account_profile": "GDPR Article 6(1)(b) contract",
@@ -64,8 +64,8 @@
     "deletion": "POST /api/v1/account/delete triggers cascade and audit event within 10 days",
     "portability": "data export is JSON",
     "rectification": "self-service in /app/settings",
-    "objection": "email privacy@prizm.app",
-    "withdraw_consent": "delete account or contact privacy@prizm.app"
+    "objection": "email privacy@prizmview.app",
+    "withdraw_consent": "delete account or contact privacy@prizmview.app"
   },
   "data_residency": {
     "default_region": "us-east-1",
@@ -77,7 +77,7 @@
     "analytics": "Vercel Analytics (cookieless)",
     "marketing_cookies": []
   },
-  "subprocessors_url": "https://prizm.app/security/subprocessors",
-  "policy_url": "https://prizm.app/privacy",
+  "subprocessors_url": "https://prizmview.app/security/subprocessors",
+  "policy_url": "https://prizmview.app/privacy",
   "last_updated": "2026-04-28"
 }

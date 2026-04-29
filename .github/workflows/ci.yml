@@ -96,7 +96,7 @@ jobs:
     steps:
       - name: Mozilla Observatory grade check
         run: |
-          response=$(curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=staging.prizm.app")
+          response=$(curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=staging.prizmview.app")
           grade=$(echo "$response" | jq -r '.grade')
           score=$(echo "$response" | jq -r '.score')
           echo "Grade: $grade Score: $score"
