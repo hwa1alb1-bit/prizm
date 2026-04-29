@@ -59,17 +59,16 @@ const PRODUCTS: ProductSpec[] = [
     sku: 'prizm_overage',
     name: 'PRIZM Overage Pages',
     description: 'Per-page metered usage on top of monthly inclusion',
-    prices: [
-      {
-        id_env: 'STRIPE_PRICE_OVERAGE_PAGE',
-        nickname: 'Overage per page',
-        unit_amount: 4,
-        interval: 'month',
-        usage_type: 'metered',
-      },
-    ],
+    prices: [], // overage price created separately because it requires a billing meter
   },
 ]
+
+const OVERAGE_METER = {
+  display_name: 'PRIZM Page Processed',
+  event_name: 'prizm_page_processed',
+  customer_mapping_key: 'stripe_customer_id',
+  value_payload_key: 'value',
+}
 
 async function findOrCreateProduct(spec: ProductSpec): Promise<Stripe.Product> {
   const existing = await stripe.products.search({
@@ -127,6 +126,65 @@ async function findOrCreatePrice(
   return created
 }
 
+async function findOrCreateOverageMeter(): Promise<{ id: string }> {
+  // Stripe billing meters are not yet in the official Stripe Node SDK types as a top-level
+  // resource, so we hit the underlying request path. The cast is acceptable for a script.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stripeAny = stripe as any
+  const list = await stripeAny.billing.meters.list({ limit: 100 })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existing = list.data.find((m: any) => m.event_name === OVERAGE_METER.event_name)
+  if (existing) {
+    console.log(`  meter exists: ${existing.id}`)
+    return { id: existing.id }
+  }
+  const created = await stripeAny.billing.meters.create({
+    display_name: OVERAGE_METER.display_name,
+    event_name: OVERAGE_METER.event_name,
+    default_aggregation: { formula: 'sum' },
+    customer_mapping: {
+      type: 'by_id',
+      event_payload_key: OVERAGE_METER.customer_mapping_key,
+    },
+    value_settings: {
+      event_payload_key: OVERAGE_METER.value_payload_key,
+    },
+  })
+  console.log(`  created meter:  ${created.id}`)
+  return { id: created.id }
+}
+
+async function findOrCreateOveragePrice(
+  product: Stripe.Product,
+  meterId: string,
+): Promise<Stripe.Price> {
+  const lookupKey = 'prizm_overage_page'
+  const existing = await stripe.prices.list({
+    product: product.id,
+    lookup_keys: [lookupKey],
+    limit: 1,
+  })
+  if (existing.data.length > 0) {
+    console.log(`    overage price exists: ${existing.data[0].id}`)
+    return existing.data[0]
+  }
+  const created = await stripe.prices.create({
+    product: product.id,
+    nickname: 'Overage per page',
+    unit_amount: 4,
+    currency: 'usd',
+    lookup_key: lookupKey,
+    metadata: { prizm_sku: 'prizm_overage' },
+    recurring: {
+      interval: 'month',
+      meter: meterId,
+      usage_type: 'metered',
+    },
+  })
+  console.log(`    created overage price: ${created.id}`)
+  return created
+}
+
 async function main() {
   const balance = await stripe.balance.retrieve()
   const mode = balance.livemode ? 'LIVE' : 'TEST/SANDBOX'
@@ -137,13 +195,23 @@ async function main() {
   }
 
   const envOut: string[] = []
+  let overageProduct: Stripe.Product | null = null
   for (const spec of PRODUCTS) {
     console.log(`\n${spec.sku}:`)
     const product = await findOrCreateProduct(spec)
+    if (spec.sku === 'prizm_overage') overageProduct = product
     for (const priceSpec of spec.prices) {
       const price = await findOrCreatePrice(product, priceSpec)
       envOut.push(`${priceSpec.id_env}=${price.id}`)
     }
+  }
+
+  if (overageProduct) {
+    console.log('\nbilling meter + overage price:')
+    const meter = await findOrCreateOverageMeter()
+    const overagePrice = await findOrCreateOveragePrice(overageProduct, meter.id)
+    envOut.push(`STRIPE_METER_OVERAGE=${meter.id}`)
+    envOut.push(`STRIPE_PRICE_OVERAGE_PAGE=${overagePrice.id}`)
   }
 
   console.log('\n=== paste into .env.local and Vercel env ===')
