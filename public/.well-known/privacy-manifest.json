@@ -1,0 +1,83 @@
+{
+  "$schema": "https://prizm.app/schemas/privacy-manifest-v1.json",
+  "version": "1",
+  "product": "PRIZM",
+  "controller": {
+    "name": "PRIZM",
+    "contact": "privacy@prizm.app",
+    "dpo": "dpo@prizm.app"
+  },
+  "lawful_bases": {
+    "account_profile": "GDPR Article 6(1)(b) contract",
+    "billing": "GDPR Article 6(1)(b) contract",
+    "uploaded_documents": "GDPR Article 6(1)(b) contract",
+    "extracted_content": "GDPR Article 6(1)(b) contract",
+    "server_logs": "GDPR Article 6(1)(f) legitimate interest in security and abuse prevention",
+    "support_communications": "GDPR Article 6(1)(b) contract"
+  },
+  "categories": [
+    {
+      "id": "account_profile",
+      "fields": ["name", "email", "hashed_password", "api_key_hashes"],
+      "purpose": "account creation, authentication, API access",
+      "retention": "until account deletion + 30 days for backup expiry",
+      "third_parties": ["Supabase (data processor, US)"]
+    },
+    {
+      "id": "billing",
+      "fields": ["stripe_customer_id", "billing_address", "card_last4"],
+      "purpose": "process subscription payments",
+      "retention": "Stripe-controlled, 7 years per US tax record requirements",
+      "third_parties": ["Stripe (payment processor, US)"]
+    },
+    {
+      "id": "uploaded_documents",
+      "fields": ["pdf_binary"],
+      "purpose": "convert to structured rows",
+      "retention": "24 hours from upload, then automatic deletion enforced by S3 lifecycle plus scheduled job plus audit event",
+      "third_parties": ["AWS S3 (data processor)", "AWS Textract (data processor)"]
+    },
+    {
+      "id": "extracted_content",
+      "fields": ["transactions", "balances", "account_last4_only"],
+      "purpose": "deliver converted output to user",
+      "retention": "24 hours from upload, then automatic deletion",
+      "third_parties": ["AWS S3 (data processor)"]
+    },
+    {
+      "id": "server_logs",
+      "fields": ["ip", "user_agent", "request_id", "timestamp"],
+      "purpose": "security and abuse prevention",
+      "retention": "30 days, then aggregate-only",
+      "third_parties": ["Vercel (hosting log retention)", "Sentry (error logs, PII scrubbed)"]
+    },
+    {
+      "id": "support_communications",
+      "fields": ["email_thread"],
+      "purpose": "respond to user support requests",
+      "retention": "12 months from last reply",
+      "third_parties": ["Resend (email delivery)"]
+    }
+  ],
+  "user_rights": {
+    "access": "POST /api/v1/account/data-export delivers a JSON archive within 30 days",
+    "deletion": "POST /api/v1/account/delete triggers cascade and audit event within 10 days",
+    "portability": "data export is JSON",
+    "rectification": "self-service in /app/settings",
+    "objection": "email privacy@prizm.app",
+    "withdraw_consent": "delete account or contact privacy@prizm.app"
+  },
+  "data_residency": {
+    "default_region": "us-east-1",
+    "available_regions": ["us-east-1", "eu-west-1"],
+    "transfer_mechanism": "Standard Contractual Clauses for any EU to US transfer; pin to eu-west-1 to keep data in EU"
+  },
+  "cookies": {
+    "essential_only": true,
+    "analytics": "Vercel Analytics (cookieless)",
+    "marketing_cookies": []
+  },
+  "subprocessors_url": "https://prizm.app/security/subprocessors",
+  "policy_url": "https://prizm.app/privacy",
+  "last_updated": "2026-04-28"
+}
