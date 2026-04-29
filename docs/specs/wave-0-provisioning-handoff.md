@@ -2,6 +2,8 @@
 
 This document lists the external-account work I cannot do for you. Each item maps to the Wave 0 task list in the Phase 1 plan.
 
+For click-by-click guidance with screenshots-of-text, env-var capture, verification commands, and gotchas, see [`wave-0-provisioning-step-by-step.md`](./wave-0-provisioning-step-by-step.md). The current document is the high-level checklist.
+
 ## Order of operations
 
 Do these in order. Each unblocks the next.
