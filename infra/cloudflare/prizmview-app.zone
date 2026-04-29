@@ -1,4 +1,6 @@
-;; -------------------------------------------------------------------
+;; ===================================================================
+;; !!! STOP. READ THIS BEFORE YOU WALK AWAY FROM THE IMPORT. !!!
+;; ===================================================================
 ;; Cloudflare DNS import for prizmview.app
 ;; PRIZM Phase 1: Vercel + Resend + DMARC monitor
 ;;
@@ -7,29 +9,49 @@
 ;;     -> "Advanced" -> "Import and Export" -> "Import DNS Records"
 ;;     -> upload this file
 ;;
-;; AFTER IMPORT, do these two things in the dashboard:
+;; ###################################################################
+;; # AFTER IMPORT YOU MUST do the following at Cloudflare dashboard  #
+;; # or these records do nothing.                                    #
+;; ###################################################################
 ;;
-;;   1. Set the @ A record and the www CNAME to "DNS only" (gray cloud,
-;;      proxy off). Vercel terminates TLS itself; orange-cloud proxy
-;;      breaks the certificate handshake. Cloudflare's import defaults
-;;      A and CNAME records to PROXIED, you must toggle them off.
+;;   1. Toggle the apex `A` record proxy status from PROXIED
+;;      (orange cloud) to DNS-ONLY (gray cloud). If left proxied,
+;;      Vercel TLS handshake fails. The site will not load over HTTPS.
 ;;
-;;   2. Replace the resend._domainkey TXT value with the real DKIM
-;;      string from your Resend dashboard. The placeholder below will
-;;      not pass DKIM verification.
+;;   2. Toggle the `www` CNAME proxy status to DNS-ONLY too. Vercel
+;;      manages TLS termination. Orange-cloud proxy breaks the cert
+;;      handshake the same way it does on the apex.
+;;
+;;   3. Replace `REPLACE_WITH_RESEND_DKIM_VALUE` on the
+;;      `resend._domainkey` record with the real DKIM public key from
+;;      the Resend dashboard. Long DKIM values must be split into
+;;      255-character chunks separated by spaces inside the same TXT
+;;      record (BIND requirement). Cloudflare's importer concatenates
+;;      consecutive quoted strings correctly.
+;;
+;;   4. Verify DNSSEC is enabled at Cloudflare zone DNS settings.
+;;      DNS -> Settings -> DNSSEC -> Enable.
+;;
+;; -------------------------------------------------------------------
+;; Cloudflare's import defaults A and CNAME records to PROXIED. You
+;; must toggle them off by hand. There is no way to set proxy=off in
+;; the import file itself, the BIND format does not carry that flag.
+;; -------------------------------------------------------------------
 ;;
 ;; If you already have an MX record on the apex (Google Workspace,
 ;; Fastmail, etc.) for receiving mail, leave it alone. The Resend MX
 ;; below is on the "send." subdomain only, for bounce/feedback handling.
-;; -------------------------------------------------------------------
+;; ===================================================================
 
 $ORIGIN prizmview.app.
 $TTL 1
 
 ;; --- Vercel apex (set proxy = OFF after import) ---
+; ! DNS-ONLY (gray cloud) AT CLOUDFLARE — NOT PROXIED
 @                       1   IN  A       76.76.21.21
 
 ;; --- Vercel www (set proxy = OFF after import) ---
+; ! DNS-ONLY (gray cloud) AT CLOUDFLARE — NOT PROXIED
 www                     1   IN  CNAME   cname.vercel-dns.com.
 
 ;; --- Resend bounce-receiving MX on the send. subdomain ---

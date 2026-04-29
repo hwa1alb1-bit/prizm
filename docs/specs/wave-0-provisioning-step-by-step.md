@@ -1,5 +1,38 @@
 # Wave 0 Provisioning: Step-by-Step
 
+## Verified state as of 2026-04-29
+
+Post-investigation snapshot of all 10 Wave 0 items. Score: 0 of 10 fully closed. 5 Partial (1, 2, 3, 6, plus Sentry-local). 5 Outstanding externally (4, 5, 7, 9, 10). The click-by-click instructions below remain accurate for the home-desktop bring-up.
+
+| # | Item | Status | Verified facts |
+| --- | --- | --- | --- |
+| 1 | Domain `prizmview.app` | PARTIAL | Zone imported at Cloudflare. DNS resolving. Apex A record proxied (must be DNS-only). DKIM TXT still equals literal `REPLACE_WITH_RESEND_DKIM_VALUE`. DNSSEC unverified. |
+| 2 | GitHub repo | PARTIAL | `PLKNoko/prizm` private. `main` pushed at `3c0f9b06`. CI workflow registered. Branch protection blocked by Free plan for private repos. CODEOWNERS missing. 0 Actions secrets. |
+| 3 | Supabase | PARTIAL | Project `dcirauvtuvvokvcwczft` ACTIVE_HEALTHY us-east-1 Postgres 17.6.1.111. 8 of 8 tables. RLS on all 8. 11 policies. 1 migration applied. `on_auth_user_created` trigger MISSING on `auth.users`. Migration 0002 will add it. PITR not visible via MCP. Service role key not in Vercel env. |
+| 4 | Vercel | OUTSTANDING | Team `plknokos-projects` confirmed. Zero projects. Zero deployments. |
+| 5 | AWS | OUTSTANDING | AWS CLI not installed (`aws --version` exit 127). aws-api MCP connected but no host credentials. |
+| 6 | Stripe | PARTIAL | Sandbox `acct_1TRZFv44hvL1QSxT` livemode false. 4 products + 4 subscription prices verified. Overage product has no price (needs billing meter via `pnpm seed:stripe`). Webhook endpoint, Customer Portal, billing meter unverifiable through MCP. |
+| 7 | Resend | OUTSTANDING | DNS structure correct (uses SES-backed records as Resend expects). DKIM placeholder unreplaced. `RESEND_API_KEY` not in `.env.local`. Domain not verified in Resend dashboard. |
+| 8 | Sentry | OUTSTANDING externally | No account, no project, no DSN. Wrapper `lib/server/sentry.ts` ready as no-op until DSN set. No init files needed for Wave 0. |
+| 9 | Upstash Redis | OUTSTANDING | DB `close-stag-109648` exists per docs. Token compromised in chat earlier, must rotate. URL and token not in `.env.local`. |
+| 10 | Mailboxes | OUTSTANDING | Apex MX record absent. Inboxes cannot receive mail. |
+
+`.env.local` does not exist on this dev machine. Local dev cannot start until it is created.
+
+## What is wrong right now
+
+Five concrete defects to fix before declaring Wave 0 closed.
+
+1. **Cloudflare apex A record proxied.** Switch the apex `prizmview.app` A record to DNS-only (gray cloud) at Cloudflare. Vercel anycast `76.76.21.21` requires direct DNS, not proxy.
+2. **Resend DKIM TXT placeholder unreplaced.** The DKIM record still equals literal string `REPLACE_WITH_RESEND_DKIM_VALUE`. Pull the real DKIM value from the Resend dashboard and overwrite the TXT record at Cloudflare.
+3. **Supabase `on_auth_user_created` trigger missing.** Apply migration 0002 to the project `dcirauvtuvvokvcwczft` to install the trigger on `auth.users` so workspace bootstrap fires on first sign-in.
+4. **GitHub branch protection plan-gated.** Free plan blocks branch protection on private repos. Either upgrade `PLKNoko` to GitHub Pro or accept the gap and document the workaround until the org moves to a paid plan.
+5. **No `.env.local` on host.** Run `cp .env.example .env.local` in `PRIZM/product/`, then paste secrets from the password manager into the new file before `pnpm dev`.
+
+A sixth host gap also blocks AWS work: AWS CLI is not installed. Install via `winget install Amazon.AWSCLI` or the MSI installer at https://awscli.amazonaws.com/AWSCLIV2.msi, then run `aws configure sso` against the prizm Identity Center URL.
+
+---
+
 Click-by-click walkthrough for items 1, 3, 4, 5, 6, 7, 8, 9 of the Wave 0 Provisioning Handoff. Items 2 (GitHub repo) and 10 (mailboxes) intentionally skipped per scope.
 
 ## Pre-flight checklist (have these ready)
