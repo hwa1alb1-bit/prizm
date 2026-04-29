@@ -22,11 +22,13 @@ Every response carries `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Rese
 ## Consequences
 
 Eased:
+
 - Customers can build retry logic with confidence.
 - Abuse from a single IP is bounded.
 - Per-key scoping means a leaked read key cannot DoS the upload pipeline.
 
 Locked in:
+
 - Upstash Redis is in the hot path. Outage degrades to fail-open (log + Sentry alert) to keep the service available.
 
 ## Alternatives considered

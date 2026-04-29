@@ -16,10 +16,12 @@ Internal-only endpoints (cron handlers, Stripe webhooks) live outside `/api/v1/`
 ## Consequences
 
 Eased:
+
 - Customers know what they sign up for.
 - Internal refactors do not break public clients.
 
 Locked in:
+
 - We carry v1 surface area until at least 6 months past v2 ship.
 
 ## Alternatives considered

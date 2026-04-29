@@ -14,6 +14,7 @@ Use Next.js (App Router) + Supabase Auth + Supabase Postgres + Stripe Checkout +
 ## Consequences
 
 Eased:
+
 - Each layer ships a SOC 2 Type 2 report we inherit (Vercel, Supabase, Stripe, AWS, Sentry, Upstash). HC1 readiness gets a head start.
 - Supabase RLS handles tenancy cleanly. Phase 3 multi-tenant flip is a UI change, not a schema rewrite.
 - S3 lifecycle rules give us belt-and-suspenders 24h delete enforcement on the storage layer.
@@ -21,6 +22,7 @@ Eased:
 - Workspace conventions match the Fin project so the team has muscle memory.
 
 Locked in:
+
 - AWS account dependency for OCR. Vendor switch in Phase 2 is non-trivial.
 - Vercel pricing model. Migration off Vercel later is a rewrite of edge config + cron.
 - Supabase coupling. Migration off Supabase is a Postgres-keep-everything-else effort.

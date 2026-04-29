@@ -30,11 +30,13 @@ The full error catalog lives at `content/errors.mdx` and renders at `/docs/error
 ## Consequences
 
 Eased:
+
 - Clients can match on `code` for stable error handling.
 - Support can ask for a `trace_id` and find the request immediately.
 - Auditors get a clean log surface.
 
 Locked in:
+
 - We must keep the error catalog in sync with the code. Test-enforced.
 
 ## Alternatives considered

@@ -14,11 +14,13 @@ Use Supabase Auth as the only auth provider for Phase 1. Magic-link email is the
 ## Consequences
 
 Eased:
+
 - No custom auth code paths. Supabase handles password hashing, reset tokens, session cookies, MFA hooks.
 - Magic link drives adoption from accountants who do not love passwords.
 - Argon2id closes HC9 with a vendor default.
 
 Locked in:
+
 - Supabase user-record schema. Migration off Supabase Auth requires a one-shot password export and a forced reset round.
 
 ## Alternatives considered

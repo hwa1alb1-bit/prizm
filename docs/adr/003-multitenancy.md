@@ -14,11 +14,13 @@ Every domain table carries a `workspace_id` column from day one. RLS policies en
 ## Consequences
 
 Eased:
+
 - Phase 3 is a UI and policy expansion, not a schema rewrite.
 - All API routes read workspace context the same way regardless of phase.
 - Audit events tie to a workspace from the first event.
 
 Locked in:
+
 - Every join carries `workspace_id`. Slightly more verbose SQL.
 - `auth.uid()` lookups always pass through `user_profile` to resolve workspace.
 

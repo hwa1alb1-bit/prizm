@@ -22,11 +22,13 @@ A continuous monitor (a separate cron job at 5-minute cadence) compares `expires
 ## Consequences
 
 Eased:
+
 - Even if app code fails, S3 still expires. Even if S3 misfires, app code sweeps. Even if both partially succeed, the monitor flags it.
 - User-verifiable: the email receipt is evidence the user can keep.
 - SOC 2 evidence: the audit_event log gives an auditor a query to run.
 
 Locked in:
+
 - Vercel Cron has minute-level resolution. Sub-minute deletion guarantees are not a Phase 1 promise.
 - Resend deliverability is in the trust path now.
 
