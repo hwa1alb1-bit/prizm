@@ -17,10 +17,10 @@ Do these in order. Each unblocks the next.
 
 ### 2. GitHub repo (task 0.2)
 
-- Create private repo `PLKNoko/prizm`.
+- Create private repo `hwa1alb1-bit/prizm`.
 - Branch protection on `main`: require PR, require status checks, no force-push.
 - Add a `CODEOWNERS` file later when the team grows past one operator.
-- Push the local repo from `PRIZM/product/` to `PLKNoko/prizm`.
+- Push the local repo from `PRIZM/product/` to `hwa1alb1-bit/prizm`.
 
 ### 3. Supabase (task 0.3)
 

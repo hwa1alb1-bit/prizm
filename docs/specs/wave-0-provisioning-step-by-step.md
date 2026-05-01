@@ -7,7 +7,7 @@ Post-investigation snapshot of all 10 Wave 0 items. Score: 0 of 10 fully closed.
 | #   | Item                   | Status                 | Verified facts                                                                                                                                                                                                                                                                                                                                                                       |
 | --- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1   | Domain `prizmview.app` | PARTIAL                | Zone imported at Cloudflare. DNS resolving. Apex A record proxied (must be DNS-only). DKIM TXT still equals literal `REPLACE_WITH_RESEND_DKIM_VALUE`. DNSSEC unverified.                                                                                                                                                                                                             |
-| 2   | GitHub repo            | PARTIAL                | `PLKNoko/prizm` private. `main` pushed at `3c0f9b06`. CI workflow registered. Branch protection blocked by Free plan for private repos. CODEOWNERS missing. 0 Actions secrets.                                                                                                                                                                                                       |
+| 2   | GitHub repo            | PARTIAL                | `hwa1alb1-bit/prizm` private. `main` pushed at `3c0f9b06`. CI workflow registered. Branch protection blocked by Free plan for private repos. CODEOWNERS missing. 0 Actions secrets.                                                                                                                                                                                                       |
 | 3   | Supabase               | PARTIAL                | Project `dcirauvtuvvokvcwczft` ACTIVE_HEALTHY us-east-1 Postgres 17.6.1.111. 8 of 8 tables. RLS on all 8. 11 policies. 2 migrations applied (0001 schema, 0002 trigger rename + search_path harden). Bootstrap trigger lives under canonical name `on_auth_user_created` and was verified post-apply via `pg_trigger`. PITR not visible via MCP. Service role key not in Vercel env. |
 | 4   | Vercel                 | OUTSTANDING            | Team `plknokos-projects` confirmed. Zero projects. Zero deployments.                                                                                                                                                                                                                                                                                                                 |
 | 5   | AWS                    | OUTSTANDING            | AWS CLI not installed (`aws --version` exit 127). aws-api MCP connected but no host credentials.                                                                                                                                                                                                                                                                                     |
@@ -26,7 +26,7 @@ Five concrete defects to fix before declaring Wave 0 closed.
 1. **Cloudflare apex A record proxied.** Switch the apex `prizmview.app` A record to DNS-only (gray cloud) at Cloudflare. Vercel anycast `76.76.21.21` requires direct DNS, not proxy.
 2. **Resend DKIM TXT placeholder unreplaced.** The DKIM record still equals literal string `REPLACE_WITH_RESEND_DKIM_VALUE`. Pull the real DKIM value from the Resend dashboard and overwrite the TXT record at Cloudflare.
 3. ~~**Supabase `on_auth_user_created` trigger missing.**~~ FIXED 2026-04-29 in commit `6f65087`. Investigation showed migration 0001 had created the trigger under the name `auth_user_bootstrap_workspace`. Functional, but a verification query that filtered by canonical name `on_auth_user_created` returned 0 and looked like a missing trigger. Migration 0002 renamed it to the canonical name, replaced the function with a `SET search_path = public, pg_temp` variant, and revoked EXECUTE from `public`, `anon`, `authenticated` so only the trigger context invokes it. Verified live with `pg_trigger` query post-apply.
-4. **GitHub branch protection plan-gated.** Free plan blocks branch protection on private repos. Either upgrade `PLKNoko` to GitHub Pro or accept the gap and document the workaround until the org moves to a paid plan.
+4. **GitHub branch protection plan-gated.** Free plan blocks branch protection on private repos. Either upgrade `hwa1alb1-bit` to GitHub Pro or accept the gap and document the workaround until the org moves to a paid plan.
 5. **No `.env.local` on host.** Run `cp .env.example .env.local` in `PRIZM/product/`, then paste secrets from the password manager into the new file before `pnpm dev`.
 
 A sixth host gap also blocks AWS work: AWS CLI is not installed. Install via `winget install Amazon.AWSCLI` or the MSI installer at https://awscli.amazonaws.com/AWSCLIV2.msi, then run `aws configure sso` against the prizm Identity Center URL.
@@ -202,7 +202,7 @@ Linking the GitHub repo (your separate item 2) to a Vercel project, attaching th
 
 ### Pre-flight
 
-- GitHub repo `PLKNoko/prizm` exists with the local `PRIZM/product/` commits pushed.
+- GitHub repo `hwa1alb1-bit/prizm` exists with the local `PRIZM/product/` commits pushed.
 - Domain `prizmview.app` registered (item 1).
 - Vercel account at https://vercel.com signed in with GitHub.
 - All the env vars you've collected so far in your scratch file.
@@ -210,7 +210,7 @@ Linking the GitHub repo (your separate item 2) to a Vercel project, attaching th
 ### Steps
 
 1. Go to https://vercel.com/new.
-2. Import GitHub repo `PLKNoko/prizm`. (You may need to grant Vercel access to the repo via the GitHub integration.)
+2. Import GitHub repo `hwa1alb1-bit/prizm`. (You may need to grant Vercel access to the repo via the GitHub integration.)
 3. Framework Preset: **Next.js** (auto-detected).
 4. Root Directory: `./` (the repo root, since `PRIZM/product/` was pushed as the repo root).
 5. Build & Output Settings: defaults are fine.
