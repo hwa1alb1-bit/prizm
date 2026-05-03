@@ -4,8 +4,7 @@
 
 import 'server-only'
 
-import { S3Client, HeadBucketCommand, PutObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { S3Client, HeadBucketCommand } from '@aws-sdk/client-s3'
 import { serverEnv } from '../shared/env'
 
 let cached: S3Client | null = null
@@ -31,42 +30,6 @@ export function getUploadBucket(): string {
 
 export function getKmsKeyId(): string | undefined {
   return serverEnv.S3_KMS_KEY_ID
-}
-
-export type PresignedUpload = {
-  url: string
-  method: 'PUT'
-  headers: Record<string, string>
-  expiresIn: number
-}
-
-export async function createPresignedUpload(input: {
-  key: string
-  contentType: string
-  sizeBytes: number
-  expiresIn: number
-}): Promise<PresignedUpload> {
-  const bucket = getUploadBucket()
-  const kmsKeyId = getKmsKeyId()
-  const headers: Record<string, string> = {
-    'content-type': input.contentType,
-  }
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: input.key,
-    ContentType: input.contentType,
-    ContentLength: input.sizeBytes,
-    ServerSideEncryption: kmsKeyId ? 'aws:kms' : undefined,
-    SSEKMSKeyId: kmsKeyId,
-  })
-
-  const url = await getSignedUrl(getS3Client(), command, { expiresIn: input.expiresIn })
-  return {
-    url,
-    method: 'PUT',
-    headers,
-    expiresIn: input.expiresIn,
-  }
 }
 
 export async function pingS3(): Promise<{ ok: boolean; error?: string }> {

@@ -25,7 +25,7 @@ The fastest path: clone, install, fill `.env.local`, then ask Claude Code to set
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/hwa1alb1-bit/prizm.git
+git clone https://github.com/PLKNoko/prizm.git
 cd prizm
 pnpm install
 ```
