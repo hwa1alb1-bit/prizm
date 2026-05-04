@@ -23,6 +23,8 @@ PRIZM is a trust-first, SOC 2-ready bank statement converter SaaS. Phase 1 Trust
 - Stripe sandbox account: `acct_1TRZFv44hvL1QSxT`.
 - Stripe price IDs (committed in `.env.example`): Starter Monthly/Annual, Pro Monthly/Annual.
 - Stripe overage meter: not yet created. Run `pnpm seed:stripe` with sandbox key in `.env.local` to provision.
+- Sentry organization: `prizmview`.
+- Sentry project slug: `javascript-nextjs`.
 - Cloudflare zone: `prizmview.app`. Account `06194d230f5a7d371ad30a1d984e0868`.
 - Vercel team: `plknokos-projects`, ID `team_uZERsB7RBuE8AlDoUPRlw5zz`.
 - Upstash Redis: `close-stag-109648` (us-east-1).
