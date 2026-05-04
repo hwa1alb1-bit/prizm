@@ -1,11 +1,12 @@
 // AWS S3 client wrapper. Region pinned to env. In production on Vercel,
-// credentials come from OIDC role assumption via the default credential chain.
+// credentials come from OIDC role assumption when AWS_ROLE_ARN is configured.
 // In local dev, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are read from env.
 
 import 'server-only'
 
 import { S3Client, HeadBucketCommand } from '@aws-sdk/client-s3'
 import { serverEnv } from '../shared/env'
+import { getAwsCredentials } from './aws'
 
 let cached: S3Client | null = null
 
@@ -13,13 +14,7 @@ export function getS3Client(): S3Client {
   if (cached) return cached
   cached = new S3Client({
     region: serverEnv.AWS_REGION,
-    credentials:
-      serverEnv.AWS_ACCESS_KEY_ID && serverEnv.AWS_SECRET_ACCESS_KEY
-        ? {
-            accessKeyId: serverEnv.AWS_ACCESS_KEY_ID,
-            secretAccessKey: serverEnv.AWS_SECRET_ACCESS_KEY,
-          }
-        : undefined,
+    credentials: getAwsCredentials(),
   })
   return cached
 }

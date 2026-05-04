@@ -9,7 +9,6 @@ import { publicEnv } from '../shared/env'
 
 export function captureException(err: unknown, context?: Record<string, unknown>): void {
   if (!publicEnv.NEXT_PUBLIC_SENTRY_DSN) {
-    // eslint-disable-next-line no-console
     console.error('[sentry-disabled]', err, context)
     return
   }
@@ -18,7 +17,6 @@ export function captureException(err: unknown, context?: Record<string, unknown>
 
 export function captureMessage(msg: string, context?: Record<string, unknown>): void {
   if (!publicEnv.NEXT_PUBLIC_SENTRY_DSN) {
-    // eslint-disable-next-line no-console
     console.warn('[sentry-disabled]', msg, context)
     return
   }

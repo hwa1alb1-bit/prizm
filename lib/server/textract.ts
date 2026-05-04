@@ -5,6 +5,7 @@ import 'server-only'
 
 import { TextractClient } from '@aws-sdk/client-textract'
 import { serverEnv } from '../shared/env'
+import { getAwsCredentials } from './aws'
 
 let cached: TextractClient | null = null
 
@@ -12,13 +13,7 @@ export function getTextractClient(): TextractClient {
   if (cached) return cached
   cached = new TextractClient({
     region: serverEnv.AWS_REGION,
-    credentials:
-      serverEnv.AWS_ACCESS_KEY_ID && serverEnv.AWS_SECRET_ACCESS_KEY
-        ? {
-            accessKeyId: serverEnv.AWS_ACCESS_KEY_ID,
-            secretAccessKey: serverEnv.AWS_SECRET_ACCESS_KEY,
-          }
-        : undefined,
+    credentials: getAwsCredentials(),
   })
   return cached
 }

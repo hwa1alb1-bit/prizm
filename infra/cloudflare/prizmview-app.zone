@@ -60,6 +60,9 @@ send                    1   IN  MX      10 feedback-smtp.us-east-1.amazonses.com
 ;; --- Resend SPF, scoped to the send. subdomain ---
 send                    1   IN  TXT     "v=spf1 include:amazonses.com ~all"
 
+;; --- Apex SPF for mail using @prizmview.app From addresses ---
+@                       1   IN  TXT     "v=spf1 include:amazonses.com ~all"
+
 ;; --- Resend DKIM ---
 ;; REPLACE the value below with the exact DKIM string from your Resend
 ;; domain setup page. The Resend value typically looks like:
@@ -70,12 +73,10 @@ send                    1   IN  TXT     "v=spf1 include:amazonses.com ~all"
 ;; Cloudflare's import handles that concatenation correctly.
 resend._domainkey       1   IN  TXT     "REPLACE_WITH_RESEND_DKIM_VALUE"
 
-;; --- DMARC monitoring policy (no enforcement yet) ---
-;; Start at p=none for the first 30 days to monitor without bouncing
-;; legitimate mail. Move to p=quarantine then p=reject after the
-;; aggregate reports look clean. Add rua=mailto:dmarc@prizmview.app
-;; only once that mailbox exists.
-_dmarc                  1   IN  TXT     "v=DMARC1; p=none"
+;; --- DMARC policy ---
+;; Quarantine mail that fails DMARC. Add rua=mailto:dmarc@prizmview.app
+;; only once that mailbox exists and receives aggregate reports.
+_dmarc                  1   IN  TXT     "v=DMARC1; p=quarantine; pct=100"
 
 ;; --- (optional) CAA record for Let's Encrypt + Vercel ---
 ;; Add this row only if your zone already has any CAA records. If it

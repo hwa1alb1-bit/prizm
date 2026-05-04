@@ -23,6 +23,7 @@ const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 
   AWS_REGION: z.string().default('us-east-1'),
+  AWS_ROLE_ARN: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   S3_UPLOAD_BUCKET: z.string().default('prizm-uploads-dev'),
@@ -83,7 +84,6 @@ export function assertServerEnv<K extends keyof typeof serverEnv>(keys: readonly
     throw new Error(`Missing required server env vars: ${missing.join(', ')}`)
   }
   // Dev: warn but do not throw. Lets local dev work without every key configured.
-  // eslint-disable-next-line no-console
   console.warn(`[env] Missing server env vars (dev): ${missing.join(', ')}`)
 }
 
