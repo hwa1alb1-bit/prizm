@@ -1,30 +1,26 @@
 import { NextRequest } from 'next/server'
 import { collectHealthSnapshot } from '@/lib/server/health'
 import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
+import { requireOwnerOrAdminUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(req: NextRequest): Promise<Response> {
   const context = createRouteContext(req)
-  const url = new URL(req.url)
+  const auth = await requireOwnerOrAdminUser()
 
-  if (url.searchParams.get('deep') === 'true') {
-    return problemResponse(context, {
-      status: 400,
-      code: 'PRZM_VALIDATION_DEEP_HEALTH_NOT_PUBLIC',
-      title: 'Deep health is not public',
-      detail: 'Use the protected /api/ops/health route for live provider health checks.',
-    })
+  if (!auth.ok) {
+    return problemResponse(context, auth.problem)
   }
 
-  const snapshot = await collectHealthSnapshot({ deep: false, includeErrorCodes: false })
+  const snapshot = await collectHealthSnapshot({ deep: true, includeErrorCodes: true })
 
   return jsonResponse(
     context,
     {
       status: snapshot.status,
-      mode: 'shallow',
+      mode: 'deep',
       timestamp: new Date().toISOString(),
       version: process.env.NEXT_PUBLIC_GIT_SHA ?? 'dev',
       connectors: snapshot.connectors,

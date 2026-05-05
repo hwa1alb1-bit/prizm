@@ -215,29 +215,21 @@ type ProviderId =
   | 'sentry'
   | 'resend'
   | 'aws-mailboxes'
-  | 'stripe';
+  | 'stripe'
 
 type OpsUsageSnapshot = {
-  provider: ProviderId;
-  metric: string;
-  used: number | null;
-  limit: number | null;
-  unit:
-    | 'requests'
-    | 'bytes'
-    | 'emails'
-    | 'events'
-    | 'connections'
-    | 'usd'
-    | 'status'
-    | 'count';
-  periodStart: string | null;
-  periodEnd: string | null;
-  status: 'green' | 'yellow' | 'red' | 'gray';
-  freshness: 'fresh' | 'stale' | 'failed';
-  sourceUrl: string;
-  collectedAt: string;
-};
+  provider: ProviderId
+  metric: string
+  used: number | null
+  limit: number | null
+  unit: 'requests' | 'bytes' | 'emails' | 'events' | 'connections' | 'usd' | 'status' | 'count'
+  periodStart: string | null
+  periodEnd: string | null
+  status: 'green' | 'yellow' | 'red' | 'gray'
+  freshness: 'fresh' | 'stale' | 'failed'
+  sourceUrl: string
+  collectedAt: string
+}
 ```
 
 Status rules:
@@ -259,22 +251,22 @@ Each provider integration implements the same contract:
 
 ```ts
 export type ProviderAdapter = {
-  id: ProviderId;
-  collect(input: CollectionContext): Promise<ProviderMetric[]>;
-  health(input: CollectionContext): Promise<ProviderAdapterHealth>;
-};
+  id: ProviderId
+  collect(input: CollectionContext): Promise<ProviderMetric[]>
+  health(input: CollectionContext): Promise<ProviderAdapterHealth>
+}
 
 export type ProviderMetric = {
-  metricKey: string;
-  displayName: string;
-  used: number | null;
-  limit: number | null;
-  unit: OpsUsageSnapshot['unit'];
-  periodStart?: string | null;
-  periodEnd?: string | null;
-  sourceUrl: string;
-  rawRef?: Record<string, unknown>;
-};
+  metricKey: string
+  displayName: string
+  used: number | null
+  limit: number | null
+  unit: OpsUsageSnapshot['unit']
+  periodStart?: string | null
+  periodEnd?: string | null
+  sourceUrl: string
+  rawRef?: Record<string, unknown>
+}
 ```
 
 Adapters must:

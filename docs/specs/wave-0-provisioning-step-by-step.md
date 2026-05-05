@@ -148,7 +148,7 @@ Once the project is ready:
 13. Settings → Database → Connection pooling. Copy the pooled connection string for migrations.
 14. Settings → Auth → URL Configuration:
     - Site URL: `https://prizmview.app` (production project), `https://staging.prizmview.app` or your Vercel preview URL (staging project).
-    - Redirect URLs: add the same plus `http://localhost:3000` for local dev.
+    - Redirect URLs: add the same plus `http://localhost:3030` for local dev.
 15. Settings → Auth → Email:
     - Confirm signups: ON (we want email verification)
     - Secure email change: ON
@@ -347,7 +347,7 @@ From now on, switch into `prizm-staging` via Identity Center.
   {
     "AllowedHeaders": ["*"],
     "AllowedMethods": ["PUT", "GET"],
-    "AllowedOrigins": ["https://prizmview.app", "https://*.vercel.app", "http://localhost:3000"],
+    "AllowedOrigins": ["https://prizmview.app", "https://*.vercel.app", "http://localhost:3030"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3000
   }
@@ -596,7 +596,7 @@ brew install stripe/stripe-cli/stripe   # mac
 # or download from stripe.com/docs/stripe-cli
 
 stripe login
-stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe
+stripe listen --forward-to localhost:3030/api/v1/webhooks/stripe
 
 # in another terminal
 stripe trigger checkout.session.completed

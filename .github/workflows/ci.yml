@@ -30,17 +30,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format check
-        run: pnpm format:check
+      - name: Release gate
+        run: pnpm verify
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: stub
+          NEXT_PUBLIC_SITE_URL: http://localhost:3030
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Unit + integration tests
-        run: pnpm test --coverage
+      - name: Coverage
+        run: pnpm test:coverage
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -76,7 +74,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: stub
-          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3030
 
       - name: Run Playwright
         run: pnpm test:e2e

@@ -9,7 +9,7 @@ const isProd = process.env.NODE_ENV === 'production'
 
 // Public schema (NEXT_PUBLIC_*). Bundled into client. Never put secrets here.
 const publicSchema = z.object({
-  NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3030'),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),

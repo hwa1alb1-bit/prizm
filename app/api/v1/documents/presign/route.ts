@@ -1,13 +1,11 @@
-import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { createPendingDocumentUpload } from '@/lib/server/document-upload'
+import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
 import { getS3Client, getUploadBucket, getKmsKeyId } from '@/lib/server/s3'
-import { getServiceRoleClient } from '@/lib/server/supabase'
-import type { Database } from '@/lib/shared/db-types'
+import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 
@@ -22,114 +20,118 @@ const requestSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies()
+  const context = createRouteContext(request)
+  const auth = await requireAuthenticatedUser()
 
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            )
-          } catch {
-            // Route handler context
-          }
-        },
-      },
-    },
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json(
-      { error: 'unauthorized', detail: 'Not authenticated' },
-      { status: 401 },
-    )
-  }
-
-  const admin = getServiceRoleClient()
-  const { data: profile } = await admin
-    .from('user_profile')
-    .select('workspace_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) {
-    return NextResponse.json(
-      { error: 'no_workspace', detail: 'User profile not found' },
-      { status: 403 },
-    )
-  }
+  if (!auth.ok) return problemResponse(context, auth.problem)
 
   let body: unknown
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json(
-      { error: 'invalid_json', detail: 'Invalid JSON body' },
-      { status: 400 },
-    )
+    return problemResponse(context, {
+      status: 400,
+      code: 'PRZM_VALIDATION_INVALID_JSON',
+      title: 'Invalid JSON',
+      detail: 'The request body must be valid JSON.',
+    })
   }
 
   const parsed = requestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'validation_error', detail: parsed.error.issues[0]?.message ?? 'Invalid input' },
-      { status: 400 },
-    )
+    return problemResponse(context, {
+      status: 400,
+      code: 'PRZM_VALIDATION_UPLOAD_REQUEST',
+      title: 'Invalid upload request',
+      detail: parsed.error.issues[0]?.message ?? 'Invalid input.',
+    })
   }
 
   const { filename, contentType, sizeBytes } = parsed.data
-  const workspaceId = profile.workspace_id
-  const s3Key = `${workspaceId}/${crypto.randomUUID()}/${filename}`
+  const s3Key = `${auth.context.user.id}/${crypto.randomUUID()}/${filename}`
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
-  const { data: doc, error: insertError } = await admin
-    .from('document')
-    .insert({
-      filename,
-      content_type: contentType,
-      size_bytes: sizeBytes,
-      workspace_id: workspaceId,
-      uploaded_by: user.id,
-      status: 'pending',
-      s3_bucket: getUploadBucket(),
-      s3_key: s3Key,
-      expires_at: expiresAt,
-    })
-    .select('id, s3_key')
-    .single()
-
-  if (insertError || !doc) {
-    return NextResponse.json(
-      {
-        error: 'insert_failed',
-        detail: insertError?.message ?? 'Failed to create document record',
-      },
-      { status: 500 },
-    )
-  }
-
   const kmsKeyId = getKmsKeyId()
+  const bucket = getUploadBucket()
   const command = new PutObjectCommand({
-    Bucket: getUploadBucket(),
-    Key: doc.s3_key,
+    Bucket: bucket,
+    Key: s3Key,
     ContentType: contentType,
     ContentLength: sizeBytes,
     ServerSideEncryption: 'aws:kms',
     ...(kmsKeyId ? { SSEKMSKeyId: kmsKeyId } : {}),
   })
 
-  const uploadUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 600 })
+  let uploadUrl: string
+  try {
+    uploadUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 600 })
+  } catch {
+    return problemResponse(context, {
+      status: 500,
+      code: 'PRZM_INTERNAL_UPLOAD_PRESIGN_FAILED',
+      title: 'Upload could not be prepared',
+      detail: 'The upload URL could not be created. Try again later.',
+    })
+  }
 
-  return NextResponse.json({ uploadUrl, documentId: doc.id }, { status: 201 })
+  const document = await createPendingDocumentUpload({
+    supabase: auth.context.supabase,
+    filename,
+    contentType,
+    sizeBytes,
+    s3Bucket: bucket,
+    s3Key,
+    expiresAt,
+    actorIp: getClientIp(request),
+    actorUserAgent: request.headers.get('user-agent'),
+    routeContext: context,
+  })
+
+  if (!document.ok) {
+    return problemResponse(context, uploadProblemFor(document.reason))
+  }
+
+  return jsonResponse(
+    context,
+    {
+      uploadUrl,
+      documentId: document.document.id,
+      request_id: context.requestId,
+      trace_id: context.traceId,
+    },
+    { status: 201 },
+  )
+}
+
+function uploadProblemFor(reason: 'unauthorized' | 'no_workspace' | 'forbidden' | 'write_failed') {
+  switch (reason) {
+    case 'unauthorized':
+      return {
+        status: 401,
+        code: 'PRZM_AUTH_UNAUTHORIZED',
+        title: 'Authentication required',
+        detail: 'Sign in before requesting an upload.',
+      }
+    case 'no_workspace':
+      return {
+        status: 403,
+        code: 'PRZM_AUTH_WORKSPACE_REQUIRED',
+        title: 'Workspace access required',
+        detail: 'The signed-in user is not attached to a workspace.',
+      }
+    case 'forbidden':
+      return {
+        status: 403,
+        code: 'PRZM_AUTH_FORBIDDEN',
+        title: 'Forbidden',
+        detail: 'Owner, admin, or member access is required to upload documents.',
+      }
+    case 'write_failed':
+      return {
+        status: 500,
+        code: 'PRZM_INTERNAL_AUDITED_WRITE_FAILED',
+        title: 'Upload could not be recorded',
+        detail: 'The document and audit event could not be recorded atomically.',
+      }
+  }
 }
