@@ -74,9 +74,9 @@ send                    1   IN  TXT     "v=spf1 include:amazonses.com ~all"
 resend._domainkey       1   IN  TXT     "REPLACE_WITH_RESEND_DKIM_VALUE"
 
 ;; --- DMARC policy ---
-;; Quarantine mail that fails DMARC. Add rua=mailto:dmarc@prizmview.app
-;; only once that mailbox exists and receives aggregate reports.
-_dmarc                  1   IN  TXT     "v=DMARC1; p=quarantine; pct=100"
+;; dmarc@prizmview.app archive mailbox active (SES inbound rule).
+;; rua enabled for aggregate report collection.
+_dmarc                  1   IN  TXT     "v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@prizmview.app"
 
 ;; --- (optional) CAA record for Let's Encrypt + Vercel ---
 ;; Add this row only if your zone already has any CAA records. If it

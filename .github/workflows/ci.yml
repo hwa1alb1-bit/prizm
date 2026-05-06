@@ -30,17 +30,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format check
-        run: pnpm format:check
+      - name: Release gate
+        run: pnpm verify
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: stub
+          NEXT_PUBLIC_SITE_URL: http://localhost:3030
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Unit + integration tests
-        run: pnpm test --coverage
+      - name: Coverage
+        run: pnpm test:coverage
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -76,7 +74,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: stub
-          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3030
 
       - name: Run Playwright
         run: pnpm test:e2e
@@ -109,10 +107,16 @@ jobs:
             echo "STAGING_HOST=$STAGING_HOST does not resolve. Skipping Observatory check."
             exit 0
           fi
-          response=$(curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=$STAGING_HOST")
+          response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 -X POST --data ' ' "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=$STAGING_HOST")
+          if ! echo "$response" | jq -e '.grade and .score and (.error == null)' >/dev/null; then
+            echo "Unexpected Observatory response:"
+            echo "$response"
+            exit 1
+          fi
           grade=$(echo "$response" | jq -r '.grade')
           score=$(echo "$response" | jq -r '.score')
-          echo "Host: $STAGING_HOST Grade: $grade Score: $score"
+          details_url=$(echo "$response" | jq -r '.details_url // empty')
+          echo "Host: $STAGING_HOST Grade: $grade Score: $score Details: $details_url"
           if [[ "$grade" =~ ^A ]]; then
             echo "Pass"
           else

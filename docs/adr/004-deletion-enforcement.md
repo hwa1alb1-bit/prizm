@@ -26,6 +26,7 @@ Eased:
 - Even if app code fails, S3 still expires. Even if S3 misfires, app code sweeps. Even if both partially succeed, the monitor flags it.
 - User-verifiable: the email receipt is evidence the user can keep.
 - SOC 2 evidence: the audit_event log gives an auditor a query to run.
+- Current Hobby deployments use daily Vercel Cron schedules so production builds can ship. Restore the 5/15-minute launch cadence only after moving the project to Vercel Pro or wiring an external scheduler.
 
 Locked in:
 

@@ -40,3 +40,11 @@ export async function recordAuditEvent(
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
+
+export async function recordAuditEventOrThrow(input: AuditEventInput): Promise<string> {
+  const result = await recordAuditEvent(input)
+  if (!result.ok || !result.id) {
+    throw new Error('audit_event_write_failed')
+  }
+  return result.id
+}

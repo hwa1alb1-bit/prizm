@@ -9,7 +9,7 @@ const isProd = process.env.NODE_ENV === 'production'
 
 // Public schema (NEXT_PUBLIC_*). Bundled into client. Never put secrets here.
 const publicSchema = z.object({
-  NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3030'),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
@@ -45,6 +45,18 @@ const serverSchema = z.object({
 
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+
+  CLOUDFLARE_API_TOKEN: z.string().optional(),
+  CLOUDFLARE_ZONE_ID: z.string().optional(),
+
+  VERCEL_ACCESS_TOKEN: z.string().optional(),
+  VERCEL_TEAM_ID: z.string().optional(),
+  VERCEL_PROJECT_ID: z.string().optional(),
+
+  SUPABASE_ACCESS_TOKEN: z.string().optional(),
+  SUPABASE_PROJECT_ID: z.string().optional(),
+
+  AWS_SES_INBOUND_BUCKET: z.string().optional(),
 
   CRON_SECRET: z.string().optional(),
 })

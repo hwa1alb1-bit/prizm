@@ -2,6 +2,20 @@
 
 @AGENTS.md
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `hwa1alb1-bit/prizm`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the canonical five-label triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo: read root `CONTEXT.md` when present and root ADRs under `docs/adr/`. See `docs/agents/domain.md`.
+
 PRIZM is a trust-first, SOC 2-ready bank statement converter SaaS. Phase 1 Trust-Native MVP. Multi-tenant by workspace. 24-hour auto-delete on every uploaded document.
 
 ## Where to start

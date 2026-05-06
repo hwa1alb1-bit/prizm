@@ -50,10 +50,11 @@ Minimum to run `pnpm dev`:
 ### 3. Verify
 
 ```bash
-pnpm verify       # format + lint + typecheck + test
-pnpm dev          # http://localhost:3000
-curl http://localhost:3000/api/health   # shallow connector check
-curl http://localhost:3000/api/health?deep=true   # live ping each connector
+pnpm verify       # format + lint + typecheck + unit tests + build
+pnpm verify:full  # verify + Playwright + live connector smoke tests
+pnpm check:launch-gates  # requires LAUNCH_GATE_TARGET=staging or production
+pnpm dev          # http://localhost:3030
+curl http://localhost:3030/api/health   # public shallow connector check
 ```
 
 ### 4. Hand off to Claude Code (optional)
@@ -118,7 +119,12 @@ pnpm test               # vitest run
 pnpm test:watch         # vitest interactive
 pnpm test:coverage      # vitest with v8 coverage
 pnpm test:e2e           # playwright
-pnpm verify             # format:check + lint + typecheck + test (CI gate)
+pnpm test:connectors:live
+                         # live connector smoke tests; requires LIVE_CONNECTOR_SMOKE=1,
+                         # LAUNCH_GATE_TARGET=staging or production, and HTTPS site URL
+pnpm check:launch-gates  # offline staging/production launch env gate
+pnpm verify             # format:check + lint + typecheck + test + build (CI gate)
+pnpm verify:full        # verify + Playwright + live connector smoke tests
 
 pnpm seed:stripe        # idempotent Stripe sandbox provisioning
                         # requires STRIPE_SECRET_KEY in .env.local

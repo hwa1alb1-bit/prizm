@@ -36,7 +36,7 @@ Locked in:
 ## Verification
 
 - `pnpm install` succeeds with no peer-dependency conflicts.
-- `pnpm dev` boots the Next.js app on localhost:3000.
+- `pnpm dev` boots the Next.js app on localhost:3030.
 - A round-trip from Next.js to Supabase to S3 to Textract to Stripe webhook completes in dev.
 - SOC 2 Type 2 reports for every vendor are linked from `docs/compliance/vendors.md` before launch.
 
