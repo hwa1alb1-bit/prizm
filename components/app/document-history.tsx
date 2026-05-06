@@ -38,6 +38,9 @@ export function DocumentHistoryList({ documents }: { documents: HistoryDocumentV
 
 export function DocumentReview({ document }: { document: HistoryDocumentView }) {
   const primaryStatement = document.statements[0] ?? null
+  const processingAudit = document.auditEvents.find(
+    (event) => event.eventType === 'document.processing_started',
+  )
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -80,12 +83,34 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
             </EvidenceGrid>
           </EvidenceSection>
 
+          {document.state === 'processing' && (
+            <EvidenceSection title="Processing evidence">
+              <EvidenceGrid>
+                <EvidenceRow label="OCR state" value="Processing" />
+                <EvidenceRow
+                  label="Textract job"
+                  value={document.textractJobId ?? 'Waiting for job id'}
+                />
+                <EvidenceRow
+                  label="Processing audit"
+                  value={processingAudit ? 'Recorded' : 'Audit event pending'}
+                />
+                <EvidenceRow
+                  label="Trace"
+                  value={processingAudit?.traceId ?? 'Trace not recorded'}
+                />
+              </EvidenceGrid>
+            </EvidenceSection>
+          )}
+
           <EvidenceSection title="Statement">
             {primaryStatement ? (
               <StatementEvidence statement={primaryStatement} />
             ) : (
               <p className="text-sm text-foreground/60">
-                Statement extraction has not produced review data yet.
+                {document.state === 'processing'
+                  ? 'OCR is running against the verified S3 object. Extracted rows will appear here when Textract finishes.'
+                  : 'Statement extraction has not produced review data yet.'}
               </p>
             )}
           </EvidenceSection>
@@ -201,6 +226,7 @@ function EmptyHistory() {
 function HistoryRow({ document }: { document: HistoryDocumentView }) {
   const statement = document.statements[0] ?? null
   const audit = document.auditEvents[0] ?? null
+  const isProcessing = document.state === 'processing'
 
   return (
     <tr>
@@ -225,14 +251,16 @@ function HistoryRow({ document }: { document: HistoryDocumentView }) {
       </td>
       <td className="px-4 py-4 align-top text-foreground/70">
         <p className="font-medium text-foreground">
-          {statement?.bankName ?? 'Statement not extracted'}
+          {statement?.bankName ?? (isProcessing ? 'OCR processing' : 'Statement not extracted')}
         </p>
         <p className="mt-1 text-xs">
           {statement
             ? `${formatCount(statement.transactionCount, 'transaction')} · ${reconciliationLabel(
                 statement.reconciles,
               )}`
-            : `${document.pages ?? 'No'} pages recorded`}
+            : isProcessing && document.textractJobId
+              ? `Textract ${document.textractJobId}`
+              : `${document.pages ?? 'No'} pages recorded`}
         </p>
       </td>
       <td className="px-4 py-4 align-top text-foreground/70">

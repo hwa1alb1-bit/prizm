@@ -4,12 +4,14 @@ import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-type UploadState = 'idle' | 'presigning' | 'uploading' | 'done' | 'error'
+type UploadState = 'idle' | 'presigning' | 'uploading' | 'completing' | 'done' | 'error'
 
 type UploadEvidence = {
   documentId: string
   requestId: string
+  completionRequestId: string
   traceId: string
+  textractJobId: string
   filename: string
   sizeBytes: number
   uploadedAt: string
@@ -23,12 +25,21 @@ type PresignResponse = {
   trace_id: string
 }
 
+type CompleteResponse = {
+  documentId: string
+  status: 'processing' | 'ready'
+  textractJobId: string
+  alreadyCompleted: boolean
+  request_id: string
+  trace_id: string
+}
+
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 
 const workflowSteps = [
   {
-    label: 'Upload requested',
-    detail: 'PRIZM records the document request and writes an audit event.',
+    label: 'Upload verified',
+    detail: 'PRIZM verifies S3 object evidence before OCR is allowed to start.',
   },
   {
     label: 'OCR processing',
@@ -46,8 +57,8 @@ const workflowSteps = [
 
 const trustControls = [
   { label: 'Retention', value: '24-hour auto-delete' },
-  { label: 'Server write', value: 'Audit event required' },
-  { label: 'Traceability', value: 'Request ID and trace ID returned' },
+  { label: 'Server write', value: 'Upload and OCR audit events required' },
+  { label: 'Traceability', value: 'Request, trace, and Textract job returned' },
   { label: 'Access', value: 'Workspace role checked before upload' },
 ]
 
@@ -110,11 +121,27 @@ export default function UploadPage() {
           throw new Error('The file did not reach secure storage. No review data was created.')
         }
 
+        setState('completing')
+        const completeRes = await fetch(`/api/v1/documents/${presign.documentId}/complete`, {
+          method: 'POST',
+        })
+
+        if (!completeRes.ok) {
+          const body = await completeRes.json().catch(() => ({}))
+          throw new Error(
+            (body as { detail?: string }).detail ??
+              'The upload reached secure storage, but OCR could not be started.',
+          )
+        }
+
+        const complete = (await completeRes.json()) as CompleteResponse
         const uploadedAt = new Date()
         setEvidence({
           documentId: presign.documentId,
           requestId: presign.request_id,
-          traceId: presign.trace_id,
+          completionRequestId: complete.request_id,
+          traceId: complete.trace_id,
+          textractJobId: complete.textractJobId,
           filename: file.name,
           sizeBytes: file.size,
           uploadedAt: uploadedAt.toISOString(),
@@ -133,7 +160,7 @@ export default function UploadPage() {
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setDragOver(false)
-    if (state === 'presigning' || state === 'uploading') return
+    if (state === 'presigning' || state === 'uploading' || state === 'completing') return
     const file = e.dataTransfer.files[0]
     if (file) void handleFile(file)
   }
@@ -152,6 +179,7 @@ export default function UploadPage() {
   }
 
   const busy = state === 'presigning' || state === 'uploading'
+  const working = busy || state === 'completing'
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -192,11 +220,11 @@ export default function UploadPage() {
             <div
               onDragOver={(e) => {
                 e.preventDefault()
-                if (!busy) setDragOver(true)
+                if (!working) setDragOver(true)
               }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
-              aria-busy={busy}
+              aria-busy={working}
               className={`mt-5 rounded-lg border border-dashed p-6 transition-colors ${
                 dragOver
                   ? 'border-[var(--accent)] bg-background'
@@ -217,7 +245,7 @@ export default function UploadPage() {
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={working}
                     onClick={() => inputRef.current?.click()}
                     className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
@@ -241,7 +269,7 @@ export default function UploadPage() {
                 type="file"
                 accept="application/pdf"
                 className="hidden"
-                disabled={busy}
+                disabled={working}
                 onChange={handleFileInput}
               />
 
@@ -270,11 +298,13 @@ function StatusPill({ state }: { state: UploadState }) {
       ? 'Preparing'
       : state === 'uploading'
         ? 'Uploading'
-        : state === 'done'
-          ? 'Uploaded'
-          : state === 'error'
-            ? 'Needs action'
-            : 'Ready'
+        : state === 'completing'
+          ? 'Verifying'
+          : state === 'done'
+            ? 'Processing'
+            : state === 'error'
+              ? 'Needs action'
+              : 'Ready'
   const tone =
     state === 'done'
       ? 'success'
@@ -302,13 +332,18 @@ function UploadMessage({
   if (state === 'uploading') {
     return <p className="text-sm text-foreground/65">Uploading to secure storage...</p>
   }
+  if (state === 'completing') {
+    return (
+      <p className="text-sm text-foreground/65">Verifying S3 object evidence and starting OCR...</p>
+    )
+  }
   if (state === 'done' && evidence) {
     return (
       <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
-        <p className="font-medium text-[var(--success)]">Uploaded. Processing can begin.</p>
+        <p className="font-medium text-[var(--success)]">Processing started.</p>
         <p className="mt-1 text-foreground/65">
-          Document {shortId(evidence.documentId)} is recorded with request{' '}
-          {shortId(evidence.requestId)}.
+          Textract job {evidence.textractJobId} is attached to document{' '}
+          {shortId(evidence.documentId)}.
         </p>
         <Link
           href={`/app/history/${evidence.documentId}`}
@@ -342,6 +377,7 @@ function WorkflowPanel({
   evidence: UploadEvidence | null
 }) {
   const activeIndex = currentState === 'done' ? 1 : currentState === 'uploading' ? 0 : -1
+  const reachedIndex = currentState === 'completing' ? 0 : activeIndex
 
   return (
     <section className="rounded-lg border border-[var(--border-subtle)] p-4 sm:p-5">
@@ -356,7 +392,7 @@ function WorkflowPanel({
       </div>
       <ol className="mt-5 grid gap-3 lg:grid-cols-4">
         {workflowSteps.map((step, index) => {
-          const reached = index <= activeIndex
+          const reached = index <= reachedIndex
           return (
             <li
               key={step.label}
@@ -412,11 +448,9 @@ function CurrentDocumentHandoff({ evidence }: { evidence: UploadEvidence | null 
               <tr>
                 <td className="py-3 pr-4 font-medium">{evidence.filename}</td>
                 <td className="py-3 pr-4">
-                  <ToneBadge tone="info">Processing can begin</ToneBadge>
+                  <ToneBadge tone="info">Processing</ToneBadge>
                 </td>
-                <td className="py-3 pr-4 text-foreground/65">
-                  Request {shortId(evidence.requestId)} recorded
-                </td>
+                <td className="py-3 pr-4 text-foreground/65">Textract {evidence.textractJobId}</td>
                 <td className="py-3 text-foreground/65">{formatDateTime(evidence.expiresAt)}</td>
               </tr>
             ) : (
@@ -456,7 +490,12 @@ function EvidencePanel({ evidence }: { evidence: UploadEvidence | null }) {
           label="Request ID"
           value={evidence ? shortId(evidence.requestId) : 'Waiting'}
         />
+        <EvidenceRow
+          label="Complete request"
+          value={evidence ? shortId(evidence.completionRequestId) : 'Waiting'}
+        />
         <EvidenceRow label="Trace ID" value={evidence ? shortId(evidence.traceId) : 'Waiting'} />
+        <EvidenceRow label="Textract job" value={evidence ? evidence.textractJobId : 'Waiting'} />
         <EvidenceRow
           label="Expires"
           value={evidence ? formatDateTime(evidence.expiresAt) : '24 hours after upload'}
