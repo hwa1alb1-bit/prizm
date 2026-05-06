@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-06T18:11:11.8650284Z",
+  "title": "Design System: PRIZM",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Ledger Paper",
+        "canonical": "oklch(98.7% 0.006 185)",
+        "tonalRamp": [
+          "oklch(15% 0.006 185)",
+          "oklch(25% 0.006 185)",
+          "oklch(38% 0.006 185)",
+          "oklch(52% 0.006 185)",
+          "oklch(66% 0.006 185)",
+          "oklch(80% 0.006 185)",
+          "oklch(92% 0.006 185)",
+          "oklch(98.7% 0.006 185)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(19% 0.018 185)",
+        "tonalRamp": [
+          "oklch(14% 0.018 185)",
+          "oklch(19% 0.018 185)",
+          "oklch(30% 0.018 185)",
+          "oklch(42% 0.018 185)",
+          "oklch(55% 0.018 185)",
+          "oklch(68% 0.018 185)",
+          "oklch(82% 0.018 185)",
+          "oklch(94% 0.018 185)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Audit Teal",
+        "canonical": "oklch(52% 0.11 185)",
+        "tonalRamp": [
+          "oklch(18% 0.07 185)",
+          "oklch(28% 0.085 185)",
+          "oklch(39% 0.1 185)",
+          "oklch(52% 0.11 185)",
+          "oklch(63% 0.095 185)",
+          "oklch(74% 0.07 185)",
+          "oklch(85% 0.045 185)",
+          "oklch(95% 0.02 185)"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Verification Green",
+        "canonical": "oklch(45% 0.12 150)",
+        "tonalRamp": [
+          "oklch(18% 0.07 150)",
+          "oklch(28% 0.09 150)",
+          "oklch(38% 0.11 150)",
+          "oklch(45% 0.12 150)",
+          "oklch(58% 0.105 150)",
+          "oklch(70% 0.075 150)",
+          "oklch(84% 0.045 150)",
+          "oklch(95% 0.02 150)"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Retention Amber",
+        "canonical": "oklch(57% 0.13 78)",
+        "tonalRamp": [
+          "oklch(20% 0.07 78)",
+          "oklch(32% 0.09 78)",
+          "oklch(45% 0.115 78)",
+          "oklch(57% 0.13 78)",
+          "oklch(68% 0.105 78)",
+          "oklch(78% 0.075 78)",
+          "oklch(88% 0.045 78)",
+          "oklch(96% 0.02 78)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Failure Vermilion",
+        "canonical": "oklch(54% 0.16 28)",
+        "tonalRamp": [
+          "oklch(18% 0.08 28)",
+          "oklch(30% 0.11 28)",
+          "oklch(42% 0.14 28)",
+          "oklch(54% 0.16 28)",
+          "oklch(65% 0.13 28)",
+          "oklch(76% 0.09 28)",
+          "oklch(88% 0.05 28)",
+          "oklch(96% 0.02 28)"
+        ]
+      },
+      "info": {
+        "role": "secondary",
+        "displayName": "Processing Blue",
+        "canonical": "oklch(49% 0.1 230)",
+        "tonalRamp": [
+          "oklch(18% 0.06 230)",
+          "oklch(28% 0.075 230)",
+          "oklch(39% 0.09 230)",
+          "oklch(49% 0.1 230)",
+          "oklch(62% 0.085 230)",
+          "oklch(74% 0.06 230)",
+          "oklch(86% 0.035 230)",
+          "oklch(96% 0.015 230)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Route Headline",
+        "purpose": "Route titles and document filenames."
+      },
+      "title": {
+        "displayName": "Panel Title",
+        "purpose": "Evidence section headings and compact surface headings."
+      },
+      "body": {
+        "displayName": "Operator Body",
+        "purpose": "Data cells, helper copy, and review details."
+      },
+      "label": {
+        "displayName": "Evidence Label",
+        "purpose": "Table headers, eyebrows, and definition-list labels."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms ease-out",
+        "purpose": "Simple hover, focus, and color state changes."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Use for the next operational action, such as uploading a statement.",
+      "html": "<button class=\"ds-btn-primary\">Upload statement</button>",
+      "css": ".ds-btn-primary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-foreground); padding: 0 16px; font: 600 14px/1.2 Geist, Arial, sans-serif; transition: opacity 150ms ease-out; } .ds-btn-primary:hover { opacity: 0.9; } .ds-btn-primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Use for adjacent navigation or settings checks.",
+      "html": "<button class=\"ds-btn-secondary\">Check workspace settings</button>",
+      "css": ".ds-btn-secondary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--background); color: var(--foreground); padding: 0 16px; font: 500 14px/1.2 Geist, Arial, sans-serif; transition: background 150ms ease-out; } .ds-btn-secondary:hover { background: var(--surface-muted); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ready State Badge",
+      "kind": "chip",
+      "refersTo": "badge-state",
+      "description": "Status badge for persisted document states.",
+      "html": "<span class=\"ds-state-badge ds-state-ready\">Ready</span>",
+      "css": ".ds-state-badge { min-height: 28px; display: inline-flex; align-items: center; border-radius: 999px; padding: 0 10px; font: 600 12px/1 Geist, Arial, sans-serif; } .ds-state-ready { background: color-mix(in oklch, var(--success) 16%, transparent); color: var(--success); } .ds-state-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Evidence Panel",
+      "kind": "card",
+      "refersTo": "evidence-panel",
+      "description": "Bordered section for document, statement, audit, or deletion evidence.",
+      "html": "<section class=\"ds-evidence-panel\"><h2>Document</h2><dl><div><dt>Document ID</dt><dd>doc_123</dd></div><div><dt>Expires</dt><dd>May 7, 2:00 PM</dd></div></dl></section>",
+      "css": ".ds-evidence-panel { border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--background); color: var(--foreground); padding: 20px; font-family: Geist, Arial, sans-serif; } .ds-evidence-panel h2 { margin: 0 0 16px; font-size: 16px; line-height: 1.35; font-weight: 600; } .ds-evidence-panel dl { display: grid; gap: 12px; margin: 0; font-size: 14px; } .ds-evidence-panel dt { color: color-mix(in oklch, var(--foreground) 50%, transparent); } .ds-evidence-panel dd { margin: 2px 0 0; font-weight: 500; overflow-wrap: anywhere; }"
+    },
+    {
+      "name": "History Table",
+      "kind": "custom",
+      "refersTo": "evidence-panel",
+      "description": "Dense review table for document state, statement evidence, audit event, and retention proof.",
+      "html": "<table class=\"ds-history-table\"><thead><tr><th>Statement</th><th>State</th><th>Audit event</th></tr></thead><tbody><tr><td>May Statement.pdf</td><td><span>Ready</span></td><td>document.ready</td></tr></tbody></table>",
+      "css": ".ds-history-table { width: 100%; min-width: 720px; border: 1px solid var(--border-subtle); border-radius: 8px; border-collapse: separate; border-spacing: 0; overflow: hidden; color: var(--foreground); font: 14px/1.5 Geist, Arial, sans-serif; } .ds-history-table thead { background: var(--surface-muted); color: color-mix(in oklch, var(--foreground) 45%, transparent); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; } .ds-history-table th, .ds-history-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-subtle); } .ds-history-table tbody tr:last-child td { border-bottom: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Evidence Ledger",
+    "overview": "PRIZM is a calm product interface for financial operators who need to see what happened, when it happened, and whether it is safe to act. The visual system is restrained by design: pale teal-tinted neutrals, a single operational accent, compact tables, and direct labels that make status and evidence inspectable.",
+    "keyCharacteristics": [
+      "Restrained, evidence-first product UI with no ornamental trust language.",
+      "Light by default for accounting work in ordinary office conditions, with dark-mode tokens available through the same roles.",
+      "Tables, definition lists, and bordered sections carry most evidence surfaces.",
+      "Accent color is rare and functional: primary actions, links, focus rings, and active evidence."
+    ],
+    "rules": [
+      {
+        "name": "The Evidence Color Rule",
+        "body": "Color never carries meaning alone. Every status color must be paired with text such as Pending, Ready, Failed, Expired, Receipt sent, or Trace.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rare Accent Rule",
+        "body": "Audit Teal is functional, never decorative. Do not use it as a hero wash, background flourish, gradient, or large brand field.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flat Evidence Rule",
+        "body": "Use borders and background roles before shadows. Shadows are reserved for future overlays or menus, not default panels.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Floating Card Rule",
+        "body": "Page sections are not decorative cards. Use bordered evidence sections, tables, and definition lists; avoid nested cards.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do pair every trust claim with an implementation artifact: state, receipt, timestamp, request ID, trace ID, retention deadline, or audit event.",
+      "Do use the five persisted document labels exactly: Pending, Processing, Ready, Failed, Expired.",
+      "Do keep PRIZM dense and scannable. Tables and definition lists are the default evidence surfaces.",
+      "Do keep Accent usage rare and functional.",
+      "Do preserve workspace and audit language in the UI whenever data crosses a sensitive boundary."
+    ],
+    "donts": [
+      "Don't use generic SaaS gloss, vague trust copy, decorative security badges, gradient theater, or claims that sound confident without showing evidence.",
+      "Don't use consumer fintech flash, neon dashboards, gamified money visuals, crypto-adjacent styling, or unserious animation.",
+      "Don't bury compliance in policy-only copy while the workflow stays opaque.",
+      "Don't use side-stripe borders, gradient text, glassmorphism, hero metrics, or identical decorative card grids.",
+      "Don't communicate status by color alone."
+    ]
+  }
+}

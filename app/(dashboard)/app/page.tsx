@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 type UploadState = 'idle' | 'presigning' | 'uploading' | 'done' | 'error'
 
@@ -51,6 +52,7 @@ const trustControls = [
 ]
 
 export default function UploadPage() {
+  const router = useRouter()
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [state, setState] = useState<UploadState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -58,71 +60,75 @@ export default function UploadPage() {
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null)
   const [evidence, setEvidence] = useState<UploadEvidence | null>(null)
 
-  const handleFile = useCallback(async (file: File) => {
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-    setSelectedFile({ name: file.name, size: file.size })
+  const handleFile = useCallback(
+    async (file: File) => {
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+      setSelectedFile({ name: file.name, size: file.size })
 
-    if (!isPdf) {
-      setState('error')
-      setError('File needs to be a PDF. Choose a statement saved as .pdf.')
-      return
-    }
+      if (!isPdf) {
+        setState('error')
+        setError('File needs to be a PDF. Choose a statement saved as .pdf.')
+        return
+      }
 
-    if (file.size > MAX_FILE_BYTES) {
-      setState('error')
-      setError('File needs to be under 20 MB. Export a smaller PDF and try again.')
-      return
-    }
+      if (file.size > MAX_FILE_BYTES) {
+        setState('error')
+        setError('File needs to be under 20 MB. Export a smaller PDF and try again.')
+        return
+      }
 
-    setError(null)
-    setEvidence(null)
-    setState('presigning')
+      setError(null)
+      setEvidence(null)
+      setState('presigning')
 
-    try {
-      const presignRes = await fetch('/api/v1/documents/presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      try {
+        const presignRes = await fetch('/api/v1/documents/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: 'application/pdf',
+            sizeBytes: file.size,
+          }),
+        })
+
+        if (!presignRes.ok) {
+          const body = await presignRes.json().catch(() => ({}))
+          throw new Error((body as { detail?: string }).detail ?? `Upload could not be prepared.`)
+        }
+
+        const presign = (await presignRes.json()) as PresignResponse
+
+        setState('uploading')
+        const uploadRes = await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: file,
+        })
+
+        if (!uploadRes.ok) {
+          throw new Error('The file did not reach secure storage. No review data was created.')
+        }
+
+        const uploadedAt = new Date()
+        setEvidence({
+          documentId: presign.documentId,
+          requestId: presign.request_id,
+          traceId: presign.trace_id,
           filename: file.name,
-          contentType: 'application/pdf',
           sizeBytes: file.size,
-        }),
-      })
-
-      if (!presignRes.ok) {
-        const body = await presignRes.json().catch(() => ({}))
-        throw new Error((body as { detail?: string }).detail ?? `Upload could not be prepared.`)
+          uploadedAt: uploadedAt.toISOString(),
+          expiresAt: new Date(uploadedAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        })
+        setState('done')
+        router.push(`/app/history/${presign.documentId}`)
+      } catch (err) {
+        setState('error')
+        setError(err instanceof Error ? err.message : 'Upload failed. Try again.')
       }
-
-      const presign = (await presignRes.json()) as PresignResponse
-
-      setState('uploading')
-      const uploadRes = await fetch(presign.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/pdf' },
-        body: file,
-      })
-
-      if (!uploadRes.ok) {
-        throw new Error('The file did not reach secure storage. No review data was created.')
-      }
-
-      const uploadedAt = new Date()
-      setEvidence({
-        documentId: presign.documentId,
-        requestId: presign.request_id,
-        traceId: presign.trace_id,
-        filename: file.name,
-        sizeBytes: file.size,
-        uploadedAt: uploadedAt.toISOString(),
-        expiresAt: new Date(uploadedAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-      })
-      setState('done')
-    } catch (err) {
-      setState('error')
-      setError(err instanceof Error ? err.message : 'Upload failed. Try again.')
-    }
-  }, [])
+    },
+    [router],
+  )
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
@@ -304,6 +310,12 @@ function UploadMessage({
           Document {shortId(evidence.documentId)} is recorded with request{' '}
           {shortId(evidence.requestId)}.
         </p>
+        <Link
+          href={`/app/history/${evidence.documentId}`}
+          className="mt-3 inline-flex text-sm font-medium text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          Open review record
+        </Link>
       </div>
     )
   }
@@ -378,10 +390,10 @@ function CurrentDocumentHandoff({ evidence }: { evidence: UploadEvidence | null 
           </p>
         </div>
         <Link
-          href="/app/history"
+          href={evidence ? `/app/history/${evidence.documentId}` : '/app/history'}
           className="text-sm font-medium text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
-          Open history
+          {evidence ? 'Open review record' : 'Open history'}
         </Link>
       </div>
 
