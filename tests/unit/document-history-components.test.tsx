@@ -25,7 +25,8 @@ describe('DocumentHistoryList', () => {
       'href',
       '/app/history/doc_ready',
     )
-    expect(screen.getByText('Ready')).toBeInTheDocument()
+    expect(screen.getAllByText('Ready').length).toBeGreaterThan(0)
+    expect(screen.getByText('Ready for review')).toBeInTheDocument()
     expect(screen.getByText('Acme Bank')).toBeInTheDocument()
     expect(screen.getByText('document.ready')).toBeInTheDocument()
     expect(screen.getByText('Receipt sent')).toBeInTheDocument()
@@ -34,10 +35,52 @@ describe('DocumentHistoryList', () => {
   it('shows OCR processing evidence in history rows before statement extraction finishes', () => {
     render(<DocumentHistoryList documents={[processingDocument()]} />)
 
-    expect(screen.getByText('Processing')).toBeInTheDocument()
+    expect(screen.getAllByText('Processing').length).toBeGreaterThan(0)
+    expect(screen.getByText('OCR running')).toBeInTheDocument()
     expect(screen.getByText('OCR processing')).toBeInTheDocument()
-    expect(screen.getByText('Textract textract_job_123')).toBeInTheDocument()
+    expect(screen.getByText('Textract job ID')).toBeInTheDocument()
+    expect(screen.getByText('textract_job_123')).toBeInTheDocument()
+    expect(screen.getByText('0123456789abcdef0123456789abcdef')).toBeInTheDocument()
     expect(screen.getByText('document.processing_started')).toBeInTheDocument()
+  })
+
+  it('filters the queue by status and keeps counts visible', () => {
+    render(
+      <DocumentHistoryList
+        documents={[historyDocument(), processingDocument(), failedDocument()]}
+        activeFilter="failed"
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'All, 3 documents' })).toHaveAttribute(
+      'href',
+      '/app/history',
+    )
+    expect(screen.getByRole('link', { name: 'Processing, 1 document' })).toHaveAttribute(
+      'href',
+      '/app/history?status=processing',
+    )
+    expect(screen.getByRole('link', { name: 'Failed, 1 document' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(screen.getByRole('link', { name: 'June Statement.pdf' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'May Statement.pdf' })).not.toBeInTheDocument()
+    expect(screen.getByText('Action needed')).toBeInTheDocument()
+  })
+
+  it('filters documents approaching the retention deadline', () => {
+    render(
+      <DocumentHistoryList
+        documents={[notExpiringDocument(), expiringSoonDocument()]}
+        activeFilter="expiring-soon"
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Expiring Statement.pdf' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Not Expiring.pdf' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Expiring soon').length).toBeGreaterThan(0)
+    expect(screen.getByText(/remaining/)).toBeInTheDocument()
   })
 })
 
@@ -46,8 +89,17 @@ describe('DocumentReview', () => {
     render(<DocumentReview document={processingDocument()} />)
 
     expect(screen.getByRole('heading', { name: 'Processing evidence' })).toBeInTheDocument()
-    expect(screen.getAllByText('Textract job')).toHaveLength(2)
-    expect(screen.getAllByText('textract_job_123')).toHaveLength(2)
+    expect(screen.getAllByText('Textract job ID').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('textract_job_123').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Trace ID').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('0123456789abcdef0123456789abcdef').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Upload-completed audit event')).toBeInTheDocument()
+    expect(screen.getByText(/document\.upload_completed at/)).toBeInTheDocument()
+    expect(screen.getByText('Processing-started audit event')).toBeInTheDocument()
+    expect(screen.getByText(/document\.processing_started at/)).toBeInTheDocument()
+    expect(screen.getAllByText('Elapsed time')).toHaveLength(2)
+    expect(screen.getAllByText('Retention deadline')).toHaveLength(2)
+    expect(screen.getByText('Statement pending OCR')).toBeInTheDocument()
     expect(screen.getByText('document.processing_started')).toBeInTheDocument()
   })
 })
@@ -128,6 +180,7 @@ function processingDocument(): HistoryDocumentView {
   return {
     ...historyDocument(),
     id: 'doc_processing',
+    filename: 'Processing Statement.pdf',
     state: 'processing',
     textractJobId: 'textract_job_123',
     statements: [],
@@ -140,7 +193,57 @@ function processingDocument(): HistoryDocumentView {
         requestId: 'req_complete',
         traceId: '0123456789abcdef0123456789abcdef',
       },
+      {
+        id: 'audit_upload_completed',
+        eventType: 'document.upload_completed',
+        createdAt: '2026-05-06T14:04:00.000Z',
+        actorUserId: 'user_123',
+        requestId: 'req_complete',
+        traceId: '0123456789abcdef0123456789abcdef',
+      },
     ],
+    deletionEvidence: null,
+  }
+}
+
+function failedDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_failed',
+    filename: 'June Statement.pdf',
+    state: 'failed',
+    failureReason: 'Textract analysis could not be started for the verified upload.',
+    statements: [],
+    auditEvents: [
+      {
+        id: 'audit_failed',
+        eventType: 'document.failed',
+        createdAt: '2026-05-06T14:06:00.000Z',
+        actorUserId: 'user_123',
+        requestId: 'req_failed',
+        traceId: 'trace_failed',
+      },
+    ],
+    deletionEvidence: null,
+  }
+}
+
+function expiringSoonDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_expiring',
+    filename: 'Expiring Statement.pdf',
+    expiresAt: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+    deletionEvidence: null,
+  }
+}
+
+function notExpiringDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_not_expiring',
+    filename: 'Not Expiring.pdf',
+    expiresAt: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
     deletionEvidence: null,
   }
 }

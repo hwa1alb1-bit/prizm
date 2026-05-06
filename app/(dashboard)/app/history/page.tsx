@@ -1,15 +1,25 @@
 import { redirect } from 'next/navigation'
-import { DocumentHistoryList } from '@/components/app/document-history'
+import { DocumentHistoryList, historyQueueFilterFromParam } from '@/components/app/document-history'
 import { loadDocumentHistoryForCurrentUser } from '@/lib/server/document-history'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export default async function HistoryPage() {
+type HistorySearchParams = Promise<{ status?: string | string[] }>
+
+export default async function HistoryPage({
+  searchParams,
+}: {
+  searchParams?: HistorySearchParams
+} = {}) {
+  const params = searchParams ? await searchParams : {}
+  const activeFilter = historyQueueFilterFromParam(params.status)
+  const currentPath =
+    activeFilter === 'all' ? '/app/history' : `/app/history?status=${activeFilter}`
   const result = await loadDocumentHistoryForCurrentUser()
 
   if (!result.ok) {
-    if (result.reason === 'unauthenticated') redirect(loginPath('/app/history'))
+    if (result.reason === 'unauthenticated') redirect(loginPath(currentPath))
     return <HistoryProblem title={result.title} detail={result.detail} />
   }
 
@@ -28,7 +38,7 @@ export default async function HistoryPage() {
         </div>
       </header>
 
-      <DocumentHistoryList documents={result.documents} />
+      <DocumentHistoryList documents={result.documents} activeFilter={activeFilter} />
     </div>
   )
 }

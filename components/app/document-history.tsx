@@ -9,38 +9,87 @@ import {
 
 export type { HistoryDocumentView }
 
-export function DocumentHistoryList({ documents }: { documents: HistoryDocumentView[] }) {
+export const HISTORY_QUEUE_FILTERS = [
+  'all',
+  'processing',
+  'ready',
+  'failed',
+  'expiring-soon',
+] as const
+
+export type HistoryQueueFilter = (typeof HISTORY_QUEUE_FILTERS)[number]
+
+const EXPIRING_SOON_WINDOW_MS = 6 * 60 * 60 * 1000
+
+const queueFilterLabels: Record<HistoryQueueFilter, string> = {
+  all: 'All',
+  processing: 'Processing',
+  ready: 'Ready',
+  failed: 'Failed',
+  'expiring-soon': 'Expiring soon',
+}
+
+export function historyQueueFilterFromParam(
+  value: string | string[] | undefined,
+): HistoryQueueFilter {
+  const raw = Array.isArray(value) ? value[0] : value
+  return HISTORY_QUEUE_FILTERS.includes(raw as HistoryQueueFilter)
+    ? (raw as HistoryQueueFilter)
+    : 'all'
+}
+
+export function DocumentHistoryList({
+  documents,
+  activeFilter = 'all',
+}: {
+  documents: HistoryDocumentView[]
+  activeFilter?: HistoryQueueFilter
+}) {
   if (documents.length === 0) return <EmptyHistory />
 
+  const now = new Date()
+  const filteredDocuments = documents.filter((document) =>
+    matchesQueueFilter(document, activeFilter, now),
+  )
+  const filterCounts = getFilterCounts(documents, now)
+
   return (
-    <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[58rem] text-left text-sm">
-          <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-[0.08em] text-foreground/45">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Statement</th>
-              <th className="px-4 py-3 font-semibold">State</th>
-              <th className="px-4 py-3 font-semibold">Statement evidence</th>
-              <th className="px-4 py-3 font-semibold">Audit event</th>
-              <th className="px-4 py-3 font-semibold">Retention</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-subtle)]">
-            {documents.map((document) => (
-              <HistoryRow key={document.id} document={document} />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <div className="space-y-3">
+      <HistoryQueueFilters activeFilter={activeFilter} counts={filterCounts} />
+
+      {filteredDocuments.length === 0 ? (
+        <FilteredHistoryEmpty activeFilter={activeFilter} />
+      ) : (
+        <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[64rem] text-left text-sm">
+              <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-[0.08em] text-foreground/45">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Statement</th>
+                  <th className="px-4 py-3 font-semibold">Queue state</th>
+                  <th className="px-4 py-3 font-semibold">Statement evidence</th>
+                  <th className="px-4 py-3 font-semibold">Audit event</th>
+                  <th className="px-4 py-3 font-semibold">Retention</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-subtle)]">
+                {filteredDocuments.map((document) => (
+                  <HistoryRow key={document.id} document={document} now={now} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </div>
   )
 }
 
 export function DocumentReview({ document }: { document: HistoryDocumentView }) {
   const primaryStatement = document.statements[0] ?? null
-  const processingAudit = document.auditEvents.find(
-    (event) => event.eventType === 'document.processing_started',
-  )
+  const uploadCompletedAudit = findAuditEvent(document.auditEvents, 'document.upload_completed')
+  const processingAudit = findAuditEvent(document.auditEvents, 'document.processing_started')
+  const traceId = processingAudit?.traceId ?? uploadCompletedAudit?.traceId ?? null
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -75,7 +124,10 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
               <EvidenceRow label="Content type" value={document.contentType} />
               <EvidenceRow label="S3 bucket" value={document.s3Bucket} />
               <EvidenceRow label="S3 key" value={document.s3Key} />
-              <EvidenceRow label="Textract job" value={document.textractJobId ?? 'Not assigned'} />
+              <EvidenceRow
+                label="Textract job ID"
+                value={document.textractJobId ?? 'Not assigned'}
+              />
               <EvidenceRow
                 label="Failure reason"
                 value={document.failureReason ?? 'No failure recorded'}
@@ -88,16 +140,25 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
               <EvidenceGrid>
                 <EvidenceRow label="OCR state" value="Processing" />
                 <EvidenceRow
-                  label="Textract job"
+                  label="Textract job ID"
                   value={document.textractJobId ?? 'Waiting for job id'}
                 />
+                <EvidenceRow label="Trace ID" value={traceId ?? 'Trace not recorded'} />
                 <EvidenceRow
-                  label="Processing audit"
-                  value={processingAudit ? 'Recorded' : 'Audit event pending'}
+                  label="Upload-completed audit event"
+                  value={auditEventReceipt(uploadCompletedAudit)}
                 />
                 <EvidenceRow
-                  label="Trace"
-                  value={processingAudit?.traceId ?? 'Trace not recorded'}
+                  label="Processing-started audit event"
+                  value={auditEventReceipt(processingAudit)}
+                />
+                <EvidenceRow
+                  label="Elapsed time"
+                  value={formatElapsedSince(processingAudit?.createdAt ?? document.createdAt)}
+                />
+                <EvidenceRow
+                  label="Retention deadline"
+                  value={formatDateTime(document.expiresAt)}
                 />
               </EvidenceGrid>
             </EvidenceSection>
@@ -106,11 +167,11 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
           <EvidenceSection title="Statement">
             {primaryStatement ? (
               <StatementEvidence statement={primaryStatement} />
+            ) : document.state === 'processing' ? (
+              <PendingStatementEvidence document={document} processingAudit={processingAudit} />
             ) : (
               <p className="text-sm text-foreground/60">
-                {document.state === 'processing'
-                  ? 'OCR is running against the verified S3 object. Extracted rows will appear here when Textract finishes.'
-                  : 'Statement extraction has not produced review data yet.'}
+                Statement extraction has not produced review data yet.
               </p>
             )}
           </EvidenceSection>
@@ -223,13 +284,64 @@ function EmptyHistory() {
   )
 }
 
-function HistoryRow({ document }: { document: HistoryDocumentView }) {
+function HistoryQueueFilters({
+  activeFilter,
+  counts,
+}: {
+  activeFilter: HistoryQueueFilter
+  counts: Record<HistoryQueueFilter, number>
+}) {
+  return (
+    <nav className="flex flex-wrap gap-2" aria-label="History queue filters">
+      {HISTORY_QUEUE_FILTERS.map((filter) => {
+        const active = filter === activeFilter
+        return (
+          <Link
+            key={filter}
+            href={historyQueueFilterHref(filter)}
+            aria-current={active ? 'page' : undefined}
+            aria-label={`${queueFilterLabels[filter]}, ${formatCount(counts[filter], 'document')}`}
+            className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+              active
+                ? 'border-[var(--accent)] bg-[color-mix(in_oklch,var(--accent)_10%,transparent)] text-foreground'
+                : 'border-[var(--border-subtle)] bg-background text-foreground/65 hover:bg-[var(--surface-muted)]'
+            }`}
+          >
+            <span>{queueFilterLabels[filter]}</span>
+            <span className="font-mono text-xs text-foreground/50">{counts[filter]}</span>
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
+function FilteredHistoryEmpty({ activeFilter }: { activeFilter: HistoryQueueFilter }) {
+  return (
+    <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-6">
+      <h2 className="text-lg font-semibold">
+        No {queueFilterLabels[activeFilter].toLowerCase()} work
+      </h2>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
+        The latest loaded history has no document records in this queue state.
+      </p>
+    </section>
+  )
+}
+
+function HistoryRow({ document, now }: { document: HistoryDocumentView; now: Date }) {
   const statement = document.statements[0] ?? null
-  const audit = document.auditEvents[0] ?? null
+  const uploadCompletedAudit = findAuditEvent(document.auditEvents, 'document.upload_completed')
+  const processingAudit = findAuditEvent(document.auditEvents, 'document.processing_started')
+  const audit =
+    document.state === 'processing'
+      ? (processingAudit ?? document.auditEvents[0])
+      : document.auditEvents[0]
   const isProcessing = document.state === 'processing'
+  const isExpiringSoon = documentIsExpiringSoon(document, now)
 
   return (
-    <tr>
+    <tr className={historyRowClass(document.state)}>
       <td className="px-4 py-4 align-top">
         <Link
           href={`/app/history/${document.id}`}
@@ -243,6 +355,9 @@ function HistoryRow({ document }: { document: HistoryDocumentView }) {
       </td>
       <td className="px-4 py-4 align-top">
         <DocumentStateBadge state={document.state} />
+        <p className={`mt-2 text-xs font-medium ${queueSignalClass(document.state)}`}>
+          {queueSignal(document, statement, isExpiringSoon)}
+        </p>
         {document.failureReason && (
           <p className="mt-2 max-w-44 text-xs leading-5 text-[var(--danger)]">
             {document.failureReason}
@@ -250,18 +365,26 @@ function HistoryRow({ document }: { document: HistoryDocumentView }) {
         )}
       </td>
       <td className="px-4 py-4 align-top text-foreground/70">
-        <p className="font-medium text-foreground">
-          {statement?.bankName ?? (isProcessing ? 'OCR processing' : 'Statement not extracted')}
-        </p>
-        <p className="mt-1 text-xs">
-          {statement
-            ? `${formatCount(statement.transactionCount, 'transaction')} · ${reconciliationLabel(
-                statement.reconciles,
-              )}`
-            : isProcessing && document.textractJobId
-              ? `Textract ${document.textractJobId}`
-              : `${document.pages ?? 'No'} pages recorded`}
-        </p>
+        {isProcessing ? (
+          <ProcessingRowEvidence
+            document={document}
+            processingAudit={processingAudit}
+            uploadCompletedAudit={uploadCompletedAudit}
+          />
+        ) : (
+          <>
+            <p className="font-medium text-foreground">
+              {statement?.bankName ?? 'Statement not extracted'}
+            </p>
+            <p className="mt-1 text-xs">
+              {statement
+                ? `${formatCount(statement.transactionCount, 'transaction')} · ${reconciliationLabel(
+                    statement.reconciles,
+                  )}`
+                : `${document.pages ?? 'No'} pages recorded`}
+            </p>
+          </>
+        )}
       </td>
       <td className="px-4 py-4 align-top text-foreground/70">
         <p className="font-medium text-foreground">{audit?.eventType ?? 'No audit event'}</p>
@@ -274,15 +397,21 @@ function HistoryRow({ document }: { document: HistoryDocumentView }) {
         </p>
       </td>
       <td className="px-4 py-4 align-top text-foreground/70">
-        <p className="font-medium text-foreground">
+        <p
+          className={`font-medium ${isExpiringSoon ? 'text-[var(--warning)]' : 'text-foreground'}`}
+        >
           {document.deletionEvidence?.receiptStatus
             ? receiptLabel(document.deletionEvidence.receiptStatus)
-            : `Expires ${formatDateTime(document.expiresAt)}`}
+            : isExpiringSoon
+              ? 'Expiring soon'
+              : `Expires ${formatDateTime(document.expiresAt)}`}
         </p>
         <p className="mt-1 text-xs">
           {document.deletedAt
             ? `Deleted ${formatDateTime(document.deletedAt)}`
-            : 'Within 24-hour retention window'}
+            : isExpiringSoon
+              ? formatTimeRemaining(document.expiresAt, now)
+              : 'Within 24-hour retention window'}
         </p>
       </td>
     </tr>
@@ -307,6 +436,73 @@ function EvidenceRow({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-foreground/50">{label}</dt>
       <dd className="mt-0.5 break-words font-medium">{value}</dd>
+    </div>
+  )
+}
+
+function PendingStatementEvidence({
+  document,
+  processingAudit,
+}: {
+  document: HistoryDocumentView
+  processingAudit: AuditEventEvidenceView | undefined
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold">Statement pending OCR</p>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/60">
+          This statement area is reserved for extracted rows. PRIZM is waiting on Textract job{' '}
+          <span className="font-mono text-foreground">
+            {document.textractJobId ?? 'not assigned'}
+          </span>{' '}
+          before showing balances, transactions, and reconciliation evidence.
+        </p>
+      </div>
+      <EvidenceGrid>
+        <EvidenceRow label="Current state" value="Processing" />
+        <EvidenceRow label="Expected next event" value="document.ready" />
+        <EvidenceRow
+          label="Elapsed time"
+          value={formatElapsedSince(processingAudit?.createdAt ?? document.createdAt)}
+        />
+        <EvidenceRow label="Retention deadline" value={formatDateTime(document.expiresAt)} />
+      </EvidenceGrid>
+    </div>
+  )
+}
+
+function ProcessingRowEvidence({
+  document,
+  processingAudit,
+  uploadCompletedAudit,
+}: {
+  document: HistoryDocumentView
+  processingAudit: AuditEventEvidenceView | undefined
+  uploadCompletedAudit: AuditEventEvidenceView | undefined
+}) {
+  const traceId = processingAudit?.traceId ?? uploadCompletedAudit?.traceId ?? null
+
+  return (
+    <div>
+      <p className="font-medium text-foreground">OCR processing</p>
+      <dl className="mt-2 grid gap-1.5 text-xs">
+        <QueueEvidenceLine label="Textract job ID" value={document.textractJobId ?? 'Waiting'} />
+        <QueueEvidenceLine label="Trace ID" value={traceId ?? 'Not recorded'} />
+        <QueueEvidenceLine
+          label="Started"
+          value={processingAudit ? formatDateTime(processingAudit.createdAt) : 'Audit pending'}
+        />
+      </dl>
+    </div>
+  )
+}
+
+function QueueEvidenceLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+      <dt className="text-foreground/50">{label}</dt>
+      <dd className="break-words font-medium text-foreground">{value}</dd>
     </div>
   )
 }
@@ -343,11 +539,115 @@ function AuditEventItem({ event }: { event: AuditEventEvidenceView }) {
       </div>
       <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
         <EvidenceRow label="Request" value={event.requestId ?? 'Not recorded'} />
-        <EvidenceRow label="Trace" value={event.traceId ?? 'Not recorded'} />
+        <EvidenceRow label="Trace ID" value={event.traceId ?? 'Not recorded'} />
         <EvidenceRow label="Actor" value={event.actorUserId ?? 'System'} />
       </dl>
     </li>
   )
+}
+
+function historyQueueFilterHref(filter: HistoryQueueFilter): string {
+  if (filter === 'all') return '/app/history'
+  const params = new URLSearchParams({ status: filter })
+  return `/app/history?${params.toString()}`
+}
+
+function getFilterCounts(
+  documents: HistoryDocumentView[],
+  now: Date,
+): Record<HistoryQueueFilter, number> {
+  return {
+    all: documents.length,
+    processing: documents.filter((document) => matchesQueueFilter(document, 'processing', now))
+      .length,
+    ready: documents.filter((document) => matchesQueueFilter(document, 'ready', now)).length,
+    failed: documents.filter((document) => matchesQueueFilter(document, 'failed', now)).length,
+    'expiring-soon': documents.filter((document) =>
+      matchesQueueFilter(document, 'expiring-soon', now),
+    ).length,
+  }
+}
+
+function matchesQueueFilter(
+  document: HistoryDocumentView,
+  filter: HistoryQueueFilter,
+  now: Date,
+): boolean {
+  switch (filter) {
+    case 'all':
+      return true
+    case 'processing':
+      return document.state === 'processing'
+    case 'ready':
+      return document.state === 'ready'
+    case 'failed':
+      return document.state === 'failed'
+    case 'expiring-soon':
+      return documentIsExpiringSoon(document, now)
+  }
+}
+
+function documentIsExpiringSoon(document: HistoryDocumentView, now: Date): boolean {
+  if (document.deletedAt || document.state === 'expired') return false
+  const deadline = new Date(document.expiresAt).getTime()
+  if (!Number.isFinite(deadline)) return false
+  const remaining = deadline - now.getTime()
+  return remaining > 0 && remaining <= EXPIRING_SOON_WINDOW_MS
+}
+
+function findAuditEvent(
+  events: AuditEventEvidenceView[],
+  eventType: string,
+): AuditEventEvidenceView | undefined {
+  return events.find((event) => event.eventType === eventType)
+}
+
+function auditEventReceipt(event: AuditEventEvidenceView | undefined): string {
+  return event ? `${event.eventType} at ${formatDateTime(event.createdAt)}` : 'Missing'
+}
+
+function historyRowClass(state: DocumentState): string {
+  switch (state) {
+    case 'processing':
+      return 'bg-[color-mix(in_oklch,var(--info)_5%,transparent)]'
+    case 'ready':
+      return 'bg-[color-mix(in_oklch,var(--success)_7%,transparent)]'
+    case 'failed':
+      return 'bg-[color-mix(in_oklch,var(--danger)_8%,transparent)]'
+    case 'pending':
+    case 'expired':
+      return ''
+  }
+}
+
+function queueSignal(
+  document: HistoryDocumentView,
+  statement: StatementEvidenceView | null,
+  isExpiringSoon: boolean,
+): string {
+  if (document.state === 'failed') return 'Action needed'
+  if (document.state === 'processing') return 'OCR running'
+  if (isExpiringSoon) return 'Retention deadline near'
+  if (document.state === 'ready') {
+    return statement?.reconciles === false ? 'Needs review' : 'Ready for review'
+  }
+  if (document.state === 'expired') return 'Expired'
+  return 'Waiting for upload'
+}
+
+function queueSignalClass(state: DocumentState): string {
+  switch (state) {
+    case 'processing':
+      return 'text-[var(--info)]'
+    case 'ready':
+      return 'text-[var(--success)]'
+    case 'failed':
+      return 'text-[var(--danger)]'
+    case 'expired':
+      return 'text-[var(--warning)]'
+    case 'pending':
+      return 'text-foreground/55'
+  }
 }
 
 function stateClass(state: DocumentState): string {
@@ -409,4 +709,40 @@ function formatDateTime(value: string): string {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value))
+}
+
+function formatElapsedSince(value: string, now = new Date()): string {
+  const startedAt = new Date(value).getTime()
+  if (!Number.isFinite(startedAt)) return 'Not available'
+
+  const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - startedAt) / 60000))
+  if (elapsedMinutes < 1) return 'Less than 1 minute elapsed'
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m elapsed`
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60)
+  const remainingMinutes = elapsedMinutes % 60
+  if (elapsedHours < 24) {
+    return remainingMinutes > 0
+      ? `${elapsedHours}h ${remainingMinutes}m elapsed`
+      : `${elapsedHours}h elapsed`
+  }
+
+  const elapsedDays = Math.floor(elapsedHours / 24)
+  const remainingHours = elapsedHours % 24
+  return remainingHours > 0
+    ? `${elapsedDays}d ${remainingHours}h elapsed`
+    : `${elapsedDays}d elapsed`
+}
+
+function formatTimeRemaining(value: string, now: Date): string {
+  const deadline = new Date(value).getTime()
+  if (!Number.isFinite(deadline)) return 'Deadline unavailable'
+
+  const remainingMinutes = Math.floor((deadline - now.getTime()) / 60000)
+  if (remainingMinutes <= 0) return 'Deadline passed'
+  if (remainingMinutes < 60) return `${remainingMinutes}m remaining`
+
+  const remainingHours = Math.floor(remainingMinutes / 60)
+  const minutes = remainingMinutes % 60
+  return minutes > 0 ? `${remainingHours}h ${minutes}m remaining` : `${remainingHours}h remaining`
 }
