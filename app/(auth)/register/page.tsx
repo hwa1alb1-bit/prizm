@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/client/supabase'
+import { buildAuthCallbackUrl } from '@/lib/shared/auth-redirect'
 import Link from 'next/link'
 
 export default function RegisterPage() {
@@ -19,7 +20,10 @@ export default function RegisterPage() {
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: buildAuthCallbackUrl({
+          siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+          fallbackOrigin: window.location.origin,
+        }),
       },
     })
 
