@@ -77,7 +77,7 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3030
 
       - name: Run Playwright
-        run: pnpm test:e2e -- --project=chromium
+        run: pnpm test:e2e --project=chromium
 
       - uses: actions/upload-artifact@v4
         if: always()
