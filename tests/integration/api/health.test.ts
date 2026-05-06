@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET as publicHealth } from '@/app/api/health/route'
 import { GET as opsHealth } from '@/app/api/ops/health/route'
 import { collectHealthSnapshot } from '@/lib/server/health'
-import { requireOwnerOrAdminUser } from '@/lib/server/route-auth'
+import { requireOpsAdminUser } from '@/lib/server/route-auth'
 
 vi.mock('@/lib/server/health', () => ({
   collectHealthSnapshot: vi.fn(),
 }))
 
 vi.mock('@/lib/server/route-auth', () => ({
-  requireOwnerOrAdminUser: vi.fn(),
+  requireOpsAdminUser: vi.fn(),
 }))
 
 const collectHealthSnapshotMock = vi.mocked(collectHealthSnapshot)
-const requireOwnerOrAdminUserMock = vi.mocked(requireOwnerOrAdminUser)
+const requireOpsAdminUserMock = vi.mocked(requireOpsAdminUser)
 
 describe('health routes', () => {
   beforeEach(() => {
@@ -70,7 +70,7 @@ describe('health routes', () => {
   })
 
   it('protects ops health before running deep checks', async () => {
-    requireOwnerOrAdminUserMock.mockResolvedValue({
+    requireOpsAdminUserMock.mockResolvedValue({
       ok: false,
       problem: {
         status: 401,
@@ -95,12 +95,12 @@ describe('health routes', () => {
   })
 
   it('runs protected deep health for owners and admins', async () => {
-    requireOwnerOrAdminUserMock.mockResolvedValue({
+    requireOpsAdminUserMock.mockResolvedValue({
       ok: true,
       context: {
         supabase: {} as never,
         user: { id: 'user_123' } as never,
-        profile: { workspace_id: 'workspace_123', role: 'admin' },
+        opsAdmin: { role: 'admin' },
       },
     })
     collectHealthSnapshotMock.mockResolvedValue({

@@ -46,6 +46,18 @@ const serverSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 
+  CLOUDFLARE_API_TOKEN: z.string().optional(),
+  CLOUDFLARE_ZONE_ID: z.string().optional(),
+
+  VERCEL_ACCESS_TOKEN: z.string().optional(),
+  VERCEL_TEAM_ID: z.string().optional(),
+  VERCEL_PROJECT_ID: z.string().optional(),
+
+  SUPABASE_ACCESS_TOKEN: z.string().optional(),
+  SUPABASE_PROJECT_ID: z.string().optional(),
+
+  AWS_SES_INBOUND_BUCKET: z.string().optional(),
+
   CRON_SECRET: z.string().optional(),
 })
 

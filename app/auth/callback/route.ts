@@ -2,7 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { applyRouteHeaders, createRouteContext } from '@/lib/server/http'
+import { recordAuditEvent } from '@/lib/server/audit'
+import { applyRouteHeaders, createRouteContext, getClientIp } from '@/lib/server/http'
 
 export async function GET(request: NextRequest) {
   const context = createRouteContext(request)
@@ -31,6 +32,34 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      if (next.startsWith('/ops')) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (user) {
+          const audit = await recordAuditEvent({
+            eventType: 'ops.admin_login',
+            actorUserId: user.id,
+            targetType: 'ops_dashboard',
+            metadata: {
+              route: next,
+              request_id: context.requestId,
+              trace_id: context.traceId,
+            },
+            actorIp: getClientIp(request),
+            actorUserAgent: request.headers.get('user-agent'),
+          })
+
+          if (!audit.ok) {
+            return applyRouteHeaders(
+              context,
+              NextResponse.redirect(`${origin}/ops/login?error=ops_audit_failed`),
+            )
+          }
+        }
+      }
+
       return applyRouteHeaders(context, NextResponse.redirect(`${origin}${next}`))
     }
   }
