@@ -5,6 +5,7 @@ import { pingSentry } from '@/lib/server/sentry'
 import { pingStripe } from '@/lib/server/stripe'
 import { pingSupabase } from '@/lib/server/supabase'
 import { pingTextract } from '@/lib/server/textract'
+import { evaluateLiveConnectorSmokeGate } from '@/lib/server/launch-gates'
 
 type Check = {
   name: string
@@ -23,8 +24,14 @@ const checks: Check[] = [
 ]
 
 async function main(): Promise<void> {
-  if (process.env.LIVE_CONNECTOR_SMOKE !== '1') {
-    console.error('LIVE_CONNECTOR_SMOKE=1 is required for live connector smoke tests.')
+  const smokeGate = evaluateLiveConnectorSmokeGate(process.env)
+
+  if (!smokeGate.ok) {
+    console.error('Live connector smoke gate failed.')
+    for (const failure of smokeGate.failures) {
+      const label = failure.reason === 'missing' ? 'Missing' : 'Invalid'
+      console.error(`${failure.title}: ${label} ${failure.envKeys.join(', ')}`)
+    }
     process.exit(1)
   }
 
