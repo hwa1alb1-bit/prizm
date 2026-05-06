@@ -1,11 +1,8 @@
 # PRIZM Security Disclosure
-# RFC 9116 conformant. Last updated 2026-04-28.
+# RFC 9116 conformant. Last updated 2026-05-05.
 
 Contact: mailto:security@prizmview.app
 Expires: 2027-04-28T00:00:00.000Z
-Encryption: https://prizmview.app/.well-known/pgp-key.txt
-Acknowledgments: https://prizmview.app/security/acknowledgments
 Preferred-Languages: en
 Canonical: https://prizmview.app/.well-known/security.txt
 Policy: https://prizmview.app/security/policy
-Hiring: https://prizmview.app/careers

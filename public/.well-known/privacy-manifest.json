@@ -60,8 +60,8 @@
     }
   ],
   "user_rights": {
-    "access": "POST /api/v1/account/data-export delivers a JSON archive within 30 days",
-    "deletion": "POST /api/v1/account/delete triggers cascade and audit event within 10 days",
+    "access": "POST /api/v1/account/data-export creates an audited data export workflow due within 30 days",
+    "deletion": "POST /api/v1/account/delete creates an audited account deletion workflow due within 10 days",
     "portability": "data export is JSON",
     "rectification": "self-service in /app/settings",
     "objection": "email privacy@prizmview.app",
@@ -79,5 +79,5 @@
   },
   "subprocessors_url": "https://prizmview.app/security/subprocessors",
   "policy_url": "https://prizmview.app/privacy",
-  "last_updated": "2026-04-28"
+  "last_updated": "2026-05-05"
 }

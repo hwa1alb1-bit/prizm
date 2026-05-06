@@ -1,8 +1,8 @@
 # PRIZM
 
-Trust-first, SOC 2-ready bank statement converter for accountants and bookkeepers.
+Trust-first, SOC 2-oriented bank statement converter for accountants and bookkeepers.
 
-Files auto-delete in 24 hours. Every server-side write produces an audit event. Multi-tenant by workspace from day one.
+The alpha implementation is hardening 24-hour deletion evidence, audit-on-write coverage, and multi-tenant workspace controls before production launch.
 
 ## Status
 

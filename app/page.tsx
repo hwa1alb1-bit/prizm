@@ -13,8 +13,8 @@ export default function Home() {
           Bank statement conversion built for accountants who care about compliance.
         </h1>
         <p className="mt-6 text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-          Upload a statement. Get a verified ledger back. Files auto-delete in 24 hours. SOC 2
-          controls from day one.
+          Alpha workflows for upload, conversion, 24-hour deletion evidence, and SOC 2-oriented
+          controls are being hardened for production launch.
         </p>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -22,7 +22,7 @@ export default function Home() {
             href="/register"
             className="inline-flex h-12 items-center justify-center rounded-full bg-zinc-950 px-6 text-sm font-medium text-zinc-50 transition hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
           >
-            Start a free trial
+            Open alpha account
           </Link>
           <Link
             href="/security"
@@ -33,7 +33,10 @@ export default function Home() {
         </div>
 
         <p className="mt-12 text-xs text-zinc-500 dark:text-zinc-500">
-          Status: alpha. Production launch tracked at /status.
+          Status: alpha. Production launch tracked at{' '}
+          <Link className="underline" href="/status">
+            /status
+          </Link>
         </p>
       </section>
     </main>

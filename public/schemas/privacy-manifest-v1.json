@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prizmview.app/schemas/privacy-manifest-v1.json",
+  "title": "PRIZM Privacy Manifest v1",
+  "type": "object",
+  "required": [
+    "version",
+    "product",
+    "controller",
+    "lawful_bases",
+    "categories",
+    "user_rights",
+    "subprocessors_url",
+    "policy_url",
+    "last_updated"
+  ],
+  "properties": {
+    "version": { "type": "string" },
+    "product": { "type": "string" },
+    "controller": { "type": "object" },
+    "lawful_bases": { "type": "object" },
+    "categories": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "user_rights": { "type": "object" },
+    "data_residency": { "type": "object" },
+    "cookies": { "type": "object" },
+    "subprocessors_url": { "type": "string", "format": "uri" },
+    "policy_url": { "type": "string", "format": "uri" },
+    "last_updated": { "type": "string", "format": "date" }
+  },
+  "additionalProperties": true
+}

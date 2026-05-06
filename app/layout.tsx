@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: '%s · PRIZM',
   },
   description:
-    'Convert bank statements with verifiable accuracy. SOC 2 controls, 24-hour auto-delete, audit logs by default.',
+    'Convert bank statements with verifiable accuracy. Alpha trust controls, 24-hour deletion evidence, and audit-first workflows.',
   applicationName: 'PRIZM',
   robots: { index: true, follow: true },
 }
