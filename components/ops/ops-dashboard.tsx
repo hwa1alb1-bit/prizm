@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ManualRefreshButton } from './manual-refresh-button'
 import { PROVIDER_DEFINITIONS } from '@/lib/server/ops/providers'
+import type { DeletionHealth } from '@/lib/server/deletion/store'
 import type { OpsStatus, OpsUsageSnapshot, ProviderId } from '@/lib/server/ops/types'
 
 type ProviderSummary = {
@@ -13,7 +14,13 @@ type ProviderSummary = {
   metrics: OpsUsageSnapshot[]
 }
 
-export function OpsDashboard({ snapshots }: { snapshots: OpsUsageSnapshot[] }) {
+export function OpsDashboard({
+  deletionHealth,
+  snapshots,
+}: {
+  deletionHealth?: DeletionHealth
+  snapshots: OpsUsageSnapshot[]
+}) {
   const providers = buildProviderSummaries(snapshots)
   const redCount = providers.filter((provider) => provider.status === 'red').length
   const yellowCount = providers.filter((provider) => provider.status === 'yellow').length
@@ -100,8 +107,43 @@ export function OpsDashboard({ snapshots }: { snapshots: OpsUsageSnapshot[] }) {
               <dd className="font-medium">Reads, refreshes, and quick links are audited</dd>
             </div>
           </dl>
+          {deletionHealth && <DeletionHealthPanel health={deletionHealth} />}
         </aside>
       </section>
+    </div>
+  )
+}
+
+function DeletionHealthPanel({ health }: { health: DeletionHealth }) {
+  return (
+    <div className="mt-4 border-t border-foreground/10 pt-4">
+      <h3 className="text-sm font-semibold">Deletion health</h3>
+      <dl className="mt-3 space-y-3 text-sm">
+        <div>
+          <dt className="text-foreground/50">Status</dt>
+          <dd className={`font-medium ${deletionHealthTextClass(health.status)}`}>
+            {health.status} deletion runtime
+          </dd>
+        </div>
+        <div>
+          <dt className="text-foreground/50">Expired survivors</dt>
+          <dd className="font-medium">
+            {formatCount(health.expiredSurvivors, 'expired survivor')}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-foreground/50">Receipts</dt>
+          <dd className="font-medium">{formatCount(health.receiptFailures, 'receipt failure')}</dd>
+        </div>
+        <div>
+          <dt className="text-foreground/50">Last sweep</dt>
+          <dd className="font-medium">
+            {health.lastSweepAt
+              ? `${health.lastSweepStatus ?? 'unknown'} at ${health.lastSweepAt}`
+              : 'No sweep recorded'}
+          </dd>
+        </div>
+      </dl>
     </div>
   )
 }
@@ -248,6 +290,23 @@ function textClass(tone: 'green' | 'yellow' | 'red'): string {
     case 'red':
       return 'text-red-700 dark:text-red-300'
   }
+}
+
+function deletionHealthTextClass(status: DeletionHealth['status']): string {
+  switch (status) {
+    case 'green':
+      return 'text-emerald-700 dark:text-emerald-300'
+    case 'yellow':
+      return 'text-amber-700 dark:text-amber-300'
+    case 'red':
+      return 'text-red-700 dark:text-red-300'
+    case 'gray':
+      return 'text-foreground/60'
+  }
+}
+
+function formatCount(count: number, label: string): string {
+  return `${count} ${label}${count === 1 ? '' : 's'}`
 }
 
 function barClass(status: OpsStatus): string {

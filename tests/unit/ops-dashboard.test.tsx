@@ -13,6 +13,13 @@ describe('OpsDashboard', () => {
   it('summarizes provider status, quota pressure, freshness, and quick links', () => {
     render(
       <OpsDashboard
+        deletionHealth={{
+          status: 'red',
+          lastSweepAt: '2026-05-05T23:10:00.000Z',
+          lastSweepStatus: 'failed',
+          expiredSurvivors: 3,
+          receiptFailures: 1,
+        }}
         snapshots={[
           {
             provider: 'stripe',
@@ -53,6 +60,10 @@ describe('OpsDashboard', () => {
     expect(screen.getByText('1 red')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Stripe' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Vercel' })).toBeInTheDocument()
+    expect(screen.getByText('Deletion health')).toBeInTheDocument()
+    expect(screen.getByText('red deletion runtime')).toBeInTheDocument()
+    expect(screen.getByText('3 expired survivors')).toBeInTheDocument()
+    expect(screen.getByText('1 receipt failure')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Stripe console' })).toHaveAttribute(
       'href',
       '/api/ops/links/stripe?target=console',

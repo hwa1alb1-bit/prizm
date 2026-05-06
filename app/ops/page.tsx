@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { OpsDashboard } from '@/components/ops/ops-dashboard'
 import { recordAuditEvent } from '@/lib/server/audit'
+import { listDeletionHealth } from '@/lib/server/deletion/store'
 import { listLatestOpsSnapshots } from '@/lib/server/ops/store'
 import { requireOpsAdminUser } from '@/lib/server/route-auth'
 
@@ -31,11 +32,14 @@ export default async function OpsPage() {
     )
   }
 
-  const snapshots = await listLatestOpsSnapshots()
+  const [snapshots, deletionHealth] = await Promise.all([
+    listLatestOpsSnapshots(),
+    listDeletionHealth(),
+  ])
 
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-8">
-      <OpsDashboard snapshots={snapshots} />
+      <OpsDashboard deletionHealth={deletionHealth} snapshots={snapshots} />
     </main>
   )
 }
