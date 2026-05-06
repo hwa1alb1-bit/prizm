@@ -42,6 +42,7 @@ describe('route response helpers', () => {
     })
     expect(response.status).toBe(400)
     expect(response.headers.get('content-type')).toBe('application/problem+json')
+    expect(response.headers.get('cache-control')).toBe('no-store')
     expect(response.headers.get('x-request-id')).toBe('req_problem')
     expect(response.headers.get('x-sentry-trace-id')).toMatch(/^[0-9a-f]{32}$/)
   })

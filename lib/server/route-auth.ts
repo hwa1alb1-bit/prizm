@@ -120,6 +120,97 @@ export async function requireOwnerOrAdminUser(): Promise<AuthResult<AuthorizedUs
   }
 }
 
+export async function requireWorkspaceWriterUser(): Promise<AuthResult<AuthorizedUserContext>> {
+  const auth = await requireAuthenticatedUser()
+  if (!auth.ok) return auth
+
+  const { data: profile, error } = await auth.context.supabase
+    .from('user_profile')
+    .select('workspace_id, role')
+    .eq('id', auth.context.user.id)
+    .single()
+
+  if (error || !profile) {
+    return {
+      ok: false,
+      problem: {
+        status: 403,
+        code: 'PRZM_AUTH_WORKSPACE_REQUIRED',
+        title: 'Workspace access required',
+        detail: 'The signed-in user is not attached to a workspace.',
+      },
+    }
+  }
+
+  if (profile.role !== 'owner' && profile.role !== 'admin' && profile.role !== 'member') {
+    return {
+      ok: false,
+      problem: {
+        status: 403,
+        code: 'PRZM_AUTH_FORBIDDEN',
+        title: 'Forbidden',
+        detail: 'Owner, admin, or member access is required for this route.',
+      },
+    }
+  }
+
+  return {
+    ok: true,
+    context: {
+      ...auth.context,
+      profile,
+    },
+  }
+}
+
+export async function requireWorkspaceMemberUser(): Promise<AuthResult<AuthorizedUserContext>> {
+  const auth = await requireAuthenticatedUser()
+  if (!auth.ok) return auth
+
+  const { data: profile, error } = await auth.context.supabase
+    .from('user_profile')
+    .select('workspace_id, role')
+    .eq('id', auth.context.user.id)
+    .single()
+
+  if (error || !profile) {
+    return {
+      ok: false,
+      problem: {
+        status: 403,
+        code: 'PRZM_AUTH_WORKSPACE_REQUIRED',
+        title: 'Workspace access required',
+        detail: 'The signed-in user is not attached to a workspace.',
+      },
+    }
+  }
+
+  if (
+    profile.role !== 'owner' &&
+    profile.role !== 'admin' &&
+    profile.role !== 'member' &&
+    profile.role !== 'viewer'
+  ) {
+    return {
+      ok: false,
+      problem: {
+        status: 403,
+        code: 'PRZM_AUTH_FORBIDDEN',
+        title: 'Forbidden',
+        detail: 'Workspace access is required for this route.',
+      },
+    }
+  }
+
+  return {
+    ok: true,
+    context: {
+      ...auth.context,
+      profile,
+    },
+  }
+}
+
 export async function requireOpsAdminUser(): Promise<AuthResult<OpsAdminUserContext>> {
   const auth = await requireAuthenticatedUser()
   if (!auth.ok) return auth
