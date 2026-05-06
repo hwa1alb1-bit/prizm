@@ -35,6 +35,8 @@ const serverSchema = z.object({
   STRIPE_PRICE_STARTER_ANNUAL: z.string().optional(),
   STRIPE_PRICE_PRO_MONTHLY: z.string().optional(),
   STRIPE_PRICE_PRO_ANNUAL: z.string().optional(),
+  STRIPE_PRICE_OVERAGE_PAGE: z.string().optional(),
+  STRIPE_METER_OVERAGE: z.string().optional(),
 
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().default('noreply@prizmview.app'),

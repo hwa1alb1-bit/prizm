@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { getUploadBillingGate } from '@/lib/server/billing/access'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
 import { getS3Client, getUploadBucket, getKmsKeyId } from '@/lib/server/s3'
@@ -48,6 +49,21 @@ export async function POST(request: NextRequest) {
   }
 
   const { filename, contentType, sizeBytes } = parsed.data
+
+  const billingGate = await getUploadBillingGate({
+    supabase: auth.context.supabase,
+    userId: auth.context.user.id,
+  })
+
+  if (!billingGate.allowed) {
+    return problemResponse(context, {
+      status: 402,
+      code: billingGate.problemCode,
+      title: billingGate.title,
+      detail: billingGate.detail,
+    })
+  }
+
   const s3Key = `${auth.context.user.id}/${crypto.randomUUID()}/${filename}`
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 

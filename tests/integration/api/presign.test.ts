@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/v1/documents/presign/route'
+import { getUploadBillingGate } from '@/lib/server/billing/access'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -10,6 +11,10 @@ vi.mock('@/lib/server/route-auth', () => ({
 
 vi.mock('@/lib/server/document-upload', () => ({
   createPendingDocumentUpload: vi.fn(),
+}))
+
+vi.mock('@/lib/server/billing/access', () => ({
+  getUploadBillingGate: vi.fn(),
 }))
 
 vi.mock('@/lib/server/s3', () => ({
@@ -23,6 +28,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
 }))
 
 const requireAuthenticatedUserMock = vi.mocked(requireAuthenticatedUser)
+const getUploadBillingGateMock = vi.mocked(getUploadBillingGate)
 const createPendingDocumentUploadMock = vi.mocked(createPendingDocumentUpload)
 const getSignedUrlMock = vi.mocked(getSignedUrl)
 
@@ -36,6 +42,7 @@ describe('documents presign route', () => {
       },
     })
     getSignedUrlMock.mockResolvedValue('https://s3.example/upload')
+    getUploadBillingGateMock.mockResolvedValue({ allowed: true, mode: 'included_credit' })
     createPendingDocumentUploadMock.mockResolvedValue({
       ok: true,
       document: { id: 'doc_123', s3Key: 'workspace/doc/statement.pdf' },
@@ -95,6 +102,31 @@ describe('documents presign route', () => {
       status: 400,
       code: 'PRZM_VALIDATION_UPLOAD_REQUEST',
     })
+    expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks presign before S3 signing when billing does not allow another upload', async () => {
+    getUploadBillingGateMock.mockResolvedValue({
+      allowed: false,
+      reason: 'credits_exhausted',
+      problemCode: 'PRZM_BILLING_CREDITS_EXHAUSTED',
+      title: 'Conversion credits exhausted',
+      detail: 'Upgrade or wait for the next billing period before starting another conversion.',
+    })
+
+    const response = await POST(
+      jsonRequest({
+        filename: 'statement.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 4096,
+      }) as never,
+    )
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 402,
+      code: 'PRZM_BILLING_CREDITS_EXHAUSTED',
+    })
+    expect(getSignedUrlMock).not.toHaveBeenCalled()
     expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
   })
 
