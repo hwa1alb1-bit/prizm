@@ -110,6 +110,27 @@ describe('completeDocumentUpload', () => {
     )
   })
 
+  it('fails closed with OCR start evidence when Textract cannot create a job', async () => {
+    const deps = createDependencies()
+    deps.startTextractAnalysis.mockRejectedValueOnce(new Error('textract unavailable'))
+
+    const result = await completeDocumentUpload(completionInput(), deps)
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'textract_start_failed',
+      status: 502,
+      code: 'PRZM_TEXTRACT_START_FAILED',
+    })
+    expect(deps.markProcessingFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc_123',
+        eventType: 'document.processing_failed',
+        failureReason: 'Textract analysis could not be started for the verified upload.',
+      }),
+    )
+  })
+
   it('returns an idempotent result when completion is repeated for a processing document with a job id', async () => {
     const deps = createDependencies({
       document: documentRow({

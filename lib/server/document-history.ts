@@ -8,6 +8,20 @@ export const DOCUMENT_STATES = ['pending', 'processing', 'ready', 'failed', 'exp
 
 export type DocumentState = (typeof DOCUMENT_STATES)[number]
 
+export type StatementTransactionView = {
+  id: string
+  postedAt: string | null
+  description: string
+  amount: number | string | null
+  debit: number | string | null
+  credit: number | string | null
+  balance: number | string | null
+  confidence: number | null
+  source: string | null
+  needsReview: boolean
+  reviewReason: string | null
+}
+
 export type StatementEvidenceView = {
   id: string
   bankName: string | null
@@ -20,6 +34,7 @@ export type StatementEvidenceView = {
   computedTotal: number | string | null
   reconciles: boolean | null
   transactionCount: number
+  transactions: StatementTransactionView[]
   createdAt: string
   expiresAt: string
   deletedAt: string | null
@@ -391,6 +406,8 @@ function normalizeDocumentState(status: string): DocumentState {
 }
 
 function statementView(row: StatementRow): StatementEvidenceView {
+  const transactions = transactionViews(row.transactions)
+
   return {
     id: row.id,
     bankName: row.bank_name,
@@ -402,11 +419,140 @@ function statementView(row: StatementRow): StatementEvidenceView {
     reportedTotal: row.reported_total,
     computedTotal: row.computed_total,
     reconciles: row.reconciles,
-    transactionCount: Array.isArray(row.transactions) ? row.transactions.length : 0,
+    transactionCount: transactions.length,
+    transactions,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     deletedAt: row.deleted_at,
   }
+}
+
+function transactionViews(value: Json): StatementTransactionView[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item, index) => transactionView(item, index))
+}
+
+function transactionView(value: Json, index: number): StatementTransactionView {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      id: `row_${index + 1}`,
+      postedAt: null,
+      description: 'Unstructured transaction row',
+      amount: null,
+      debit: null,
+      credit: null,
+      balance: null,
+      confidence: null,
+      source: null,
+      needsReview: true,
+      reviewReason: 'Transaction evidence was not returned as an object.',
+    }
+  }
+
+  const row = value as Record<string, Json | undefined>
+  const postedAt = firstString(row, ['posted_at', 'postedAt', 'date', 'transaction_date'])
+  const description =
+    firstString(row, ['description', 'memo', 'payee', 'details', 'name']) ?? 'Description missing'
+  const amount = firstScalar(row, ['amount', 'transaction_amount', 'value'])
+  const debit = firstScalar(row, ['debit', 'withdrawal', 'outflow'])
+  const credit = firstScalar(row, ['credit', 'deposit', 'inflow'])
+  const balance = firstScalar(row, ['balance', 'running_balance'])
+  const confidence = firstNumber(row, ['confidence', 'ocr_confidence'])
+  const explicitReviewReason = firstString(row, [
+    'review_reason',
+    'reviewReason',
+    'exception',
+    'issue',
+    'error',
+  ])
+  const source = transactionSource(row)
+  const explicitNeedsReview = firstBoolean(row, ['needs_review', 'needsReview', 'flagged'])
+  const missing: string[] = []
+
+  if (!postedAt) missing.push('date')
+  if (description === 'Description missing') missing.push('description')
+  if (amount === null && debit === null && credit === null) missing.push('amount')
+
+  const confidenceNeedsReview = confidence !== null && confidence < 0.85
+  const reviewReason =
+    explicitReviewReason ??
+    (missing.length > 0 ? `Missing ${missing.join(', ')} evidence.` : null) ??
+    (confidenceNeedsReview ? `OCR confidence is ${Math.round(confidence * 100)}%.` : null)
+
+  return {
+    id: firstString(row, ['id', 'transaction_id', 'row_id']) ?? `row_${index + 1}`,
+    postedAt,
+    description,
+    amount,
+    debit,
+    credit,
+    balance,
+    confidence,
+    source,
+    needsReview: explicitNeedsReview ?? reviewReason !== null,
+    reviewReason,
+  }
+}
+
+function firstString(
+  row: Record<string, Json | undefined>,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+  }
+  return null
+}
+
+function firstNumber(
+  row: Record<string, Json | undefined>,
+  keys: readonly string[],
+): number | null {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string') {
+      const numeric = Number(value)
+      if (Number.isFinite(numeric)) return numeric
+    }
+  }
+  return null
+}
+
+function firstScalar(
+  row: Record<string, Json | undefined>,
+  keys: readonly string[],
+): number | string | null {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+  }
+  return null
+}
+
+function firstBoolean(
+  row: Record<string, Json | undefined>,
+  keys: readonly string[],
+): boolean | null {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'boolean') return value
+  }
+  return null
+}
+
+function transactionSource(row: Record<string, Json | undefined>): string | null {
+  const explicit = firstString(row, ['source', 'source_id', 'evidence_id', 'textract_block_id'])
+  if (explicit) return explicit
+
+  const page = firstNumber(row, ['page', 'page_number'])
+  const line = firstNumber(row, ['line', 'line_number'])
+  if (page !== null && line !== null) return `Page ${page}, line ${line}`
+  if (page !== null) return `Page ${page}`
+
+  return null
 }
 
 function auditEventView(row: AuditEventRow): AuditEventEvidenceView {

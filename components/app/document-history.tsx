@@ -5,6 +5,7 @@ import {
   type DocumentState,
   type HistoryDocumentView,
   type StatementEvidenceView,
+  type StatementTransactionView,
 } from '@/lib/server/document-history'
 
 export type { HistoryDocumentView }
@@ -87,9 +88,10 @@ export function DocumentHistoryList({
 
 export function DocumentReview({ document }: { document: HistoryDocumentView }) {
   const primaryStatement = document.statements[0] ?? null
-  const uploadCompletedAudit = findAuditEvent(document.auditEvents, 'document.upload_completed')
   const processingAudit = findAuditEvent(document.auditEvents, 'document.processing_started')
-  const traceId = processingAudit?.traceId ?? uploadCompletedAudit?.traceId ?? null
+  const exceptions = reviewExceptionsFor(primaryStatement)
+  const recoveryCards = recoveryCardsFor(document, primaryStatement, exceptions)
+  const exportReadiness = exportReadinessFor(document, primaryStatement, exceptions)
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -105,124 +107,49 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
             {document.filename}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            Document evidence, extracted statement data, audit history, and deletion proof for this
-            record.
+            Statement summary, extracted rows, exception work, reconciliation, and export readiness
+            for this record.
           </p>
         </div>
         <DocumentStateBadge state={document.state} />
       </header>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
         <div className="space-y-5">
-          <EvidenceSection title="Document">
-            <EvidenceGrid>
-              <EvidenceRow label="Document ID" value={document.id} />
-              <EvidenceRow label="Uploaded" value={formatDateTime(document.createdAt)} />
-              <EvidenceRow label="Expires" value={formatDateTime(document.expiresAt)} />
-              <EvidenceRow label="Size" value={formatBytes(document.sizeBytes)} />
-              <EvidenceRow label="Pages" value={document.pages?.toString() ?? 'Not counted'} />
-              <EvidenceRow label="Content type" value={document.contentType} />
-              <EvidenceRow label="S3 bucket" value={document.s3Bucket} />
-              <EvidenceRow label="S3 key" value={document.s3Key} />
-              <EvidenceRow
-                label="Textract job ID"
-                value={document.textractJobId ?? 'Not assigned'}
-              />
-              <EvidenceRow
-                label="Failure reason"
-                value={document.failureReason ?? 'No failure recorded'}
-              />
-            </EvidenceGrid>
+          {recoveryCards.length > 0 && <FailureRecoveryStack cards={recoveryCards} />}
+
+          <EvidenceSection title="Statement summary">
+            <StatementSummary
+              document={document}
+              statement={primaryStatement}
+              processingAudit={processingAudit}
+            />
           </EvidenceSection>
 
-          {document.state === 'processing' && (
-            <EvidenceSection title="Processing evidence">
-              <EvidenceGrid>
-                <EvidenceRow label="OCR state" value="Processing" />
-                <EvidenceRow
-                  label="Textract job ID"
-                  value={document.textractJobId ?? 'Waiting for job id'}
-                />
-                <EvidenceRow label="Trace ID" value={traceId ?? 'Trace not recorded'} />
-                <EvidenceRow
-                  label="Upload-completed audit event"
-                  value={auditEventReceipt(uploadCompletedAudit)}
-                />
-                <EvidenceRow
-                  label="Processing-started audit event"
-                  value={auditEventReceipt(processingAudit)}
-                />
-                <EvidenceRow
-                  label="Elapsed time"
-                  value={formatElapsedSince(processingAudit?.createdAt ?? document.createdAt)}
-                />
-                <EvidenceRow
-                  label="Retention deadline"
-                  value={formatDateTime(document.expiresAt)}
-                />
-              </EvidenceGrid>
-            </EvidenceSection>
-          )}
+          <EvidenceSection title="Transaction table">
+            <TransactionTable statement={primaryStatement} />
+          </EvidenceSection>
 
-          <EvidenceSection title="Statement">
-            {primaryStatement ? (
-              <StatementEvidence statement={primaryStatement} />
-            ) : document.state === 'processing' ? (
-              <PendingStatementEvidence document={document} processingAudit={processingAudit} />
-            ) : (
-              <p className="text-sm text-foreground/60">
-                Statement extraction has not produced review data yet.
-              </p>
-            )}
+          <EvidenceSection title="Exceptions">
+            <ExceptionsPanel exceptions={exceptions} statement={primaryStatement} />
+          </EvidenceSection>
+
+          <EvidenceSection title="Reconciliation result">
+            <ReconciliationResult statement={primaryStatement} />
+          </EvidenceSection>
+
+          <EvidenceSection title="Export readiness">
+            <ExportReadinessPanel readiness={exportReadiness} />
           </EvidenceSection>
 
           <EvidenceSection title="Audit trail">
-            {document.auditEvents.length === 0 ? (
-              <p className="text-sm text-foreground/60">No audit events are attached yet.</p>
-            ) : (
-              <ol className="divide-y divide-[var(--border-subtle)]">
-                {document.auditEvents.map((event) => (
-                  <AuditEventItem key={event.id} event={event} />
-                ))}
-              </ol>
-            )}
+            <AuditTrail events={document.auditEvents} />
           </EvidenceSection>
         </div>
 
         <aside className="space-y-5">
-          <EvidenceSection title="Deletion evidence">
-            {document.deletionEvidence ? (
-              <EvidenceGrid>
-                <EvidenceRow
-                  label="Receipt"
-                  value={receiptLabel(document.deletionEvidence.receiptStatus)}
-                />
-                <EvidenceRow
-                  label="Receipt sent"
-                  value={
-                    document.deletionEvidence.receiptSentAt
-                      ? formatDateTime(document.deletionEvidence.receiptSentAt)
-                      : 'Not sent'
-                  }
-                />
-                <EvidenceRow
-                  label="Receipt error"
-                  value={document.deletionEvidence.receiptErrorCode ?? 'No error recorded'}
-                />
-                <EvidenceRow
-                  label="Deletion audited"
-                  value={
-                    document.deletionEvidence.deletionAuditedAt
-                      ? formatDateTime(document.deletionEvidence.deletionAuditedAt)
-                      : 'Not audited'
-                  }
-                />
-              </EvidenceGrid>
-            ) : (
-              <p className="text-sm text-foreground/60">
-                No deletion receipt is attached to this document yet.
-              </p>
-            )}
+          <EvidenceSection title="Document evidence">
+            <DocumentEvidence document={document} />
           </EvidenceSection>
 
           <EvidenceSection title="Review position">
@@ -236,7 +163,12 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
                 label="Reconciliation"
                 value={reconciliationLabel(primaryStatement?.reconciles ?? null)}
               />
+              <EvidenceRow label="Export state" value={exportReadiness.label} />
             </dl>
+          </EvidenceSection>
+
+          <EvidenceSection title="Deletion evidence">
+            <DeletionEvidencePanel document={document} />
           </EvidenceSection>
         </aside>
       </div>
@@ -440,13 +372,46 @@ function EvidenceRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function PendingStatementEvidence({
+function StatementSummary({
   document,
+  statement,
   processingAudit,
 }: {
   document: HistoryDocumentView
+  statement: StatementEvidenceView | null
   processingAudit: AuditEventEvidenceView | undefined
 }) {
+  if (statement) {
+    return (
+      <EvidenceGrid>
+        <EvidenceRow label="Bank" value={statement.bankName ?? 'Unknown bank'} />
+        <EvidenceRow
+          label="Account"
+          value={statement.accountLast4 ? `•••• ${statement.accountLast4}` : 'Unknown'}
+        />
+        <EvidenceRow label="Period start" value={formatDate(statement.periodStart)} />
+        <EvidenceRow label="Period end" value={formatDate(statement.periodEnd)} />
+        <EvidenceRow label="Opening balance" value={formatMoney(statement.openingBalance)} />
+        <EvidenceRow label="Closing balance" value={formatMoney(statement.closingBalance)} />
+        <EvidenceRow label="Reported total" value={formatMoney(statement.reportedTotal)} />
+        <EvidenceRow label="Computed total" value={formatMoney(statement.computedTotal)} />
+        <EvidenceRow
+          label="Transactions"
+          value={formatCount(statement.transactionCount, 'transaction')}
+        />
+        <EvidenceRow label="Reconciliation" value={reconciliationLabel(statement.reconciles)} />
+      </EvidenceGrid>
+    )
+  }
+
+  if (document.state !== 'processing') {
+    return (
+      <p className="text-sm text-foreground/60">
+        Statement extraction has not produced review data for this document.
+      </p>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -507,26 +472,343 @@ function QueueEvidenceLine({ label, value }: { label: string; value: string }) {
   )
 }
 
-function StatementEvidence({ statement }: { statement: StatementEvidenceView }) {
+type ReviewTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
+
+type RecoveryKind =
+  | 'upload_failed'
+  | 's3_verification_failed'
+  | 'ocr_start_failed'
+  | 'ocr_processing_failed'
+  | 'extraction_incomplete'
+  | 'reconciliation_mismatch'
+
+type ReviewEvidence = {
+  label: string
+  value: string
+}
+
+type RecoveryCardData = {
+  kind: RecoveryKind
+  title: string
+  cause: string
+  evidence: ReviewEvidence[]
+  nextAction: string
+  tone: ReviewTone
+}
+
+type ReviewException = {
+  id: string
+  title: string
+  cause: string
+  evidence: string
+  nextAction: string
+  tone: ReviewTone
+}
+
+type ExportReadiness = {
+  label: string
+  tone: ReviewTone
+  cause: string
+  nextAction: string
+  evidence: ReviewEvidence[]
+}
+
+function FailureRecoveryStack({ cards }: { cards: RecoveryCardData[] }) {
+  return (
+    <section className="space-y-3" aria-label="Failure recovery">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
+          Recovery needed
+        </p>
+        <h2 className="mt-1 text-base font-semibold">Failure recovery</h2>
+      </div>
+      {cards.map((card) => (
+        <div
+          key={card.kind}
+          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">{card.title}</h3>
+              <p className="mt-1 text-sm leading-6 text-foreground/70">Cause: {card.cause}</p>
+            </div>
+            <ReviewToneBadge tone={card.tone}>{recoveryKindLabel(card.kind)}</ReviewToneBadge>
+          </div>
+
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            {card.evidence.map((item) => (
+              <div key={`${card.kind}:${item.label}:${item.value}`}>
+                <dt className="text-foreground/50">{item.label}</dt>
+                <dd className="mt-0.5 break-all font-medium">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <p className="mt-3 text-sm leading-6 text-foreground/75">
+            <span className="font-medium text-foreground">Next action:</span> {card.nextAction}
+          </p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function TransactionTable({ statement }: { statement: StatementEvidenceView | null }) {
+  if (!statement) {
+    return (
+      <p className="text-sm text-foreground/60">
+        Transaction rows will appear after OCR produces a statement record.
+      </p>
+    )
+  }
+
+  if (statement.transactions.length === 0) {
+    return (
+      <p className="text-sm text-foreground/60">
+        No transaction rows were extracted. Treat this statement as incomplete until the source PDF
+        is checked.
+      </p>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[76rem] text-left text-sm">
+        <thead className="border-y border-[var(--border-subtle)] text-xs uppercase tracking-[0.08em] text-foreground/45">
+          <tr>
+            <th className="py-2 pr-4 font-semibold">Date</th>
+            <th className="py-2 pr-4 font-semibold">Description</th>
+            <th className="py-2 pr-4 text-right font-semibold">Debit</th>
+            <th className="py-2 pr-4 text-right font-semibold">Credit</th>
+            <th className="py-2 pr-4 text-right font-semibold">Amount</th>
+            <th className="py-2 pr-4 text-right font-semibold">Balance</th>
+            <th className="py-2 pr-4 font-semibold">Evidence</th>
+            <th className="py-2 font-semibold">Review</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border-subtle)]">
+          {statement.transactions.map((transaction, index) => (
+            <tr
+              key={`${transaction.id}:${index}`}
+              className={
+                transaction.needsReview
+                  ? 'bg-[color-mix(in_oklch,var(--warning)_7%,transparent)]'
+                  : ''
+              }
+            >
+              <td className="py-3 pr-4 align-top font-medium">
+                {transaction.postedAt ? formatDate(transaction.postedAt) : 'Missing'}
+              </td>
+              <td className="max-w-80 py-3 pr-4 align-top">
+                <p className="font-medium">{transaction.description}</p>
+                <p className="mt-1 text-xs text-foreground/50">Row {index + 1}</p>
+              </td>
+              <td className="py-3 pr-4 text-right align-top">{formatMoney(transaction.debit)}</td>
+              <td className="py-3 pr-4 text-right align-top">{formatMoney(transaction.credit)}</td>
+              <td className="py-3 pr-4 text-right align-top">{formatMoney(transaction.amount)}</td>
+              <td className="py-3 pr-4 text-right align-top">{formatMoney(transaction.balance)}</td>
+              <td className="py-3 pr-4 align-top">
+                <p className="break-all font-mono text-xs">
+                  {transaction.source ?? transaction.id}
+                </p>
+                <p className="mt-1 text-xs text-foreground/50">
+                  Confidence {formatConfidence(transaction.confidence)}
+                </p>
+              </td>
+              <td className="py-3 align-top">
+                <ReviewToneBadge tone={transaction.needsReview ? 'warning' : 'success'}>
+                  {transactionReviewLabel(transaction)}
+                </ReviewToneBadge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ExceptionsPanel({
+  exceptions,
+  statement,
+}: {
+  exceptions: ReviewException[]
+  statement: StatementEvidenceView | null
+}) {
+  if (!statement) {
+    return (
+      <p className="text-sm text-foreground/60">
+        No extracted statement exists yet, so exception review is waiting on OCR output.
+      </p>
+    )
+  }
+
+  if (exceptions.length === 0) {
+    return (
+      <div className="rounded-md border border-[var(--border-subtle)] bg-[color-mix(in_oklch,var(--success)_7%,transparent)] p-3 text-sm">
+        <p className="font-medium text-[var(--success)]">No exceptions flagged</p>
+        <p className="mt-1 text-foreground/70">
+          Required statement fields are present, extracted rows have review evidence, and
+          reconciliation is not blocking export.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <ol className="divide-y divide-[var(--border-subtle)]">
+      {exceptions.map((exception) => (
+        <li key={exception.id} className="py-3 first:pt-0 last:pb-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-medium">{exception.title}</p>
+              <p className="mt-1 text-sm leading-6 text-foreground/65">Cause: {exception.cause}</p>
+            </div>
+            <ReviewToneBadge tone={exception.tone}>Needs review</ReviewToneBadge>
+          </div>
+          <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-[1fr_2fr]">
+            <EvidenceRow label="Evidence" value={exception.evidence} />
+            <EvidenceRow label="Next action" value={exception.nextAction} />
+          </dl>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function ReconciliationResult({ statement }: { statement: StatementEvidenceView | null }) {
+  if (!statement) {
+    return (
+      <p className="text-sm text-foreground/60">
+        Reconciliation will run after statement totals and transactions are available.
+      </p>
+    )
+  }
+
+  const delta = reconciliationDelta(statement)
+  const tone =
+    statement.reconciles === true
+      ? 'success'
+      : statement.reconciles === false
+        ? 'danger'
+        : 'warning'
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold">{reconciliationLabel(statement.reconciles)}</p>
+          <p className="mt-1 text-sm leading-6 text-foreground/65">
+            Reported total is compared with the computed total from extracted rows.
+          </p>
+        </div>
+        <ReviewToneBadge tone={tone}>{reconciliationLabel(statement.reconciles)}</ReviewToneBadge>
+      </div>
+      <EvidenceGrid>
+        <EvidenceRow label="Reported total" value={formatMoney(statement.reportedTotal)} />
+        <EvidenceRow label="Computed total" value={formatMoney(statement.computedTotal)} />
+        <EvidenceRow label="Delta" value={formatMoney(delta)} />
+        <EvidenceRow label="Statement ID" value={statement.id} />
+      </EvidenceGrid>
+      {statement.reconciles === false && (
+        <p className="text-sm leading-6 text-[var(--danger)]">
+          Next action: compare the source PDF against rows marked for review, then resolve missing
+          or duplicate transactions before export.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ExportReadinessPanel({ readiness }: { readiness: ExportReadiness }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold">{readiness.label}</p>
+          <p className="mt-1 text-sm leading-6 text-foreground/65">Cause: {readiness.cause}</p>
+        </div>
+        <ReviewToneBadge tone={readiness.tone}>{readiness.label}</ReviewToneBadge>
+      </div>
+      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        {readiness.evidence.map((item) => (
+          <div key={`${item.label}:${item.value}`}>
+            <dt className="text-foreground/50">{item.label}</dt>
+            <dd className="mt-0.5 break-all font-medium">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-sm leading-6 text-foreground/75">
+        <span className="font-medium text-foreground">Next action:</span> {readiness.nextAction}
+      </p>
+    </div>
+  )
+}
+
+function DocumentEvidence({ document }: { document: HistoryDocumentView }) {
   return (
     <EvidenceGrid>
-      <EvidenceRow label="Bank" value={statement.bankName ?? 'Unknown bank'} />
-      <EvidenceRow
-        label="Account"
-        value={statement.accountLast4 ? `•••• ${statement.accountLast4}` : 'Unknown'}
-      />
-      <EvidenceRow label="Period start" value={formatDate(statement.periodStart)} />
-      <EvidenceRow label="Period end" value={formatDate(statement.periodEnd)} />
-      <EvidenceRow label="Opening balance" value={formatMoney(statement.openingBalance)} />
-      <EvidenceRow label="Closing balance" value={formatMoney(statement.closingBalance)} />
-      <EvidenceRow label="Reported total" value={formatMoney(statement.reportedTotal)} />
-      <EvidenceRow label="Computed total" value={formatMoney(statement.computedTotal)} />
-      <EvidenceRow
-        label="Transactions"
-        value={formatCount(statement.transactionCount, 'transaction')}
-      />
-      <EvidenceRow label="Reconciliation" value={reconciliationLabel(statement.reconciles)} />
+      <EvidenceRow label="Document ID" value={document.id} />
+      <EvidenceRow label="Uploaded" value={formatDateTime(document.createdAt)} />
+      <EvidenceRow label="Expires" value={formatDateTime(document.expiresAt)} />
+      <EvidenceRow label="Size" value={formatBytes(document.sizeBytes)} />
+      <EvidenceRow label="Pages" value={document.pages?.toString() ?? 'Not counted'} />
+      <EvidenceRow label="Content type" value={document.contentType} />
+      <EvidenceRow label="S3 bucket" value={document.s3Bucket} />
+      <EvidenceRow label="S3 key" value={document.s3Key} />
+      <EvidenceRow label="Textract job ID" value={document.textractJobId ?? 'Not assigned'} />
+      <EvidenceRow label="Failure reason" value={document.failureReason ?? 'No failure recorded'} />
     </EvidenceGrid>
+  )
+}
+
+function DeletionEvidencePanel({ document }: { document: HistoryDocumentView }) {
+  if (!document.deletionEvidence) {
+    return (
+      <p className="text-sm text-foreground/60">
+        No deletion receipt is attached to this document yet.
+      </p>
+    )
+  }
+
+  return (
+    <EvidenceGrid>
+      <EvidenceRow label="Receipt" value={receiptLabel(document.deletionEvidence.receiptStatus)} />
+      <EvidenceRow
+        label="Receipt sent"
+        value={
+          document.deletionEvidence.receiptSentAt
+            ? formatDateTime(document.deletionEvidence.receiptSentAt)
+            : 'Not sent'
+        }
+      />
+      <EvidenceRow
+        label="Receipt error"
+        value={document.deletionEvidence.receiptErrorCode ?? 'No error recorded'}
+      />
+      <EvidenceRow
+        label="Deletion audited"
+        value={
+          document.deletionEvidence.deletionAuditedAt
+            ? formatDateTime(document.deletionEvidence.deletionAuditedAt)
+            : 'Not audited'
+        }
+      />
+    </EvidenceGrid>
+  )
+}
+
+function AuditTrail({ events }: { events: AuditEventEvidenceView[] }) {
+  if (events.length === 0) {
+    return <p className="text-sm text-foreground/60">No audit events are attached yet.</p>
+  }
+
+  return (
+    <ol className="divide-y divide-[var(--border-subtle)]">
+      {events.map((event) => (
+        <AuditEventItem key={event.id} event={event} />
+      ))}
+    </ol>
   )
 }
 
@@ -544,6 +826,335 @@ function AuditEventItem({ event }: { event: AuditEventEvidenceView }) {
       </dl>
     </li>
   )
+}
+
+function reviewExceptionsFor(statement: StatementEvidenceView | null): ReviewException[] {
+  if (!statement) return []
+
+  const exceptions: ReviewException[] = [...statementExtractionExceptions(statement)]
+
+  statement.transactions.forEach((transaction, index) => {
+    if (!transaction.needsReview) return
+    exceptions.push({
+      id: `transaction:${transaction.id}`,
+      title: `Transaction row ${index + 1}`,
+      cause: transaction.reviewReason ?? 'Transaction row was flagged for review.',
+      evidence: transaction.source ?? transaction.id,
+      nextAction:
+        'Compare this row with the source PDF, then correct the extracted row before export.',
+      tone: 'warning',
+    })
+  })
+
+  if (statement.reconciles === false) {
+    exceptions.push({
+      id: 'reconciliation:mismatch',
+      title: 'Reconciliation mismatch',
+      cause: 'Reported statement total does not match the computed total from extracted rows.',
+      evidence: `Statement ${statement.id}`,
+      nextAction:
+        'Find missing, duplicated, or sign-flipped transactions before marking export ready.',
+      tone: 'danger',
+    })
+  } else if (statement.reconciles === null) {
+    exceptions.push({
+      id: 'reconciliation:not-checked',
+      title: 'Reconciliation not checked',
+      cause: 'PRIZM has not recorded a reconciliation result for this statement.',
+      evidence: `Statement ${statement.id}`,
+      nextAction: 'Run reconciliation before marking the statement export ready.',
+      tone: 'warning',
+    })
+  }
+
+  return exceptions
+}
+
+function statementExtractionExceptions(statement: StatementEvidenceView): ReviewException[] {
+  const exceptions: ReviewException[] = []
+  const missing: string[] = []
+
+  if (!statement.bankName) missing.push('bank name')
+  if (!statement.accountLast4) missing.push('account last 4')
+  if (!statement.periodStart || !statement.periodEnd) missing.push('statement period')
+  if (statement.openingBalance === null) missing.push('opening balance')
+  if (statement.closingBalance === null) missing.push('closing balance')
+  if (statement.transactionCount === 0) missing.push('transaction rows')
+
+  if (missing.length > 0) {
+    exceptions.push({
+      id: 'extraction:statement-fields',
+      title: 'Extraction incomplete',
+      cause: `OCR output is missing ${missing.join(', ')}.`,
+      evidence: `Statement ${statement.id}`,
+      nextAction: 'Use the source PDF to fill missing statement evidence before export.',
+      tone: 'warning',
+    })
+  }
+
+  return exceptions
+}
+
+function recoveryCardsFor(
+  document: HistoryDocumentView,
+  statement: StatementEvidenceView | null,
+  exceptions: ReviewException[],
+): RecoveryCardData[] {
+  const cards: RecoveryCardData[] = []
+
+  if (document.state === 'failed') {
+    cards.push(failedRecoveryCard(document))
+  }
+
+  const extractionIncomplete =
+    document.state === 'ready' &&
+    (!statement || exceptions.some((exception) => exception.id.startsWith('extraction:')))
+  if (extractionIncomplete) {
+    cards.push({
+      kind: 'extraction_incomplete',
+      title: 'Extraction incomplete',
+      cause: statement
+        ? 'Required statement fields or transaction evidence are missing from OCR output.'
+        : 'The document is ready, but no statement record is attached.',
+      evidence: [
+        { label: 'Document ID', value: document.id },
+        statement ? { label: 'Statement ID', value: statement.id } : null,
+        document.textractJobId ? { label: 'Textract job ID', value: document.textractJobId } : null,
+      ].filter((item): item is ReviewEvidence => item !== null),
+      nextAction:
+        'Check the source PDF and resolve missing statement fields or rows before export.',
+      tone: 'warning',
+    })
+  }
+
+  if (statement?.reconciles === false) {
+    cards.push({
+      kind: 'reconciliation_mismatch',
+      title: 'Reconciliation mismatch',
+      cause: 'Reported and computed totals do not match for this statement.',
+      evidence: [
+        { label: 'Statement ID', value: statement.id },
+        { label: 'Reported total', value: formatMoney(statement.reportedTotal) },
+        { label: 'Computed total', value: formatMoney(statement.computedTotal) },
+        { label: 'Delta', value: formatMoney(reconciliationDelta(statement)) },
+      ],
+      nextAction:
+        'Compare extracted rows against the source PDF, then resolve missing, duplicate, or sign-flipped transactions.',
+      tone: 'danger',
+    })
+  }
+
+  return cards
+}
+
+function failedRecoveryCard(document: HistoryDocumentView): RecoveryCardData {
+  const kind = recoveryKindFromDocument(document)
+  const failureAudit =
+    findAuditEvent(document.auditEvents, 'document.processing_failed') ??
+    findAuditEvent(document.auditEvents, 'document.failed') ??
+    document.auditEvents[0]
+
+  return {
+    kind,
+    title: recoveryTitle(kind),
+    cause: document.failureReason ?? recoveryFallbackCause(kind),
+    evidence: [
+      { label: 'Document ID', value: document.id },
+      document.textractJobId ? { label: 'Textract job ID', value: document.textractJobId } : null,
+      failureAudit?.id ? { label: 'Audit event ID', value: failureAudit.id } : null,
+      failureAudit?.requestId ? { label: 'Request ID', value: failureAudit.requestId } : null,
+      failureAudit?.traceId ? { label: 'Trace ID', value: failureAudit.traceId } : null,
+    ].filter((item): item is ReviewEvidence => item !== null),
+    nextAction: recoveryNextAction(kind),
+    tone: 'danger',
+  }
+}
+
+function recoveryKindFromDocument(document: HistoryDocumentView): RecoveryKind {
+  const reason = document.failureReason?.toLowerCase() ?? ''
+
+  if (reason.includes('s3') || reason.includes('metadata') || reason.includes('object')) {
+    return 's3_verification_failed'
+  }
+  if (reason.includes('could not be started') || reason.includes('start')) {
+    return 'ocr_start_failed'
+  }
+  if (reason.includes('ocr') || reason.includes('textract') || reason.includes('processing')) {
+    return 'ocr_processing_failed'
+  }
+  if (reason.includes('upload')) {
+    return 'upload_failed'
+  }
+  return document.textractJobId ? 'ocr_processing_failed' : 'upload_failed'
+}
+
+function recoveryTitle(kind: RecoveryKind): string {
+  switch (kind) {
+    case 'upload_failed':
+      return 'Upload failed'
+    case 's3_verification_failed':
+      return 'S3 verification failed'
+    case 'ocr_start_failed':
+      return 'OCR start failed'
+    case 'ocr_processing_failed':
+      return 'OCR processing failed'
+    case 'extraction_incomplete':
+      return 'Extraction incomplete'
+    case 'reconciliation_mismatch':
+      return 'Reconciliation mismatch'
+  }
+}
+
+function recoveryFallbackCause(kind: RecoveryKind): string {
+  switch (kind) {
+    case 'upload_failed':
+      return 'The document did not complete the upload intake flow.'
+    case 's3_verification_failed':
+      return 'PRIZM could not verify that the S3 object matched the document record.'
+    case 'ocr_start_failed':
+      return 'The file reached storage, but OCR analysis did not start.'
+    case 'ocr_processing_failed':
+      return 'OCR started, but processing did not produce usable statement output.'
+    case 'extraction_incomplete':
+      return 'OCR output is missing required statement or transaction evidence.'
+    case 'reconciliation_mismatch':
+      return 'Reported and computed totals do not match.'
+  }
+}
+
+function recoveryNextAction(kind: RecoveryKind): string {
+  switch (kind) {
+    case 'upload_failed':
+      return 'Upload the original PDF again. If it repeats, export a fresh PDF from the bank portal.'
+    case 's3_verification_failed':
+      return 'Upload the original PDF again so PRIZM can create a new verified storage object.'
+    case 'ocr_start_failed':
+      return 'Keep the document ID, then upload again or retry OCR when a retry action is available.'
+    case 'ocr_processing_failed':
+      return 'Confirm the PDF is readable, then reprocess or upload a cleaner statement file.'
+    case 'extraction_incomplete':
+      return 'Resolve missing fields and rows against the source PDF before export.'
+    case 'reconciliation_mismatch':
+      return 'Resolve missing, duplicate, or sign-flipped transactions before export.'
+  }
+}
+
+function exportReadinessFor(
+  document: HistoryDocumentView,
+  statement: StatementEvidenceView | null,
+  exceptions: ReviewException[],
+): ExportReadiness {
+  if (document.state === 'failed') {
+    return {
+      label: 'Export blocked',
+      tone: 'danger',
+      cause: 'Document recovery is required before ledger output can be trusted.',
+      evidence: [{ label: 'Document ID', value: document.id }],
+      nextAction: 'Resolve the failure recovery item above before export.',
+    }
+  }
+
+  if (document.state === 'expired' || document.deletedAt) {
+    return {
+      label: 'Export blocked',
+      tone: 'warning',
+      cause: 'The document is outside the active retention window.',
+      evidence: [{ label: 'Retention', value: formatDateTime(document.expiresAt) }],
+      nextAction: 'Upload the statement again if the firm still needs export output.',
+    }
+  }
+
+  if (!statement) {
+    return {
+      label: 'Export waiting',
+      tone: 'info',
+      cause: 'OCR has not produced statement rows yet.',
+      evidence: [
+        { label: 'Document state', value: documentStateLabel(document.state) },
+        { label: 'Textract job ID', value: document.textractJobId ?? 'Not assigned' },
+      ],
+      nextAction: 'Wait for OCR to finish, then review exceptions before export.',
+    }
+  }
+
+  if (exceptions.length > 0 || statement.reconciles !== true) {
+    return {
+      label: 'Export blocked',
+      tone: exceptions.some((exception) => exception.tone === 'danger') ? 'danger' : 'warning',
+      cause: `${formatCount(exceptions.length, 'exception')} must be resolved before export.`,
+      evidence: [
+        { label: 'Statement ID', value: statement.id },
+        { label: 'Rows', value: formatCount(statement.transactionCount, 'transaction') },
+        { label: 'Reconciliation', value: reconciliationLabel(statement.reconciles) },
+      ],
+      nextAction: 'Resolve exceptions and reconciliation before exporting ledger-ready output.',
+    }
+  }
+
+  return {
+    label: 'Ready to export',
+    tone: 'success',
+    cause: 'Statement fields are present, rows are clear, and reconciliation passes.',
+    evidence: [
+      { label: 'Statement ID', value: statement.id },
+      { label: 'Rows', value: formatCount(statement.transactionCount, 'transaction') },
+      { label: 'Retention', value: formatDateTime(statement.expiresAt) },
+    ],
+    nextAction: 'Export ledger-ready output from this reviewed statement when export is enabled.',
+  }
+}
+
+function ReviewToneBadge({ tone, children }: { tone: ReviewTone; children: React.ReactNode }) {
+  return (
+    <span
+      className={`inline-flex min-h-7 w-fit items-center rounded-full px-2.5 text-xs font-semibold ${reviewToneClass(
+        tone,
+      )}`}
+    >
+      {children}
+    </span>
+  )
+}
+
+function reviewToneClass(tone: ReviewTone): string {
+  switch (tone) {
+    case 'success':
+      return 'bg-[color-mix(in_oklch,var(--success)_16%,transparent)] text-[var(--success)]'
+    case 'warning':
+      return 'bg-[color-mix(in_oklch,var(--warning)_18%,transparent)] text-[var(--warning)]'
+    case 'danger':
+      return 'bg-[color-mix(in_oklch,var(--danger)_16%,transparent)] text-[var(--danger)]'
+    case 'info':
+      return 'bg-[color-mix(in_oklch,var(--info)_16%,transparent)] text-[var(--info)]'
+    case 'neutral':
+      return 'bg-[var(--surface-strong)] text-foreground/70'
+  }
+}
+
+function recoveryKindLabel(kind: RecoveryKind): string {
+  return recoveryTitle(kind)
+}
+
+function transactionReviewLabel(transaction: StatementTransactionView): string {
+  return transaction.needsReview ? 'Review' : 'Clear'
+}
+
+function formatConfidence(value: number | null): string {
+  if (value === null) return 'Not recorded'
+  return `${Math.round(value * 100)}%`
+}
+
+function reconciliationDelta(statement: StatementEvidenceView): number | null {
+  const reported = numericMoney(statement.reportedTotal)
+  const computed = numericMoney(statement.computedTotal)
+  if (reported === null || computed === null) return null
+  return computed - reported
+}
+
+function numericMoney(value: number | string | null): number | null {
+  if (value === null) return null
+  const numeric = typeof value === 'string' ? Number(value) : value
+  return Number.isFinite(numeric) ? numeric : null
 }
 
 function historyQueueFilterHref(filter: HistoryQueueFilter): string {
@@ -600,10 +1211,6 @@ function findAuditEvent(
   eventType: string,
 ): AuditEventEvidenceView | undefined {
   return events.find((event) => event.eventType === eventType)
-}
-
-function auditEventReceipt(event: AuditEventEvidenceView | undefined): string {
-  return event ? `${event.eventType} at ${formatDateTime(event.createdAt)}` : 'Missing'
 }
 
 function historyRowClass(state: DocumentState): string {

@@ -88,19 +88,71 @@ describe('DocumentReview', () => {
   it('shows processing evidence with the Textract job id while OCR is running', () => {
     render(<DocumentReview document={processingDocument()} />)
 
-    expect(screen.getByRole('heading', { name: 'Processing evidence' })).toBeInTheDocument()
-    expect(screen.getAllByText('Textract job ID').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByRole('heading', { name: 'Statement summary' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Transaction table' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Export readiness' })).toBeInTheDocument()
+    expect(screen.getAllByText('Textract job ID').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('textract_job_123').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('Trace ID').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('0123456789abcdef0123456789abcdef').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('Upload-completed audit event')).toBeInTheDocument()
-    expect(screen.getByText(/document\.upload_completed at/)).toBeInTheDocument()
-    expect(screen.getByText('Processing-started audit event')).toBeInTheDocument()
-    expect(screen.getByText(/document\.processing_started at/)).toBeInTheDocument()
-    expect(screen.getAllByText('Elapsed time')).toHaveLength(2)
-    expect(screen.getAllByText('Retention deadline')).toHaveLength(2)
-    expect(screen.getByText('Statement pending OCR')).toBeInTheDocument()
+    expect(screen.getByText('document.upload_completed')).toBeInTheDocument()
     expect(screen.getByText('document.processing_started')).toBeInTheDocument()
+    expect(screen.getAllByText('Elapsed time')).toHaveLength(1)
+    expect(screen.getAllByText('Retention deadline')).toHaveLength(1)
+    expect(screen.getByText('Statement pending OCR')).toBeInTheDocument()
+    expect(screen.getAllByText('Export waiting').length).toBeGreaterThan(0)
+  })
+
+  it('renders the extracted statement review surface for dense accounting work', () => {
+    render(<DocumentReview document={historyDocument()} />)
+
+    expect(screen.getByRole('heading', { name: 'Statement summary' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Transaction table' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Exceptions' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Reconciliation result' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Export readiness' })).toBeInTheDocument()
+    expect(screen.getByText('ACH Payroll')).toBeInTheDocument()
+    expect(screen.getByText('Bank service fee')).toBeInTheDocument()
+    expect(screen.getByText('No exceptions flagged')).toBeInTheDocument()
+    expect(screen.getAllByText('Ready to export').length).toBeGreaterThan(0)
+  })
+
+  it('shows distinct recovery for S3 verification failure', () => {
+    render(<DocumentReview document={s3VerificationFailedDocument()} />)
+
+    expect(screen.getByRole('heading', { name: 'Failure recovery' })).toBeInTheDocument()
+    expect(screen.getAllByText('S3 verification failed').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/S3 object metadata did not match the pending upload record/).length,
+    ).toBeGreaterThan(0)
+    expect(screen.getAllByText('req_failed').length).toBeGreaterThan(0)
+    expect(screen.getByText(/Upload the original PDF again/)).toBeInTheDocument()
+  })
+
+  it('shows distinct recovery for OCR start and OCR processing failures', () => {
+    const { rerender } = render(<DocumentReview document={failedDocument()} />)
+
+    expect(screen.getAllByText('OCR start failed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Textract analysis could not be started/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('trace_failed').length).toBeGreaterThan(0)
+
+    rerender(<DocumentReview document={ocrProcessingFailedDocument()} />)
+
+    expect(screen.getAllByText('OCR processing failed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Textract job failed during OCR processing/).length).toBeGreaterThan(
+      0,
+    )
+    expect(screen.getAllByText('textract_failed_123').length).toBeGreaterThan(0)
+  })
+
+  it('shows extraction incomplete and reconciliation mismatch recovery before export', () => {
+    render(<DocumentReview document={incompleteMismatchDocument()} />)
+
+    expect(screen.getAllByText('Extraction incomplete').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Reconciliation mismatch').length).toBeGreaterThan(0)
+    expect(screen.getByText(/missing account last 4, statement period/)).toBeInTheDocument()
+    expect(screen.getByText('Transaction row 1')).toBeInTheDocument()
+    expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
   })
 })
 
@@ -148,10 +200,38 @@ function historyDocument(): HistoryDocumentView {
         periodEnd: '2026-04-30',
         openingBalance: 1000,
         closingBalance: 1250,
-        reportedTotal: 250,
-        computedTotal: 250,
+        reportedTotal: 2490,
+        computedTotal: 2490,
         reconciles: true,
-        transactionCount: 12,
+        transactionCount: 2,
+        transactions: [
+          {
+            id: 'txn_payroll',
+            postedAt: '2026-04-03',
+            description: 'ACH Payroll',
+            amount: 2500,
+            debit: null,
+            credit: 2500,
+            balance: 3500,
+            confidence: 0.99,
+            source: 'page_1_row_4',
+            needsReview: false,
+            reviewReason: null,
+          },
+          {
+            id: 'txn_fee',
+            postedAt: '2026-04-05',
+            description: 'Bank service fee',
+            amount: -10,
+            debit: 10,
+            credit: null,
+            balance: 3490,
+            confidence: 0.97,
+            source: 'page_1_row_5',
+            needsReview: false,
+            reviewReason: null,
+          },
+        ],
         createdAt: '2026-05-06T14:10:00.000Z',
         expiresAt: '2026-05-07T14:00:00.000Z',
         deletedAt: null,
@@ -213,11 +293,12 @@ function failedDocument(): HistoryDocumentView {
     filename: 'June Statement.pdf',
     state: 'failed',
     failureReason: 'Textract analysis could not be started for the verified upload.',
+    textractJobId: null,
     statements: [],
     auditEvents: [
       {
         id: 'audit_failed',
-        eventType: 'document.failed',
+        eventType: 'document.processing_failed',
         createdAt: '2026-05-06T14:06:00.000Z',
         actorUserId: 'user_123',
         requestId: 'req_failed',
@@ -225,6 +306,62 @@ function failedDocument(): HistoryDocumentView {
       },
     ],
     deletionEvidence: null,
+  }
+}
+
+function s3VerificationFailedDocument(): HistoryDocumentView {
+  return {
+    ...failedDocument(),
+    id: 'doc_s3_failed',
+    filename: 'S3 Failed Statement.pdf',
+    failureReason: 'S3 object metadata did not match the pending upload record: size_bytes.',
+    textractJobId: null,
+  }
+}
+
+function ocrProcessingFailedDocument(): HistoryDocumentView {
+  return {
+    ...failedDocument(),
+    id: 'doc_ocr_processing_failed',
+    filename: 'OCR Processing Failed.pdf',
+    failureReason: 'Textract job failed during OCR processing.',
+    textractJobId: 'textract_failed_123',
+  }
+}
+
+function incompleteMismatchDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_incomplete_mismatch',
+    filename: 'Mismatch Statement.pdf',
+    statements: [
+      {
+        ...historyDocument().statements[0]!,
+        id: 'statement_mismatch',
+        accountLast4: null,
+        periodStart: null,
+        periodEnd: null,
+        reportedTotal: 250,
+        computedTotal: 240,
+        reconciles: false,
+        transactions: [
+          {
+            id: 'txn_missing',
+            postedAt: null,
+            description: 'Description missing',
+            amount: null,
+            debit: null,
+            credit: null,
+            balance: null,
+            confidence: 0.62,
+            source: 'page_2_row_9',
+            needsReview: true,
+            reviewReason: 'Missing date, description, amount evidence.',
+          },
+        ],
+        transactionCount: 1,
+      },
+    ],
   }
 }
 

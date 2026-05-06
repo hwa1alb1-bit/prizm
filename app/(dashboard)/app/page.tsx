@@ -34,6 +34,33 @@ type CompleteResponse = {
   trace_id: string
 }
 
+type ProblemResponse = {
+  code?: string
+  title?: string
+  detail?: string
+  request_id?: string
+  trace_id?: string
+}
+
+type UploadRecoveryKind = 'upload_failed' | 's3_verification_failed' | 'ocr_start_failed'
+
+type RecoveryEvidence = {
+  label: string
+  value: string
+}
+
+type UploadRecovery = {
+  kind: UploadRecoveryKind
+  title: string
+  plainCause: string
+  evidence: RecoveryEvidence[]
+  nextAction: string
+}
+
+type UploadFlowError = Error & {
+  recovery: UploadRecovery
+}
+
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 
 const workflowSteps = [
@@ -66,7 +93,7 @@ export default function UploadPage() {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [state, setState] = useState<UploadState>('idle')
-  const [error, setError] = useState<string | null>(null)
+  const [recovery, setRecovery] = useState<UploadRecovery | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null)
   const [evidence, setEvidence] = useState<UploadEvidence | null>(null)
@@ -78,17 +105,29 @@ export default function UploadPage() {
 
       if (!isPdf) {
         setState('error')
-        setError('File needs to be a PDF. Choose a statement saved as .pdf.')
+        setRecovery(
+          localUploadRecovery(
+            'File type is not PDF.',
+            'Choose a bank statement exported as a PDF, then upload that file.',
+            file,
+          ),
+        )
         return
       }
 
       if (file.size > MAX_FILE_BYTES) {
         setState('error')
-        setError('File needs to be under 20 MB. Export a smaller PDF and try again.')
+        setRecovery(
+          localUploadRecovery(
+            'File is larger than the 20 MB upload limit.',
+            'Export a smaller PDF from the bank portal, then upload the smaller file.',
+            file,
+          ),
+        )
         return
       }
 
-      setError(null)
+      setRecovery(null)
       setEvidence(null)
       setState('presigning')
 
@@ -104,8 +143,18 @@ export default function UploadPage() {
         })
 
         if (!presignRes.ok) {
-          const body = await presignRes.json().catch(() => ({}))
-          throw new Error((body as { detail?: string }).detail ?? `Upload could not be prepared.`)
+          const problem = await readProblem(presignRes)
+          throw uploadFlowError(
+            recoveryFromProblem({
+              kind: 'upload_failed',
+              title: 'Upload setup failed',
+              problem,
+              fallbackCause: 'PRIZM could not create a secure upload URL for this PDF.',
+              fallbackEvidence: [{ label: 'File', value: file.name }],
+              nextAction:
+                'Keep the original PDF, refresh the upload console, and request a new upload URL.',
+            }),
+          )
         }
 
         const presign = (await presignRes.json()) as PresignResponse
@@ -118,7 +167,16 @@ export default function UploadPage() {
         })
 
         if (!uploadRes.ok) {
-          throw new Error('The file did not reach secure storage. No review data was created.')
+          throw uploadFlowError({
+            kind: 'upload_failed',
+            title: 'Upload failed',
+            plainCause: `The browser upload to secure storage returned HTTP ${uploadRes.status}. No OCR job was started.`,
+            evidence: uploadEvidenceIds(presign, [
+              { label: 'Storage response', value: String(uploadRes.status) },
+            ]),
+            nextAction:
+              'Upload the same PDF again. If the storage response repeats, export a fresh PDF from the bank portal before retrying.',
+          })
         }
 
         setState('completing')
@@ -127,11 +185,8 @@ export default function UploadPage() {
         })
 
         if (!completeRes.ok) {
-          const body = await completeRes.json().catch(() => ({}))
-          throw new Error(
-            (body as { detail?: string }).detail ??
-              'The upload reached secure storage, but OCR could not be started.',
-          )
+          const problem = await readProblem(completeRes)
+          throw uploadFlowError(recoveryFromCompletionProblem(problem, presign))
         }
 
         const complete = (await completeRes.json()) as CompleteResponse
@@ -151,7 +206,17 @@ export default function UploadPage() {
         router.push(`/app/history/${presign.documentId}`)
       } catch (err) {
         setState('error')
-        setError(err instanceof Error ? err.message : 'Upload failed. Try again.')
+        setRecovery(
+          isUploadFlowError(err)
+            ? err.recovery
+            : localUploadRecovery(
+                err instanceof Error
+                  ? err.message
+                  : 'PRIZM could not finish the upload flow before OCR started.',
+                'Upload the PDF again and use the request evidence shown here if the failure repeats.',
+                file,
+              ),
+        )
       }
     },
     [router],
@@ -172,7 +237,7 @@ export default function UploadPage() {
 
   function resetUpload() {
     setState('idle')
-    setError(null)
+    setRecovery(null)
     setSelectedFile(null)
     setEvidence(null)
     if (inputRef.current) inputRef.current.value = ''
@@ -274,7 +339,7 @@ export default function UploadPage() {
               />
 
               <div className="mt-5" aria-live="polite">
-                <UploadMessage state={state} error={error} evidence={evidence} />
+                <UploadMessage state={state} recovery={recovery} evidence={evidence} />
               </div>
             </div>
           </div>
@@ -319,11 +384,11 @@ function StatusPill({ state }: { state: UploadState }) {
 
 function UploadMessage({
   state,
-  error,
+  recovery,
   evidence,
 }: {
   state: UploadState
-  error: string | null
+  recovery: UploadRecovery | null
   evidence: UploadEvidence | null
 }) {
   if (state === 'presigning') {
@@ -355,11 +420,18 @@ function UploadMessage({
     )
   }
   if (state === 'error') {
-    return (
-      <div className="rounded-md border border-[var(--danger)]/40 bg-[var(--surface-muted)] p-3 text-sm">
-        <p className="font-medium text-[var(--danger)]">Upload needs attention</p>
-        <p className="mt-1 text-foreground/70">{error}</p>
-      </div>
+    return recovery ? (
+      <UploadRecoveryPanel recovery={recovery} />
+    ) : (
+      <UploadRecoveryPanel
+        recovery={{
+          kind: 'upload_failed',
+          title: 'Upload failed',
+          plainCause: 'The upload flow stopped before PRIZM received a verified document.',
+          evidence: [{ label: 'Evidence ID', value: 'client-upload-flow' }],
+          nextAction: 'Upload the PDF again and keep this screen open until OCR starts.',
+        }}
+      />
     )
   }
   return (
@@ -367,6 +439,157 @@ function UploadMessage({
       No file selected. Choose a PDF statement to create a pending document record.
     </p>
   )
+}
+
+function UploadRecoveryPanel({ recovery }: { recovery: UploadRecovery }) {
+  return (
+    <section className="rounded-md border border-[var(--danger)]/40 bg-[var(--surface-muted)] p-3 text-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-medium text-[var(--danger)]">{recovery.title}</p>
+          <p className="mt-1 text-foreground/70">Cause: {recovery.plainCause}</p>
+        </div>
+        <span className="inline-flex min-h-7 w-fit items-center rounded-full bg-[color-mix(in_oklch,var(--danger)_16%,transparent)] px-2.5 text-xs font-semibold text-[var(--danger)]">
+          {recoveryKindLabel(recovery.kind)}
+        </span>
+      </div>
+
+      <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+        {recovery.evidence.map((item) => (
+          <div key={`${item.label}:${item.value}`}>
+            <dt className="text-xs text-foreground/50">{item.label}</dt>
+            <dd className="mt-0.5 break-all font-medium text-foreground">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <p className="mt-3 text-foreground/75">
+        <span className="font-medium text-foreground">Next action:</span> {recovery.nextAction}
+      </p>
+    </section>
+  )
+}
+
+function recoveryKindLabel(kind: UploadRecoveryKind): string {
+  switch (kind) {
+    case 'upload_failed':
+      return 'Upload failed'
+    case 's3_verification_failed':
+      return 'S3 verification failed'
+    case 'ocr_start_failed':
+      return 'OCR start failed'
+  }
+}
+
+function localUploadRecovery(plainCause: string, nextAction: string, file: File): UploadRecovery {
+  return {
+    kind: 'upload_failed',
+    title: 'Upload failed',
+    plainCause,
+    evidence: [
+      { label: 'Evidence ID', value: 'local-upload-validation' },
+      { label: 'Filename', value: file.name },
+      { label: 'Size', value: formatBytes(file.size) },
+    ],
+    nextAction,
+  }
+}
+
+async function readProblem(response: Response): Promise<ProblemResponse> {
+  const body = (await response.json().catch(() => ({}))) as ProblemResponse
+  return {
+    code: typeof body.code === 'string' ? body.code : undefined,
+    title: typeof body.title === 'string' ? body.title : undefined,
+    detail: typeof body.detail === 'string' ? body.detail : undefined,
+    request_id: typeof body.request_id === 'string' ? body.request_id : undefined,
+    trace_id: typeof body.trace_id === 'string' ? body.trace_id : undefined,
+  }
+}
+
+function recoveryFromProblem({
+  kind,
+  title,
+  problem,
+  fallbackCause,
+  fallbackEvidence,
+  nextAction,
+}: {
+  kind: UploadRecoveryKind
+  title: string
+  problem: ProblemResponse
+  fallbackCause: string
+  fallbackEvidence: RecoveryEvidence[]
+  nextAction: string
+}): UploadRecovery {
+  return {
+    kind,
+    title,
+    plainCause: problem.detail ?? fallbackCause,
+    evidence: [...problemEvidence(problem), ...fallbackEvidence],
+    nextAction,
+  }
+}
+
+function recoveryFromCompletionProblem(
+  problem: ProblemResponse,
+  presign: PresignResponse,
+): UploadRecovery {
+  const evidence = uploadEvidenceIds(presign, problemEvidence(problem))
+
+  if (
+    problem.code === 'PRZM_DOCUMENT_UPLOAD_OBJECT_MISSING' ||
+    problem.code === 'PRZM_DOCUMENT_UPLOAD_METADATA_MISMATCH' ||
+    problem.code === 'PRZM_STORAGE_VERIFICATION_FAILED'
+  ) {
+    return {
+      kind: 's3_verification_failed',
+      title: 'S3 verification failed',
+      plainCause:
+        problem.detail ??
+        'PRIZM could not prove that the uploaded object matched the pending document record.',
+      evidence,
+      nextAction:
+        'Upload the original PDF again so PRIZM can create a new verified object before OCR starts.',
+    }
+  }
+
+  return {
+    kind: 'ocr_start_failed',
+    title: 'OCR start failed',
+    plainCause:
+      problem.detail ?? 'The PDF reached secure storage, but PRIZM could not start OCR analysis.',
+    evidence,
+    nextAction:
+      'Open the review record, keep the document ID, and upload again if no retry action is available.',
+  }
+}
+
+function uploadEvidenceIds(
+  presign: PresignResponse,
+  extra: RecoveryEvidence[] = [],
+): RecoveryEvidence[] {
+  return [
+    { label: 'Document ID', value: presign.documentId },
+    { label: 'Upload request ID', value: presign.request_id },
+    { label: 'Trace ID', value: presign.trace_id },
+    ...extra,
+  ]
+}
+
+function problemEvidence(problem: ProblemResponse): RecoveryEvidence[] {
+  return [
+    problem.code ? { label: 'Error code', value: problem.code } : null,
+    problem.request_id ? { label: 'Request ID', value: problem.request_id } : null,
+    problem.trace_id ? { label: 'Trace ID', value: problem.trace_id } : null,
+  ].filter((item): item is RecoveryEvidence => item !== null)
+}
+
+function uploadFlowError(recovery: UploadRecovery): UploadFlowError {
+  return Object.assign(new Error(recovery.plainCause), { recovery })
+}
+
+function isUploadFlowError(err: unknown): err is UploadFlowError {
+  return err instanceof Error && 'recovery' in err
 }
 
 function WorkflowPanel({
