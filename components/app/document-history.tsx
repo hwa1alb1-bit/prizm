@@ -63,14 +63,12 @@ export function DocumentHistoryList({
       ) : (
         <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[64rem] text-left text-sm">
+            <table className="w-full min-w-[58rem] text-left text-sm">
               <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-[0.08em] text-foreground/45">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Statement</th>
                   <th className="px-4 py-3 font-semibold">Queue state</th>
-                  <th className="px-4 py-3 font-semibold">Statement evidence</th>
-                  <th className="px-4 py-3 font-semibold">Audit event</th>
-                  <th className="px-4 py-3 font-semibold">Retention</th>
+                  <th className="px-4 py-3 font-semibold">Evidence timeline</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -92,6 +90,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
   const exceptions = reviewExceptionsFor(primaryStatement)
   const recoveryCards = recoveryCardsFor(document, primaryStatement, exceptions)
   const exportReadiness = exportReadinessFor(document, primaryStatement, exceptions)
+  const timeline = evidenceTimelineFor(document, primaryStatement, exportReadiness)
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -118,6 +117,10 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
         <div className="space-y-5">
           {recoveryCards.length > 0 && <FailureRecoveryStack cards={recoveryCards} />}
 
+          <EvidenceSection title="Evidence timeline">
+            <EvidenceTimeline steps={timeline} />
+          </EvidenceSection>
+
           <EvidenceSection title="Statement summary">
             <StatementSummary
               document={document}
@@ -127,7 +130,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
           </EvidenceSection>
 
           <EvidenceSection title="Transaction table">
-            <TransactionTable statement={primaryStatement} />
+            <TransactionTable document={document} statement={primaryStatement} />
           </EvidenceSection>
 
           <EvidenceSection title="Exceptions">
@@ -148,7 +151,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
         </div>
 
         <aside className="space-y-5">
-          <EvidenceSection title="Document evidence">
+          <EvidenceSection title="Document record">
             <DocumentEvidence document={document} />
           </EvidenceSection>
 
@@ -165,10 +168,6 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
               />
               <EvidenceRow label="Export state" value={exportReadiness.label} />
             </dl>
-          </EvidenceSection>
-
-          <EvidenceSection title="Deletion evidence">
-            <DeletionEvidencePanel document={document} />
           </EvidenceSection>
         </aside>
       </div>
@@ -263,13 +262,9 @@ function FilteredHistoryEmpty({ activeFilter }: { activeFilter: HistoryQueueFilt
 
 function HistoryRow({ document, now }: { document: HistoryDocumentView; now: Date }) {
   const statement = document.statements[0] ?? null
-  const uploadCompletedAudit = findAuditEvent(document.auditEvents, 'document.upload_completed')
-  const processingAudit = findAuditEvent(document.auditEvents, 'document.processing_started')
-  const audit =
-    document.state === 'processing'
-      ? (processingAudit ?? document.auditEvents[0])
-      : document.auditEvents[0]
-  const isProcessing = document.state === 'processing'
+  const exceptions = reviewExceptionsFor(statement)
+  const exportReadiness = exportReadinessFor(document, statement, exceptions)
+  const timeline = evidenceTimelineFor(document, statement, exportReadiness)
   const isExpiringSoon = documentIsExpiringSoon(document, now)
 
   return (
@@ -296,55 +291,12 @@ function HistoryRow({ document, now }: { document: HistoryDocumentView; now: Dat
           </p>
         )}
       </td>
-      <td className="px-4 py-4 align-top text-foreground/70">
-        {isProcessing ? (
-          <ProcessingRowEvidence
-            document={document}
-            processingAudit={processingAudit}
-            uploadCompletedAudit={uploadCompletedAudit}
-          />
-        ) : (
-          <>
-            <p className="font-medium text-foreground">
-              {statement?.bankName ?? 'Statement not extracted'}
-            </p>
-            <p className="mt-1 text-xs">
-              {statement
-                ? `${formatCount(statement.transactionCount, 'transaction')} · ${reconciliationLabel(
-                    statement.reconciles,
-                  )}`
-                : `${document.pages ?? 'No'} pages recorded`}
-            </p>
-          </>
-        )}
-      </td>
-      <td className="px-4 py-4 align-top text-foreground/70">
-        <p className="font-medium text-foreground">{audit?.eventType ?? 'No audit event'}</p>
-        <p className="mt-1 text-xs">
-          {audit?.traceId
-            ? `Trace ${audit.traceId}`
-            : audit
-              ? formatDateTime(audit.createdAt)
-              : 'Waiting'}
-        </p>
-      </td>
-      <td className="px-4 py-4 align-top text-foreground/70">
-        <p
-          className={`font-medium ${isExpiringSoon ? 'text-[var(--warning)]' : 'text-foreground'}`}
-        >
-          {document.deletionEvidence?.receiptStatus
-            ? receiptLabel(document.deletionEvidence.receiptStatus)
-            : isExpiringSoon
-              ? 'Expiring soon'
-              : `Expires ${formatDateTime(document.expiresAt)}`}
-        </p>
-        <p className="mt-1 text-xs">
-          {document.deletedAt
-            ? `Deleted ${formatDateTime(document.deletedAt)}`
-            : isExpiringSoon
-              ? formatTimeRemaining(document.expiresAt, now)
-              : 'Within 24-hour retention window'}
-        </p>
+      <td className="px-4 py-4 align-top">
+        <EvidenceTimeline
+          steps={timeline}
+          variant="compact"
+          ariaLabel={`Evidence timeline for ${document.filename}`}
+        />
       </td>
     </tr>
   )
@@ -368,6 +320,32 @@ function EvidenceRow({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-foreground/50">{label}</dt>
       <dd className="mt-0.5 break-words font-medium">{value}</dd>
+    </div>
+  )
+}
+
+function QuietStatusPanel({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
+      <p className="font-medium">{title}</p>
+      <p className="mt-1 leading-6 text-foreground/65">{detail}</p>
+    </div>
+  )
+}
+
+function QuietSkeletonRows({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {Array.from({ length: rows }, (_, index) => (
+        <div
+          key={index}
+          className="grid gap-2 rounded-md border border-[var(--border-subtle)] p-3 sm:grid-cols-[7rem_minmax(0,1fr)_5rem]"
+        >
+          <div className="h-3 rounded-full bg-[var(--surface-strong)]" />
+          <div className="h-3 rounded-full bg-[var(--surface-muted)]" />
+          <div className="h-3 rounded-full bg-[var(--surface-strong)]" />
+        </div>
+      ))}
     </div>
   )
 }
@@ -417,7 +395,8 @@ function StatementSummary({
       <div>
         <p className="text-sm font-semibold">Statement pending OCR</p>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/60">
-          This statement area is reserved for extracted rows. PRIZM is waiting on Textract job{' '}
+          PRIZM has proven the upload request, S3 object verification, and OCR start. It is waiting
+          on Textract job{' '}
           <span className="font-mono text-foreground">
             {document.textractJobId ?? 'not assigned'}
           </span>{' '}
@@ -433,43 +412,371 @@ function StatementSummary({
         />
         <EvidenceRow label="Retention deadline" value={formatDateTime(document.expiresAt)} />
       </EvidenceGrid>
+      <QuietSkeletonRows rows={3} />
     </div>
   )
 }
 
-function ProcessingRowEvidence({
-  document,
-  processingAudit,
-  uploadCompletedAudit,
+type EvidenceTimelineStepId =
+  | 'upload_requested'
+  | 's3_verified'
+  | 'ocr_started'
+  | 'ocr_completed'
+  | 'statement_extracted'
+  | 'export_generated'
+  | 'deletion_completed'
+
+type EvidenceTimelineStatus = 'complete' | 'active' | 'waiting' | 'blocked'
+
+type EvidenceTimelineStep = {
+  id: EvidenceTimelineStepId
+  label: string
+  status: EvidenceTimelineStatus
+  detail: string
+  timestamp: string | null
+  evidence: ReviewEvidence[]
+}
+
+type EvidenceTimelineVariant = 'full' | 'compact'
+
+function EvidenceTimeline({
+  steps,
+  variant = 'full',
+  ariaLabel = 'Evidence timeline',
 }: {
-  document: HistoryDocumentView
-  processingAudit: AuditEventEvidenceView | undefined
-  uploadCompletedAudit: AuditEventEvidenceView | undefined
+  steps: EvidenceTimelineStep[]
+  variant?: EvidenceTimelineVariant
+  ariaLabel?: string
 }) {
-  const traceId = processingAudit?.traceId ?? uploadCompletedAudit?.traceId ?? null
-
   return (
-    <div>
-      <p className="font-medium text-foreground">OCR processing</p>
-      <dl className="mt-2 grid gap-1.5 text-xs">
-        <QueueEvidenceLine label="Textract job ID" value={document.textractJobId ?? 'Waiting'} />
-        <QueueEvidenceLine label="Trace ID" value={traceId ?? 'Not recorded'} />
-        <QueueEvidenceLine
-          label="Started"
-          value={processingAudit ? formatDateTime(processingAudit.createdAt) : 'Audit pending'}
-        />
-      </dl>
-    </div>
+    <ol aria-label={ariaLabel} className={variant === 'compact' ? 'space-y-2' : 'grid gap-3'}>
+      {steps.map((step) => (
+        <EvidenceTimelineItem key={step.id} step={step} variant={variant} />
+      ))}
+    </ol>
   )
 }
 
-function QueueEvidenceLine({ label, value }: { label: string; value: string }) {
+function EvidenceTimelineItem({
+  step,
+  variant,
+}: {
+  step: EvidenceTimelineStep
+  variant: EvidenceTimelineVariant
+}) {
+  if (variant === 'compact') {
+    return (
+      <li className="grid grid-cols-[0.75rem_minmax(0,8.5rem)_minmax(0,1fr)] gap-2 text-xs">
+        <span
+          aria-hidden="true"
+          className={`mt-1 h-2.5 w-2.5 rounded-full ${timelineDotClass(step.status)}`}
+        />
+        <span className="font-medium text-foreground">{step.label}</span>
+        <span className="min-w-0 text-foreground/60">
+          <span className={`font-semibold ${timelineTextClass(step.status)}`}>
+            {timelineStatusLabel(step.status)}
+          </span>
+          {step.timestamp ? (
+            <span className="text-foreground/50"> at {formatDateTime(step.timestamp)}</span>
+          ) : (
+            <span className="text-foreground/50">: {step.detail}</span>
+          )}
+        </span>
+      </li>
+    )
+  }
+
   return (
-    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
-      <dt className="text-foreground/50">{label}</dt>
-      <dd className="break-words font-medium text-foreground">{value}</dd>
-    </div>
+    <li className="rounded-lg border border-[var(--border-subtle)] bg-background p-3">
+      <div className="grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-start">
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={`h-2.5 w-2.5 rounded-full ${timelineDotClass(step.status)}`}
+          />
+          <p className="text-sm font-semibold">{step.label}</p>
+        </div>
+        <p className="text-sm leading-6 text-foreground/70">{step.detail}</p>
+        <ReviewToneBadge tone={timelineStatusTone(step.status)}>
+          {timelineStatusLabel(step.status)}
+        </ReviewToneBadge>
+      </div>
+
+      {(step.timestamp || step.evidence.length > 0) && (
+        <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+          {step.timestamp && (
+            <EvidenceRow label="Recorded" value={formatDateTime(step.timestamp)} />
+          )}
+          {step.evidence.map((item) => (
+            <EvidenceRow key={`${step.id}:${item.label}:${item.value}`} {...item} />
+          ))}
+        </dl>
+      )}
+    </li>
   )
+}
+
+function evidenceTimelineFor(
+  document: HistoryDocumentView,
+  statement: StatementEvidenceView | null,
+  exportReadiness: ExportReadiness,
+): EvidenceTimelineStep[] {
+  const uploadRequestedAudit = findFirstAuditEvent(document.auditEvents, [
+    'document.upload_requested',
+  ])
+  const uploadCompletedAudit = findFirstAuditEvent(document.auditEvents, [
+    'document.upload_completed',
+  ])
+  const processingStartedAudit = findFirstAuditEvent(document.auditEvents, [
+    'document.processing_started',
+  ])
+  const ocrCompletedAudit = findFirstAuditEvent(document.auditEvents, [
+    'document.ocr_completed',
+    'document.processing_completed',
+    'document.ready',
+  ])
+  const exportGeneratedAudit = findFirstAuditEvent(document.auditEvents, [
+    'document.export_generated',
+    'statement.export_generated',
+    'export.generated',
+  ])
+  const deletionAudit = findFirstAuditEvent(document.auditEvents, ['document.deleted'])
+  const recoveryKind = document.state === 'failed' ? recoveryKindFromDocument(document) : null
+  const hasVerifiedS3 =
+    Boolean(uploadCompletedAudit) ||
+    Boolean(processingStartedAudit) ||
+    Boolean(document.textractJobId) ||
+    document.state === 'ready' ||
+    Boolean(statement)
+  const hasOcrStarted = Boolean(processingStartedAudit) || Boolean(document.textractJobId)
+  const hasOcrCompleted =
+    Boolean(ocrCompletedAudit) || document.state === 'ready' || Boolean(statement)
+  const deletionTimestamp =
+    document.deletedAt ??
+    deletionAudit?.createdAt ??
+    document.deletionEvidence?.deletionAuditedAt ??
+    document.deletionEvidence?.receiptSentAt ??
+    null
+
+  return [
+    {
+      id: 'upload_requested',
+      label: 'Upload requested',
+      status: 'complete',
+      detail: 'PRIZM created a pending document record for secure browser upload.',
+      timestamp: uploadRequestedAudit?.createdAt ?? document.createdAt,
+      evidence: [
+        { label: 'Document ID', value: document.id },
+        { label: 'Request', value: uploadRequestedAudit?.requestId ?? 'Not recorded' },
+      ],
+    },
+    {
+      id: 's3_verified',
+      label: 'S3 object verified',
+      status:
+        recoveryKind === 's3_verification_failed'
+          ? 'blocked'
+          : hasVerifiedS3
+            ? 'complete'
+            : document.state === 'pending'
+              ? 'active'
+              : 'waiting',
+      detail:
+        recoveryKind === 's3_verification_failed'
+          ? (document.failureReason ?? 'S3 object verification failed.')
+          : hasVerifiedS3
+            ? 'PRIZM verified the uploaded S3 object against the pending document record.'
+            : 'PRIZM is waiting for the browser upload to finish and for S3 metadata verification.',
+      timestamp: uploadCompletedAudit?.createdAt ?? null,
+      evidence: [
+        { label: 'Bucket', value: document.s3Bucket },
+        { label: 'S3 key', value: document.s3Key },
+      ],
+    },
+    {
+      id: 'ocr_started',
+      label: 'OCR started',
+      status:
+        recoveryKind === 'ocr_start_failed'
+          ? 'blocked'
+          : hasOcrStarted
+            ? 'complete'
+            : hasVerifiedS3
+              ? 'active'
+              : 'waiting',
+      detail:
+        recoveryKind === 'ocr_start_failed'
+          ? (document.failureReason ?? 'Textract could not start analysis for this document.')
+          : hasOcrStarted
+            ? `Textract job ${document.textractJobId ?? 'not recorded'} is attached to this document.`
+            : hasVerifiedS3
+              ? 'PRIZM has proven storage and is waiting to start OCR analysis.'
+              : 'OCR waits until the S3 object is verified.',
+      timestamp: processingStartedAudit?.createdAt ?? null,
+      evidence: [
+        { label: 'Textract job ID', value: document.textractJobId ?? 'Not assigned' },
+        { label: 'Trace ID', value: processingStartedAudit?.traceId ?? 'Not recorded' },
+      ],
+    },
+    {
+      id: 'ocr_completed',
+      label: 'OCR completed',
+      status:
+        recoveryKind === 'ocr_processing_failed'
+          ? 'blocked'
+          : hasOcrCompleted
+            ? 'complete'
+            : document.state === 'processing'
+              ? 'active'
+              : 'waiting',
+      detail:
+        recoveryKind === 'ocr_processing_failed'
+          ? (document.failureReason ?? 'OCR started, but processing did not complete.')
+          : hasOcrCompleted
+            ? 'OCR has produced reviewable output for this document.'
+            : document.state === 'processing'
+              ? `PRIZM has proven upload, S3 verification, and OCR start. It is waiting for Textract job ${
+                  document.textractJobId ?? 'not assigned'
+                } to complete.`
+              : 'OCR completion waits on a running Textract job.',
+      timestamp: ocrCompletedAudit?.createdAt ?? statement?.createdAt ?? null,
+      evidence: [{ label: 'Pages', value: document.pages?.toString() ?? 'Not counted' }],
+    },
+    {
+      id: 'statement_extracted',
+      label: 'Statement extracted',
+      status: statement ? 'complete' : document.state === 'ready' ? 'blocked' : 'waiting',
+      detail: statement
+        ? `${statement.bankName ?? 'Statement'} data is attached with ${formatCount(
+            statement.transactionCount,
+            'transaction',
+          )}.`
+        : document.state === 'ready'
+          ? 'The document is ready, but no statement record is attached.'
+          : 'PRIZM is waiting for OCR output to create statement fields and transaction rows.',
+      timestamp: statement?.createdAt ?? null,
+      evidence: [
+        { label: 'Statement ID', value: statement?.id ?? 'Not created' },
+        {
+          label: 'Reconciliation',
+          value: statement ? reconciliationLabel(statement.reconciles) : 'Waiting',
+        },
+      ],
+    },
+    {
+      id: 'export_generated',
+      label: 'Export generated',
+      status: exportGeneratedAudit
+        ? 'complete'
+        : exportReadiness.label === 'Ready to export'
+          ? 'waiting'
+          : exportReadiness.tone === 'danger' || exportReadiness.tone === 'warning'
+            ? 'blocked'
+            : 'waiting',
+      detail: exportGeneratedAudit
+        ? 'A ledger-ready export event is recorded for this document.'
+        : exportReadiness.label === 'Ready to export'
+          ? 'Statement evidence is ready. PRIZM is waiting for a generated export event.'
+          : exportReadiness.cause,
+      timestamp: exportGeneratedAudit?.createdAt ?? null,
+      evidence: exportGeneratedAudit
+        ? [
+            { label: 'Audit event', value: exportGeneratedAudit.id },
+            { label: 'Request', value: exportGeneratedAudit.requestId ?? 'Not recorded' },
+          ]
+        : [{ label: 'Export state', value: exportReadiness.label }],
+    },
+    {
+      id: 'deletion_completed',
+      label: 'Deletion completed',
+      status: deletionTimestamp
+        ? 'complete'
+        : document.deletionEvidence?.receiptStatus === 'failed'
+          ? 'blocked'
+          : document.state === 'expired'
+            ? 'active'
+            : 'waiting',
+      detail: deletionTimestamp
+        ? deletionDetail(document)
+        : document.deletionEvidence?.receiptStatus === 'failed'
+          ? `Deletion receipt failed with ${
+              document.deletionEvidence.receiptErrorCode ?? 'no error code'
+            }.`
+          : document.state === 'expired'
+            ? 'Retention has expired. PRIZM is waiting for the deletion sweep and receipt evidence.'
+            : `Retention is open until ${formatDateTime(document.expiresAt)}.`,
+      timestamp: deletionTimestamp,
+      evidence: [
+        {
+          label: 'Receipt',
+          value: document.deletionEvidence?.receiptStatus
+            ? receiptLabel(document.deletionEvidence.receiptStatus)
+            : 'Not sent',
+        },
+        { label: 'Retention deadline', value: formatDateTime(document.expiresAt) },
+      ],
+    },
+  ]
+}
+
+function deletionDetail(document: HistoryDocumentView): string {
+  if (document.deletionEvidence?.receiptStatus === 'sent') {
+    return 'Document deletion is complete and the deletion receipt was sent.'
+  }
+  if (document.deletedAt) return 'Document deletion is complete.'
+  return 'Deletion evidence is recorded for this document.'
+}
+
+function timelineStatusLabel(status: EvidenceTimelineStatus): string {
+  switch (status) {
+    case 'complete':
+      return 'Proven'
+    case 'active':
+      return 'Now'
+    case 'waiting':
+      return 'Waiting'
+    case 'blocked':
+      return 'Blocked'
+  }
+}
+
+function timelineStatusTone(status: EvidenceTimelineStatus): ReviewTone {
+  switch (status) {
+    case 'complete':
+      return 'success'
+    case 'active':
+      return 'info'
+    case 'waiting':
+      return 'neutral'
+    case 'blocked':
+      return 'danger'
+  }
+}
+
+function timelineDotClass(status: EvidenceTimelineStatus): string {
+  switch (status) {
+    case 'complete':
+      return 'bg-[var(--success)]'
+    case 'active':
+      return 'bg-[var(--info)]'
+    case 'waiting':
+      return 'bg-[var(--surface-strong)] ring-1 ring-[var(--border-subtle)]'
+    case 'blocked':
+      return 'bg-[var(--danger)]'
+  }
+}
+
+function timelineTextClass(status: EvidenceTimelineStatus): string {
+  switch (status) {
+    case 'complete':
+      return 'text-[var(--success)]'
+    case 'active':
+      return 'text-[var(--info)]'
+    case 'waiting':
+      return 'text-foreground/60'
+    case 'blocked':
+      return 'text-[var(--danger)]'
+  }
 }
 
 type ReviewTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
@@ -553,8 +860,26 @@ function FailureRecoveryStack({ cards }: { cards: RecoveryCardData[] }) {
   )
 }
 
-function TransactionTable({ statement }: { statement: StatementEvidenceView | null }) {
+function TransactionTable({
+  document,
+  statement,
+}: {
+  document: HistoryDocumentView
+  statement: StatementEvidenceView | null
+}) {
   if (!statement) {
+    if (document.state === 'processing') {
+      return (
+        <div className="space-y-3">
+          <QuietStatusPanel
+            title="Transaction rows pending OCR"
+            detail="PRIZM has a verified upload and a running OCR job. It is waiting for statement rows before review can start."
+          />
+          <QuietSkeletonRows rows={4} />
+        </div>
+      )
+    }
+
     return (
       <p className="text-sm text-foreground/60">
         Transaction rows will appear after OCR produces a statement record.
@@ -754,46 +1079,6 @@ function DocumentEvidence({ document }: { document: HistoryDocumentView }) {
       <EvidenceRow label="Size" value={formatBytes(document.sizeBytes)} />
       <EvidenceRow label="Pages" value={document.pages?.toString() ?? 'Not counted'} />
       <EvidenceRow label="Content type" value={document.contentType} />
-      <EvidenceRow label="S3 bucket" value={document.s3Bucket} />
-      <EvidenceRow label="S3 key" value={document.s3Key} />
-      <EvidenceRow label="Textract job ID" value={document.textractJobId ?? 'Not assigned'} />
-      <EvidenceRow label="Failure reason" value={document.failureReason ?? 'No failure recorded'} />
-    </EvidenceGrid>
-  )
-}
-
-function DeletionEvidencePanel({ document }: { document: HistoryDocumentView }) {
-  if (!document.deletionEvidence) {
-    return (
-      <p className="text-sm text-foreground/60">
-        No deletion receipt is attached to this document yet.
-      </p>
-    )
-  }
-
-  return (
-    <EvidenceGrid>
-      <EvidenceRow label="Receipt" value={receiptLabel(document.deletionEvidence.receiptStatus)} />
-      <EvidenceRow
-        label="Receipt sent"
-        value={
-          document.deletionEvidence.receiptSentAt
-            ? formatDateTime(document.deletionEvidence.receiptSentAt)
-            : 'Not sent'
-        }
-      />
-      <EvidenceRow
-        label="Receipt error"
-        value={document.deletionEvidence.receiptErrorCode ?? 'No error recorded'}
-      />
-      <EvidenceRow
-        label="Deletion audited"
-        value={
-          document.deletionEvidence.deletionAuditedAt
-            ? formatDateTime(document.deletionEvidence.deletionAuditedAt)
-            : 'Not audited'
-        }
-      />
     </EvidenceGrid>
   )
 }
@@ -1213,6 +1498,13 @@ function findAuditEvent(
   return events.find((event) => event.eventType === eventType)
 }
 
+function findFirstAuditEvent(
+  events: AuditEventEvidenceView[],
+  eventTypes: readonly string[],
+): AuditEventEvidenceView | undefined {
+  return events.find((event) => eventTypes.includes(event.eventType))
+}
+
 function historyRowClass(state: DocumentState): string {
   switch (state) {
     case 'processing':
@@ -1339,17 +1631,4 @@ function formatElapsedSince(value: string, now = new Date()): string {
   return remainingHours > 0
     ? `${elapsedDays}d ${remainingHours}h elapsed`
     : `${elapsedDays}d elapsed`
-}
-
-function formatTimeRemaining(value: string, now: Date): string {
-  const deadline = new Date(value).getTime()
-  if (!Number.isFinite(deadline)) return 'Deadline unavailable'
-
-  const remainingMinutes = Math.floor((deadline - now.getTime()) / 60000)
-  if (remainingMinutes <= 0) return 'Deadline passed'
-  if (remainingMinutes < 60) return `${remainingMinutes}m remaining`
-
-  const remainingHours = Math.floor(remainingMinutes / 60)
-  const minutes = remainingMinutes % 60
-  return minutes > 0 ? `${remainingHours}h ${minutes}m remaining` : `${remainingHours}h remaining`
 }

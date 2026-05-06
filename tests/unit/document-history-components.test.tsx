@@ -18,7 +18,7 @@ describe('DocumentHistoryList', () => {
     expect(screen.getByRole('link', { name: 'Upload statement' })).toHaveAttribute('href', '/app')
   })
 
-  it('renders real document rows with statement, audit, and deletion evidence', () => {
+  it('renders real document rows with a compact evidence timeline', () => {
     render(<DocumentHistoryList documents={[historyDocument()]} />)
 
     expect(screen.getByRole('link', { name: 'May Statement.pdf' })).toHaveAttribute(
@@ -27,21 +27,27 @@ describe('DocumentHistoryList', () => {
     )
     expect(screen.getAllByText('Ready').length).toBeGreaterThan(0)
     expect(screen.getByText('Ready for review')).toBeInTheDocument()
-    expect(screen.getByText('Acme Bank')).toBeInTheDocument()
-    expect(screen.getByText('document.ready')).toBeInTheDocument()
-    expect(screen.getByText('Receipt sent')).toBeInTheDocument()
+    expect(screen.getByText('Evidence timeline')).toBeInTheDocument()
+    expect(screen.getByText('Upload requested')).toBeInTheDocument()
+    expect(screen.getByText('S3 object verified')).toBeInTheDocument()
+    expect(screen.getByText('Statement extracted')).toBeInTheDocument()
+    expect(screen.getByText('Export generated')).toBeInTheDocument()
+    expect(screen.getByText('Deletion completed')).toBeInTheDocument()
+    expect(screen.getAllByText('Proven').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Waiting').length).toBeGreaterThan(0)
   })
 
-  it('shows OCR processing evidence in history rows before statement extraction finishes', () => {
+  it('shows long-running OCR evidence in history rows before statement extraction finishes', () => {
     render(<DocumentHistoryList documents={[processingDocument()]} />)
 
     expect(screen.getAllByText('Processing').length).toBeGreaterThan(0)
     expect(screen.getByText('OCR running')).toBeInTheDocument()
-    expect(screen.getByText('OCR processing')).toBeInTheDocument()
-    expect(screen.getByText('Textract job ID')).toBeInTheDocument()
-    expect(screen.getByText('textract_job_123')).toBeInTheDocument()
-    expect(screen.getByText('0123456789abcdef0123456789abcdef')).toBeInTheDocument()
-    expect(screen.getByText('document.processing_started')).toBeInTheDocument()
+    expect(screen.getByText('OCR completed')).toBeInTheDocument()
+    expect(
+      screen.getByText(/PRIZM has proven upload, S3 verification, and OCR start/),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Textract job textract_job_123/)).toBeInTheDocument()
+    expect(screen.getAllByText('Now').length).toBeGreaterThan(0)
   })
 
   it('filters the queue by status and keeps counts visible', () => {
@@ -80,7 +86,7 @@ describe('DocumentHistoryList', () => {
     expect(screen.getByRole('link', { name: 'Expiring Statement.pdf' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Not Expiring.pdf' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Expiring soon').length).toBeGreaterThan(0)
-    expect(screen.getByText(/remaining/)).toBeInTheDocument()
+    expect(screen.getByText(/Retention is open until/)).toBeInTheDocument()
   })
 })
 
@@ -88,9 +94,20 @@ describe('DocumentReview', () => {
   it('shows processing evidence with the Textract job id while OCR is running', () => {
     render(<DocumentReview document={processingDocument()} />)
 
+    expect(screen.getByRole('heading', { name: 'Evidence timeline' })).toBeInTheDocument()
+    expect(screen.getByText('Upload requested')).toBeInTheDocument()
+    expect(screen.getByText('S3 object verified')).toBeInTheDocument()
+    expect(screen.getByText('OCR completed')).toBeInTheDocument()
+    expect(screen.getByText('Statement extracted')).toBeInTheDocument()
+    expect(screen.getByText('Export generated')).toBeInTheDocument()
+    expect(screen.getByText('Deletion completed')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Statement summary' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Transaction table' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Export readiness' })).toBeInTheDocument()
+    expect(
+      screen.getByText(/PRIZM has proven the upload request, S3 object verification/),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Transaction rows pending OCR')).toBeInTheDocument()
     expect(screen.getAllByText('Textract job ID').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('textract_job_123').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('Trace ID').length).toBeGreaterThanOrEqual(2)
@@ -98,7 +115,7 @@ describe('DocumentReview', () => {
     expect(screen.getByText('document.upload_completed')).toBeInTheDocument()
     expect(screen.getByText('document.processing_started')).toBeInTheDocument()
     expect(screen.getAllByText('Elapsed time')).toHaveLength(1)
-    expect(screen.getAllByText('Retention deadline')).toHaveLength(1)
+    expect(screen.getAllByText('Retention deadline').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Statement pending OCR')).toBeInTheDocument()
     expect(screen.getAllByText('Export waiting').length).toBeGreaterThan(0)
   })
