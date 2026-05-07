@@ -254,6 +254,8 @@ export type Database = {
           period_start: string | null
           reconciles: boolean | null
           reported_total: number | null
+          statement_metadata: Json
+          statement_type: string
           transactions: Json
           workspace_id: string
         }
@@ -272,6 +274,8 @@ export type Database = {
           period_start?: string | null
           reconciles?: boolean | null
           reported_total?: number | null
+          statement_metadata?: Json
+          statement_type?: string
           transactions?: Json
           workspace_id: string
         }
@@ -290,6 +294,8 @@ export type Database = {
           period_start?: string | null
           reconciles?: boolean | null
           reported_total?: number | null
+          statement_metadata?: Json
+          statement_type?: string
           transactions?: Json
           workspace_id?: string
         }

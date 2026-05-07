@@ -71,6 +71,14 @@ describe('UploadPage', () => {
     const { container } = render(<UploadPage />)
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
 
+    expect(screen.getByText('Bank or credit-card statement converter')).toBeInTheDocument()
+    expect(screen.getByText(/Upload one bank or credit-card statement PDF/)).toBeInTheDocument()
+    expect(
+      screen.getByText('One bank or credit-card statement PDF per conversion'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Drop a PDF statement here')).toBeInTheDocument()
+    expect(screen.getByText(/Choose a bank or credit-card statement PDF/)).toBeInTheDocument()
+
     await userEvent.upload(
       input,
       new File(['statement'], 'May Statement.pdf', { type: 'application/pdf' }),

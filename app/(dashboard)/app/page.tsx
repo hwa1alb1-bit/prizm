@@ -124,7 +124,7 @@ const workflowSteps = [
 ]
 
 const trustControls = [
-  { label: 'Input', value: 'One bank statement PDF per conversion' },
+  { label: 'Input', value: 'One bank or credit-card statement PDF per conversion' },
   { label: 'Quote', value: 'One credit reserved only after confirmation' },
   { label: 'Output', value: 'XLSX, CSV, QuickBooks CSV, and Xero CSV' },
   { label: 'Retention', value: '24-hour auto-delete with request evidence' },
@@ -149,7 +149,7 @@ export default function UploadPage() {
       setRecovery(
         localUploadRecovery(
           'File type is not PDF.',
-          'Choose a bank statement exported as a PDF, then upload that file.',
+          'Choose a bank or credit-card statement exported as a PDF, then upload that file.',
           file,
         ),
       )
@@ -161,7 +161,7 @@ export default function UploadPage() {
       setRecovery(
         localUploadRecovery(
           'File is larger than the 20 MB upload limit.',
-          'Export a smaller PDF from the bank portal, then upload the smaller file.',
+          'Export a smaller PDF from the issuer portal, then upload the smaller file.',
           file,
         ),
       )
@@ -285,7 +285,7 @@ export default function UploadPage() {
             { label: 'Storage response', value: String(uploadRes.status) },
           ]),
           nextAction:
-            'Upload the same PDF again. If the storage response repeats, export a fresh PDF from the bank portal before retrying.',
+            'Upload the same PDF again. If the storage response repeats, export a fresh PDF from the issuer portal before retrying.',
         })
       }
 
@@ -375,14 +375,14 @@ export default function UploadPage() {
       <header className="grid gap-4 border-b border-[var(--border-subtle)] pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/50">
-            Bank statement converter
+            Bank or credit-card statement converter
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             Convert PDF statements to Excel and CSV
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            Upload one bank statement PDF. PRIZM checks the file, quotes the conversion, starts OCR,
-            and opens a review record for spreadsheet export.
+            Upload one bank or credit-card statement PDF. PRIZM checks the file, quotes the
+            conversion, starts OCR, and opens a review record for spreadsheet export.
           </p>
         </div>
         <Link
@@ -425,7 +425,7 @@ export default function UploadPage() {
               <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
                 <div>
                   <p className="text-base font-semibold">
-                    {selectedFile?.name ?? 'Drop a PDF bank statement here'}
+                    {selectedFile?.name ?? 'Drop a PDF statement here'}
                   </p>
                   <p className="mt-1 text-sm text-foreground/60">
                     {selectedFile
@@ -603,7 +603,7 @@ function UploadMessage({
   }
   return (
     <p className="text-sm text-foreground/60">
-      No file selected. Choose a bank statement PDF to start conversion.
+      No file selected. Choose a bank or credit-card statement PDF to start conversion.
     </p>
   )
 }

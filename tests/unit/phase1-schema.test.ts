@@ -14,10 +14,17 @@ const lifecycleMigrationPath = join(
   'migrations',
   '0010_harden_conversion_lifecycle.sql',
 )
+const statementMetadataMigrationPath = join(
+  process.cwd(),
+  'supabase',
+  'migrations',
+  '0011_add_statement_type_metadata.sql',
+)
 
 describe('Phase 1 lean converter schema migration', () => {
   const sql = () => readFileSync(phase1MigrationPath, 'utf8')
   const lifecycleSql = () => `${sql()}\n${readFileSync(lifecycleMigrationPath, 'utf8')}`
+  const statementMetadataSql = () => readFileSync(statementMetadataMigrationPath, 'utf8')
 
   it('adds the single-PDF conversion state, duplicate, and charge fields', () => {
     const migration = sql()
@@ -113,5 +120,16 @@ describe('Phase 1 lean converter schema migration', () => {
     expect(migration).toContain('create or replace function public.scrub_deleted_document')
     expect(migration).toContain('transactions = ')
     expect(migration).toContain('file_sha256 = null')
+  })
+
+  it('adds statement type and metadata defaults for persisted statement history', () => {
+    const migration = statementMetadataSql()
+
+    expect(migration).toContain('alter table statement')
+    expect(migration).toContain("statement_type text not null default 'bank'")
+    expect(migration).toContain("statement_metadata jsonb not null default '{}'::jsonb")
+    expect(migration).toContain('statement_type in (')
+    expect(migration).toContain("'bank'")
+    expect(migration).toContain("'credit_card'")
   })
 })

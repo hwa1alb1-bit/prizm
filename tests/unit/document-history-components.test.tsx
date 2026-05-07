@@ -134,6 +134,48 @@ describe('DocumentReview', () => {
     expect(screen.getAllByText('Ready to export').length).toBeGreaterThan(0)
   })
 
+  it('renders credit-card statement metadata and visible export actions', () => {
+    render(<DocumentReview document={creditCardDocument()} />)
+
+    expect(screen.getByText('Issuer')).toBeInTheDocument()
+    expect(screen.getByText('PRIZM Rewards Visa')).toBeInTheDocument()
+    expect(screen.getByText('Card')).toBeInTheDocument()
+    expect(screen.getByText('Payment due date')).toBeInTheDocument()
+    expect(screen.getByText('May 25, 2026')).toBeInTheDocument()
+    expect(screen.getByText('Minimum payment')).toBeInTheDocument()
+    expect(screen.getByText('New balance')).toBeInTheDocument()
+    expect(screen.getByText('Rewards earned')).toBeInTheDocument()
+    expect(screen.getByText('Fees charged')).toBeInTheDocument()
+    expect(screen.getByText('Interest charged')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute(
+      'href',
+      '/api/v1/documents/doc_credit_card/export?format=csv',
+    )
+    expect(screen.getByRole('link', { name: 'XLSX' })).toHaveAttribute(
+      'href',
+      '/api/v1/documents/doc_credit_card/export?format=xlsx',
+    )
+    expect(screen.getByRole('link', { name: 'QuickBooks CSV' })).toHaveAttribute(
+      'href',
+      '/api/v1/documents/doc_credit_card/export?format=quickbooks_csv',
+    )
+    expect(screen.getByRole('link', { name: 'Xero CSV' })).toHaveAttribute(
+      'href',
+      '/api/v1/documents/doc_credit_card/export?format=xero_csv',
+    )
+  })
+
+  it('blocks visible export actions until statement review is complete', () => {
+    render(<DocumentReview document={unreviewedDocument()} />)
+
+    expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText('Statement review must be completed before export.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'CSV' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'XLSX' })).not.toBeInTheDocument()
+  })
+
   it('shows distinct recovery for S3 verification failure', () => {
     render(<DocumentReview document={s3VerificationFailedDocument()} />)
 
@@ -222,6 +264,9 @@ function historyDocument(): HistoryDocumentView {
     statements: [
       {
         id: 'statement_123',
+        statementType: 'bank',
+        statementMetadata: {},
+        reviewStatus: 'reviewed',
         bankName: 'Acme Bank',
         accountLast4: '1234',
         periodStart: '2026-04-01',
@@ -411,4 +456,47 @@ function notExpiringDocument(): HistoryDocumentView {
     expiresAt: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
     deletionEvidence: null,
   }
+}
+
+function unreviewedDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_unreviewed',
+    statements: [
+      {
+        ...historyDocument().statements[0]!,
+        id: 'statement_unreviewed',
+        reviewStatus: 'unreviewed',
+      },
+    ],
+  }
+}
+
+function creditCardDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_credit_card',
+    filename: 'Rewards Visa.pdf',
+    statements: [
+      {
+        ...historyDocument().statements[0]!,
+        id: 'statement_credit_card',
+        bankName: 'PRIZM Rewards Visa',
+        accountLast4: '9876',
+        openingBalance: 1200,
+        closingBalance: 1066.2,
+        reportedTotal: 1066.2,
+        computedTotal: 1066.2,
+        statementType: 'credit_card',
+        statementMetadata: {
+          paymentDueDate: '2026-05-25',
+          minimumPaymentDue: 35,
+          newBalance: 1066.2,
+          rewardsEarned: 1,
+          feeTotal: 29,
+          interestTotal: 12.75,
+        },
+      },
+    ],
+  } as HistoryDocumentView
 }

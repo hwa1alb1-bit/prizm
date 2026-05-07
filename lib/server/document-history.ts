@@ -24,6 +24,9 @@ export type StatementTransactionView = {
 
 export type StatementEvidenceView = {
   id: string
+  statementType: StatementType
+  statementMetadata: StatementMetadata
+  reviewStatus: string | null
   bankName: string | null
   accountLast4: string | null
   periodStart: string | null
@@ -85,6 +88,8 @@ export type DocumentReviewLoadResult =
 
 type LoadFailureReason = 'unauthenticated' | 'workspace_required' | 'unavailable'
 type LoadFailure = { ok: false; reason: LoadFailureReason; title: string; detail: string }
+type StatementType = 'bank' | 'credit_card'
+type StatementMetadata = { [key: string]: Json | undefined }
 
 type DbError = { message: string }
 type QueryResult<T> = { data: T | null; error: DbError | null }
@@ -127,6 +132,9 @@ type DocumentRow = {
 type StatementRow = {
   id: string
   document_id: string
+  statement_type?: string | null
+  statement_metadata?: Json | null
+  review_status?: string | null
   bank_name: string | null
   account_last4: string | null
   period_start: string | null
@@ -327,6 +335,9 @@ async function listStatementsForDocuments(
       [
         'id',
         'document_id',
+        'statement_type',
+        'statement_metadata',
+        'review_status',
         'bank_name',
         'account_last4',
         'period_start',
@@ -410,6 +421,9 @@ function statementView(row: StatementRow): StatementEvidenceView {
 
   return {
     id: row.id,
+    statementType: normalizeStatementType(row.statement_type),
+    statementMetadata: normalizeStatementMetadata(row.statement_metadata),
+    reviewStatus: row.review_status ?? null,
     bankName: row.bank_name,
     accountLast4: row.account_last4,
     periodStart: row.period_start,
@@ -425,6 +439,15 @@ function statementView(row: StatementRow): StatementEvidenceView {
     expiresAt: row.expires_at,
     deletedAt: row.deleted_at,
   }
+}
+
+function normalizeStatementType(value: string | null | undefined): StatementType {
+  return value === 'credit_card' ? 'credit_card' : 'bank'
+}
+
+function normalizeStatementMetadata(value: Json | null | undefined): StatementMetadata {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value
 }
 
 function transactionViews(value: Json): StatementTransactionView[] {

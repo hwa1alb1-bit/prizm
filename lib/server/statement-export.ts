@@ -65,6 +65,7 @@ export type ExportDocumentRow = {
 
 export type ExportStatementRow = {
   id: string
+  statement_type?: string | null
   review_status?: string | null
   reconciles: boolean | null
   transactions: Json
@@ -162,7 +163,7 @@ export async function buildStatementExport(
       'Resolve reconciliation before exporting ledger output.',
     )
 
-  const rows = exportRows(statement.transactions)
+  const rows = exportRows(statement.transactions, statement.statement_type)
   const invalidRows = rows.filter(rowIsInvalid)
   if (invalidRows.length > 0) {
     return problem(
@@ -263,24 +264,28 @@ function csvCell(value: string): string {
   return `"${value.replaceAll('"', '""')}"`
 }
 
-function exportRows(value: Json): ExportRow[] {
+function exportRows(value: Json, statementType: string | null | undefined): ExportRow[] {
   if (!Array.isArray(value)) return []
-  return value.map((row) => exportRow(row))
+  return value.map((row) => exportRow(row, statementType === 'credit_card'))
 }
 
-function exportRow(value: Json): ExportRow {
+function exportRow(value: Json, isCreditCard: boolean): ExportRow {
   const row = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
   const amount = stringValue(row, ['amount'])
   const debit = stringValue(row, ['debit', 'withdrawal', 'outflow'])
   const credit = stringValue(row, ['credit', 'deposit', 'inflow'])
+  const description = stringValue(row, ['description', 'memo', 'details', 'name'])
+  const payee = stringValue(row, ['payee', 'merchant', 'name'])
   return {
     date: stringValue(row, ['posted_at', 'postedAt', 'date', 'transaction_date']),
-    description: stringValue(row, ['description', 'memo', 'details', 'name']),
-    amount: amount || signedAmount(debit, credit),
+    description,
+    amount: isCreditCard
+      ? signedAmount(debit, credit) || amount
+      : amount || signedAmount(debit, credit),
     debit,
     credit,
     balance: stringValue(row, ['balance', 'running_balance']),
-    payee: stringValue(row, ['payee', 'name']),
+    payee: isCreditCard ? payee || description : payee,
     reference: stringValue(row, ['reference', 'id', 'transaction_id']),
     needsReview: booleanValue(row, ['needs_review', 'needsReview', 'flagged']),
   }
@@ -358,7 +363,7 @@ function createStatementExportStore(): StatementExportStore {
       const { data, error } = await client
         .from('statement')
         .select<ExportStatementRow>(
-          'id, review_status, reconciles, transactions, expires_at, deleted_at',
+          'id, statement_type, review_status, reconciles, transactions, expires_at, deleted_at',
         )
         .eq('workspace_id', workspaceId)
         .eq('document_id', documentId)

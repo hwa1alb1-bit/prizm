@@ -10,6 +10,17 @@ import {
 
 export type { HistoryDocumentView }
 
+type StatementType = 'bank' | 'credit_card' | string
+type StatementMetadata = Record<string, unknown>
+type StatementWithOptionalCardFields = StatementEvidenceView & {
+  statementType?: StatementType | null
+  statement_type?: StatementType | null
+  reviewStatus?: string | null
+  review_status?: string | null
+  statementMetadata?: StatementMetadata | null
+  statement_metadata?: StatementMetadata | null
+}
+
 export const HISTORY_QUEUE_FILTERS = [
   'all',
   'processing',
@@ -142,7 +153,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
           </EvidenceSection>
 
           <EvidenceSection title="Export readiness">
-            <ExportReadinessPanel readiness={exportReadiness} />
+            <ExportReadinessPanel document={document} readiness={exportReadiness} />
           </EvidenceSection>
 
           <EvidenceSection title="Audit trail">
@@ -360,11 +371,18 @@ function StatementSummary({
   processingAudit: AuditEventEvidenceView | undefined
 }) {
   if (statement) {
+    const isCreditCard = statementType(statement) === 'credit_card'
+    const metadata = statementMetadata(statement)
+    const cardRows = isCreditCard ? creditCardSummaryRows(metadata) : []
+
     return (
       <EvidenceGrid>
-        <EvidenceRow label="Bank" value={statement.bankName ?? 'Unknown bank'} />
         <EvidenceRow
-          label="Account"
+          label={isCreditCard ? 'Issuer' : 'Bank'}
+          value={statement.bankName ?? (isCreditCard ? 'Unknown issuer' : 'Unknown bank')}
+        />
+        <EvidenceRow
+          label={isCreditCard ? 'Card' : 'Account'}
           value={statement.accountLast4 ? `•••• ${statement.accountLast4}` : 'Unknown'}
         />
         <EvidenceRow label="Period start" value={formatDate(statement.periodStart)} />
@@ -378,6 +396,9 @@ function StatementSummary({
           value={formatCount(statement.transactionCount, 'transaction')}
         />
         <EvidenceRow label="Reconciliation" value={reconciliationLabel(statement.reconciles)} />
+        {cardRows.map((row) => (
+          <EvidenceRow key={row.label} label={row.label} value={row.value} />
+        ))}
       </EvidenceGrid>
     )
   }
@@ -818,6 +839,12 @@ type ExportReadiness = {
   cause: string
   nextAction: string
   evidence: ReviewEvidence[]
+  actions: ExportAction[]
+}
+
+type ExportAction = {
+  format: 'csv' | 'xlsx' | 'quickbooks_csv' | 'xero_csv'
+  label: string
 }
 
 function FailureRecoveryStack({ cards }: { cards: RecoveryCardData[] }) {
@@ -1045,7 +1072,13 @@ function ReconciliationResult({ statement }: { statement: StatementEvidenceView 
   )
 }
 
-function ExportReadinessPanel({ readiness }: { readiness: ExportReadiness }) {
+function ExportReadinessPanel({
+  document,
+  readiness,
+}: {
+  document: HistoryDocumentView
+  readiness: ExportReadiness
+}) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1066,6 +1099,19 @@ function ExportReadinessPanel({ readiness }: { readiness: ExportReadiness }) {
       <p className="text-sm leading-6 text-foreground/75">
         <span className="font-medium text-foreground">Next action:</span> {readiness.nextAction}
       </p>
+      {readiness.actions.length > 0 && (
+        <div className="flex flex-wrap gap-2" aria-label="Export actions">
+          {readiness.actions.map((action) => (
+            <Link
+              key={action.format}
+              href={`/api/v1/documents/${document.id}/export?format=${action.format}`}
+              className="inline-flex min-h-9 items-center justify-center rounded-md border border-[var(--border-subtle)] px-3 text-sm font-medium hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1172,9 +1218,10 @@ function reviewExceptionsFor(statement: StatementEvidenceView | null): ReviewExc
 function statementExtractionExceptions(statement: StatementEvidenceView): ReviewException[] {
   const exceptions: ReviewException[] = []
   const missing: string[] = []
+  const isCreditCard = statementType(statement) === 'credit_card'
 
-  if (!statement.bankName) missing.push('bank name')
-  if (!statement.accountLast4) missing.push('account last 4')
+  if (!statement.bankName) missing.push(isCreditCard ? 'issuer' : 'bank name')
+  if (!statement.accountLast4) missing.push(isCreditCard ? 'card last 4' : 'account last 4')
   if (!statement.periodStart || !statement.periodEnd) missing.push('statement period')
   if (statement.openingBalance === null) missing.push('opening balance')
   if (statement.closingBalance === null) missing.push('closing balance')
@@ -1324,7 +1371,7 @@ function recoveryFallbackCause(kind: RecoveryKind): string {
 function recoveryNextAction(kind: RecoveryKind): string {
   switch (kind) {
     case 'upload_failed':
-      return 'Upload the original PDF again. If it repeats, export a fresh PDF from the bank portal.'
+      return 'Upload the original PDF again. If it repeats, export a fresh PDF from the issuer portal.'
     case 's3_verification_failed':
       return 'Upload the original PDF again so PRIZM can create a new verified storage object.'
     case 'ocr_start_failed':
@@ -1350,6 +1397,7 @@ function exportReadinessFor(
       cause: 'Document recovery is required before ledger output can be trusted.',
       evidence: [{ label: 'Document ID', value: document.id }],
       nextAction: 'Resolve the failure recovery item above before export.',
+      actions: [],
     }
   }
 
@@ -1360,6 +1408,7 @@ function exportReadinessFor(
       cause: 'The document is outside the active retention window.',
       evidence: [{ label: 'Retention', value: formatDateTime(document.expiresAt) }],
       nextAction: 'Upload the statement again if the firm still needs export output.',
+      actions: [],
     }
   }
 
@@ -1373,6 +1422,7 @@ function exportReadinessFor(
         { label: 'Textract job ID', value: document.textractJobId ?? 'Not assigned' },
       ],
       nextAction: 'Wait for OCR to finish, then review exceptions before export.',
+      actions: [],
     }
   }
 
@@ -1387,6 +1437,22 @@ function exportReadinessFor(
         { label: 'Reconciliation', value: reconciliationLabel(statement.reconciles) },
       ],
       nextAction: 'Resolve exceptions and reconciliation before exporting ledger-ready output.',
+      actions: [],
+    }
+  }
+
+  const reviewStatus = statementReviewStatus(statement)
+  if (reviewStatus && reviewStatus !== 'reviewed' && reviewStatus !== 'reconciled') {
+    return {
+      label: 'Export blocked',
+      tone: 'warning',
+      cause: 'Statement review must be completed before export.',
+      evidence: [
+        { label: 'Statement ID', value: statement.id },
+        { label: 'Review', value: reviewStatus },
+      ],
+      nextAction: 'Review this statement before exporting ledger-ready output.',
+      actions: [],
     }
   }
 
@@ -1399,8 +1465,20 @@ function exportReadinessFor(
       { label: 'Rows', value: formatCount(statement.transactionCount, 'transaction') },
       { label: 'Retention', value: formatDateTime(statement.expiresAt) },
     ],
-    nextAction: 'Export ledger-ready output from this reviewed statement when export is enabled.',
+    nextAction: 'Export ledger-ready output from this reviewed statement.',
+    actions: exportActionsFor(statement),
   }
+}
+
+function exportActionsFor(statement: StatementEvidenceView): ExportAction[] {
+  const reviewStatus = statementReviewStatus(statement)
+  if (reviewStatus && reviewStatus !== 'reviewed' && reviewStatus !== 'reconciled') return []
+  return [
+    { format: 'csv', label: 'CSV' },
+    { format: 'xlsx', label: 'XLSX' },
+    { format: 'quickbooks_csv', label: 'QuickBooks CSV' },
+    { format: 'xero_csv', label: 'Xero CSV' },
+  ]
 }
 
 function ReviewToneBadge({ tone, children }: { tone: ReviewTone; children: React.ReactNode }) {
@@ -1436,6 +1514,68 @@ function recoveryKindLabel(kind: RecoveryKind): string {
 
 function transactionReviewLabel(transaction: StatementTransactionView): string {
   return transaction.needsReview ? 'Review' : 'Clear'
+}
+
+function statementType(statement: StatementEvidenceView): StatementType | null {
+  const withFields = statement as StatementWithOptionalCardFields
+  return withFields.statementType ?? withFields.statement_type ?? null
+}
+
+function statementReviewStatus(statement: StatementEvidenceView): string | null {
+  const withFields = statement as StatementWithOptionalCardFields
+  return withFields.reviewStatus ?? withFields.review_status ?? null
+}
+
+function statementMetadata(statement: StatementEvidenceView): StatementMetadata {
+  const withFields = statement as StatementWithOptionalCardFields
+  return withFields.statementMetadata ?? withFields.statement_metadata ?? {}
+}
+
+function creditCardSummaryRows(metadata: StatementMetadata): ReviewEvidence[] {
+  return [
+    metadataStringValue(metadata, 'paymentDueDate')
+      ? {
+          label: 'Payment due date',
+          value: formatDate(metadataStringValue(metadata, 'paymentDueDate')),
+        }
+      : null,
+    metadataMoneyValue(metadata, 'minimumPaymentDue') !== null
+      ? {
+          label: 'Minimum payment',
+          value: formatMoney(metadataMoneyValue(metadata, 'minimumPaymentDue')),
+        }
+      : null,
+    metadataMoneyValue(metadata, 'newBalance') !== null
+      ? { label: 'New balance', value: formatMoney(metadataMoneyValue(metadata, 'newBalance')) }
+      : null,
+    metadataMoneyValue(metadata, 'rewardsEarned') !== null
+      ? {
+          label: 'Rewards earned',
+          value: formatMoney(metadataMoneyValue(metadata, 'rewardsEarned')),
+        }
+      : null,
+    metadataMoneyValue(metadata, 'feeTotal') !== null
+      ? { label: 'Fees charged', value: formatMoney(metadataMoneyValue(metadata, 'feeTotal')) }
+      : null,
+    metadataMoneyValue(metadata, 'interestTotal') !== null
+      ? {
+          label: 'Interest charged',
+          value: formatMoney(metadataMoneyValue(metadata, 'interestTotal')),
+        }
+      : null,
+  ].filter((row): row is ReviewEvidence => row !== null)
+}
+
+function metadataStringValue(metadata: StatementMetadata, key: string): string | null {
+  const value = metadata[key]
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function metadataMoneyValue(metadata: StatementMetadata, key: string): number | string | null {
+  const value = metadata[key]
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+  return null
 }
 
 function formatConfidence(value: number | null): string {

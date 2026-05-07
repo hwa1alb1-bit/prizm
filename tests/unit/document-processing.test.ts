@@ -2,8 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import fixture from '../fixtures/parser/textract-single-statement.json'
 import {
   processTextractDocuments,
+  storeParsedStatement,
   type DocumentProcessingDependencies,
 } from '@/lib/server/document-processing'
+import { getServiceRoleClient } from '@/lib/server/supabase'
+import type { ParsedStatement } from '@/lib/server/statement-parser'
+
+vi.mock('@/lib/server/supabase', () => ({
+  getServiceRoleClient: vi.fn(),
+}))
 
 describe('processTextractDocuments', () => {
   it('stores parsed statements, marks documents ready, consumes reservations, and audits completed jobs', async () => {
@@ -26,6 +33,8 @@ describe('processTextractDocuments', () => {
       workspaceId: 'workspace_123',
       expiresAt: '2026-05-07T22:15:00.000Z',
       statement: expect.objectContaining({
+        statementType: 'bank',
+        metadata: {},
         bankName: 'PRIZM Credit Union',
         accountLast4: '4242',
         reconciles: true,
@@ -66,6 +75,62 @@ describe('processTextractDocuments', () => {
         trace_id: null,
       },
     })
+  })
+
+  it('persists credit-card statement type and metadata with parsed statement evidence', async () => {
+    const insert = vi.fn().mockResolvedValue({ data: null, error: null })
+    vi.mocked(getServiceRoleClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({ insert }),
+    } as unknown as ReturnType<typeof getServiceRoleClient>)
+    const statement = {
+      statementType: 'credit_card',
+      metadata: {
+        issuer: 'PRIZM Card Services',
+        paymentDueDate: '2026-05-25',
+      },
+      bankName: 'PRIZM Card Services',
+      accountLast4: '4242',
+      periodStart: '2026-04-01',
+      periodEnd: '2026-04-30',
+      openingBalance: 125.5,
+      closingBalance: 490.25,
+      reportedTotal: 364.75,
+      computedTotal: 364.75,
+      reconciles: true,
+      ready: true,
+      confidence: { overall: 0.98, fields: 0.98, transactions: 0.98 },
+      reviewFlags: [],
+      transactions: [
+        {
+          date: '2026-04-15',
+          description: 'Card purchase',
+          amount: 42.5,
+          confidence: 0.99,
+        },
+      ],
+    } as ParsedStatement & {
+      statementType: 'credit_card'
+      metadata: { issuer: string; paymentDueDate: string }
+    }
+
+    await storeParsedStatement({
+      documentId: 'doc_card_123',
+      workspaceId: 'workspace_123',
+      expiresAt: '2026-05-07T22:15:00.000Z',
+      statement,
+    })
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document_id: 'doc_card_123',
+        workspace_id: 'workspace_123',
+        statement_type: 'credit_card',
+        statement_metadata: {
+          issuer: 'PRIZM Card Services',
+          paymentDueDate: '2026-05-25',
+        },
+      }),
+    )
   })
 
   it('marks failed Textract output failed, releases the reservation, and audits the failure', async () => {

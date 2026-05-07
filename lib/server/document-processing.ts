@@ -88,6 +88,13 @@ type ProcessingStoreClient = {
   from: (table: string) => TableBuilder
 }
 
+type StatementType = 'bank' | 'credit_card'
+type StatementMetadata = ParsedStatement['metadata']
+type StatementPersistenceFields = {
+  statementType: StatementType
+  metadata: StatementMetadata
+}
+
 export async function processTextractDocuments(
   input: ProcessTextractDocumentsInput,
   deps: DocumentProcessingDependencies = createDocumentProcessingDependencies(),
@@ -151,7 +158,7 @@ export async function processTextractDocuments(
         documentId: document.id,
         workspaceId: document.workspaceId,
         expiresAt,
-        statement,
+        statement: statementWithPersistenceDefaults(statement),
       })
     }
 
@@ -238,17 +245,20 @@ async function getTextractAnalysis(input: { jobId: string }): Promise<TextractOu
   }
 }
 
-async function storeParsedStatement(input: {
+export async function storeParsedStatement(input: {
   documentId: string
   workspaceId: string
   expiresAt: string
   statement: ParsedStatement
 }): Promise<void> {
+  const persisted = statementPersistenceFields(input.statement)
   const { error } = await getProcessingStoreClient()
     .from('statement')
     .insert({
       document_id: input.documentId,
       workspace_id: input.workspaceId,
+      statement_type: persisted.statementType,
+      statement_metadata: persisted.metadata,
       bank_name: input.statement.bankName,
       account_last4: input.statement.accountLast4,
       period_start: input.statement.periodStart,
@@ -263,6 +273,31 @@ async function storeParsedStatement(input: {
     })
 
   if (error) throw new Error('parsed_statement_write_failed')
+}
+
+function statementWithPersistenceDefaults(
+  statement: ParsedStatement,
+): ParsedStatement & StatementPersistenceFields {
+  return {
+    ...statement,
+    ...statementPersistenceFields(statement),
+  }
+}
+
+function statementPersistenceFields(statement: ParsedStatement): StatementPersistenceFields {
+  const candidate = statement as ParsedStatement & {
+    statementType?: unknown
+    metadata?: unknown
+  }
+
+  return {
+    statementType: candidate.statementType === 'credit_card' ? 'credit_card' : 'bank',
+    metadata: isStatementMetadata(candidate.metadata) ? candidate.metadata : {},
+  }
+}
+
+function isStatementMetadata(value: unknown): value is StatementMetadata {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 async function markDocumentReady(input: {

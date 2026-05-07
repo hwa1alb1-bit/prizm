@@ -1,0 +1,115 @@
+{
+  "JobStatus": "SUCCEEDED",
+  "Blocks": [
+    {
+      "BlockType": "LINE",
+      "Text": "Issuer: PRIZM Rewards Visa",
+      "Confidence": 99.1
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Card ending: 9876",
+      "Confidence": 98.4
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Statement period: 2026-04-01 - 2026-04-30",
+      "Confidence": 97.6
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Payment due date: 2026-05-25",
+      "Confidence": 98.8
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Minimum payment due: $35.00",
+      "Confidence": 98.3
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Previous balance: $1,200.00",
+      "Confidence": 98.5
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "New balance: $1,066.20",
+      "Confidence": 99
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Credit limit: $5,000.00",
+      "Confidence": 98.7
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Available credit: $3,933.80",
+      "Confidence": 98.2
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Purchases: $325.45",
+      "Confidence": 98
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Payments and credits: $500.00",
+      "Confidence": 97.9
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Fees charged: $29.00",
+      "Confidence": 97.5
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Interest charged: $12.75",
+      "Confidence": 97.1
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Rewards earned: $1.00",
+      "Confidence": 96.9
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "New activity total: -$133.80",
+      "Confidence": 97.7
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Transactions",
+      "Confidence": 96.5
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-03 | Grocery Market | Purchases | $125.45",
+      "Confidence": 96.7
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-11 | Online Electronics | Purchases | $200.00",
+      "Confidence": 96.4
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-15 | Thank You Payment | Payments and Credits | $500.00",
+      "Confidence": 97.2
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-20 | Late Payment Fee | Fees | $29.00",
+      "Confidence": 95.9
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-30 | Interest Charge Purchases | Interest Charged | $12.75",
+      "Confidence": 95.5
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-30 | Rewards Statement Credit | Rewards Credits | $1.00",
+      "Confidence": 95.1
+    }
+  ]
+}
