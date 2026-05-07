@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { publicEnv, serverEnv } from '@/lib/shared/env'
+import { getServiceRoleClient } from '../supabase'
 import type { OpsMetricUnit, ProviderId } from './types'
 
 export type ProviderMetric = {
@@ -113,7 +114,12 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     sourceUrl: 'https://dashboard.stripe.com',
     billingUrl: 'https://dashboard.stripe.com/settings/billing',
     managementUrl: 'https://dashboard.stripe.com/customers',
-    requiredEnv: ['STRIPE_SECRET_KEY'],
+    requiredEnv: [
+      'STRIPE_SECRET_KEY',
+      'STRIPE_WEBHOOK_SECRET',
+      'STRIPE_PRICE_OVERAGE_PAGE',
+      'STRIPE_METER_OVERAGE',
+    ],
   },
 ]
 
@@ -123,7 +129,10 @@ export function getProviderAdapters(): ProviderAdapter[] {
     displayName: definition.displayName,
     sourceUrl: definition.sourceUrl,
     staleAfterMinutes: definition.staleAfterMinutes ?? 15,
-    collect: async () => collectCredentialMetrics(definition),
+    collect: async () =>
+      definition.id === 'stripe'
+        ? collectStripeProviderMetrics(definition)
+        : collectCredentialMetrics(definition),
   }))
 }
 
@@ -185,8 +194,128 @@ async function collectCredentialMetrics(definition: ProviderDefinition): Promise
   ]
 }
 
+async function collectStripeProviderMetrics(
+  definition: ProviderDefinition,
+): Promise<ProviderMetric[]> {
+  const credentialMetrics = await collectCredentialMetrics(definition)
+  const counts = await readStripeBillingCounts()
+
+  return [
+    ...credentialMetrics,
+    ...buildStripeBillingMetrics({
+      sourceUrl: definition.sourceUrl,
+      failedWebhookEvents: counts.failedWebhookEvents,
+      blockedSubscriptions: counts.blockedSubscriptions,
+      activeSubscriptions: counts.activeSubscriptions,
+    }),
+  ]
+}
+
+export function buildStripeBillingMetrics(input: {
+  sourceUrl: string
+  failedWebhookEvents: number
+  blockedSubscriptions: number
+  activeSubscriptions: number
+}): ProviderMetric[] {
+  return [
+    {
+      metricKey: 'webhook_failures_24h',
+      displayName: 'Webhook failures, 24h',
+      used: input.failedWebhookEvents,
+      limit: 1,
+      unit: 'count',
+      sourceUrl: input.sourceUrl,
+      required: true,
+      errorCode: input.failedWebhookEvents > 0 ? 'stripe_webhook_failures' : null,
+    },
+    {
+      metricKey: 'blocked_subscription_count',
+      displayName: 'Blocked subscriptions',
+      used: input.blockedSubscriptions,
+      limit: 1,
+      unit: 'count',
+      sourceUrl: input.sourceUrl,
+      required: true,
+      errorCode: input.blockedSubscriptions > 0 ? 'stripe_billing_blocked' : null,
+    },
+    {
+      metricKey: 'active_subscription_count',
+      displayName: 'Active subscriptions',
+      used: input.activeSubscriptions,
+      limit: null,
+      unit: 'count',
+      sourceUrl: input.sourceUrl,
+      required: false,
+      errorCode: null,
+    },
+  ]
+}
+
+async function readStripeBillingCounts(): Promise<{
+  failedWebhookEvents: number
+  blockedSubscriptions: number
+  activeSubscriptions: number
+}> {
+  const client = getServiceRoleClient() as unknown as StripeBillingOpsClient
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const [webhooks, blockedSubscriptions, activeSubscriptions] = await Promise.all([
+    client
+      .from('stripe_webhook_event')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'failed')
+      .gte('created_at', since),
+    client
+      .from('subscription')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['past_due', 'incomplete']),
+    client
+      .from('subscription')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['trialing', 'active']),
+  ])
+
+  if (webhooks.error || blockedSubscriptions.error || activeSubscriptions.error) {
+    throw new Error('stripe_billing_ops_read_failed')
+  }
+
+  return {
+    failedWebhookEvents: webhooks.count ?? 0,
+    blockedSubscriptions: blockedSubscriptions.count ?? 0,
+    activeSubscriptions: activeSubscriptions.count ?? 0,
+  }
+}
+
 function envValue(key: string): string | undefined {
   const publicValues = publicEnv as Record<string, string | undefined>
   const serverValues = serverEnv as Record<string, string | undefined>
   return publicValues[key] ?? serverValues[key]
+}
+
+type StripeBillingOpsClient = {
+  from: (table: 'stripe_webhook_event' | 'subscription') => {
+    select: (
+      columns: 'id',
+      options: { count: 'exact'; head: true },
+    ) => {
+      eq: (
+        column: 'status',
+        value: string,
+      ) => {
+        gte: (
+          column: 'created_at',
+          value: string,
+        ) => Promise<{
+          count: number | null
+          error: { message: string } | null
+        }>
+      }
+      in: (
+        column: 'status',
+        values: string[],
+      ) => Promise<{
+        count: number | null
+        error: { message: string } | null
+      }>
+    }
+  }
 }

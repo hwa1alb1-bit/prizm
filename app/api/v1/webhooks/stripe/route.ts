@@ -1,13 +1,7 @@
 import { NextRequest } from 'next/server'
 import Stripe from 'stripe'
-import { recordAuditEventOrThrow } from '@/lib/server/audit'
-import {
-  createRouteContext,
-  jsonResponse,
-  problemResponse,
-  type RouteContext,
-} from '@/lib/server/http'
-import { getServiceRoleClient } from '@/lib/server/supabase'
+import { processStripeWebhookEvent } from '@/lib/server/billing/webhook-events'
+import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
 import { getStripeClient } from '@/lib/server/stripe'
 import { serverEnv } from '@/lib/shared/env'
 
@@ -50,7 +44,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   try {
-    await handleStripeEvent(event, context)
+    await processStripeWebhookEvent(event, context)
   } catch {
     return problemResponse(context, {
       status: 500,
@@ -65,85 +59,4 @@ export async function POST(req: NextRequest): Promise<Response> {
     request_id: context.requestId,
     trace_id: context.traceId,
   })
-}
-
-async function handleStripeEvent(event: Stripe.Event, context: RouteContext): Promise<void> {
-  await recordAuditEventOrThrow({
-    eventType: `stripe.${event.type}`,
-    targetType: 'stripe_event',
-    metadata: {
-      stripe_event_id: event.id,
-      livemode: event.livemode,
-      type: event.type,
-      request_id: context.requestId,
-      trace_id: context.traceId,
-    },
-  })
-
-  switch (event.type) {
-    case 'customer.subscription.created':
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted':
-      await syncSubscription(event.data.object)
-      break
-    default:
-      break
-  }
-}
-
-async function syncSubscription(subscription: Stripe.Subscription): Promise<void> {
-  const client = getServiceRoleClient()
-  const customerId =
-    typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
-  const item = subscription.items.data[0]
-  const price = item?.price
-  const patch = {
-    stripe_subscription_id: subscription.id,
-    plan: planFromPrice(price?.id),
-    billing_cycle: price?.recurring?.interval === 'year' ? 'annual' : 'monthly',
-    status: subscription.status,
-    current_period_start: timestampToIso(item?.current_period_start),
-    current_period_end: timestampToIso(item?.current_period_end),
-    cancel_at_period_end: subscription.cancel_at_period_end,
-  }
-
-  const bySubscription = await client
-    .from('subscription')
-    .update(patch)
-    .eq('stripe_subscription_id', subscription.id)
-    .select('id')
-    .maybeSingle()
-
-  if (bySubscription.error) throw new Error(bySubscription.error.message)
-  if (bySubscription.data) return
-
-  const byCustomer = await client
-    .from('subscription')
-    .update(patch)
-    .eq('stripe_customer_id', customerId)
-    .select('id')
-    .maybeSingle()
-
-  if (byCustomer.error) throw new Error(byCustomer.error.message)
-}
-
-function planFromPrice(priceId: string | undefined): 'free' | 'starter' | 'pro' {
-  if (!priceId) return 'free'
-  if (
-    priceId === serverEnv.STRIPE_PRICE_STARTER_MONTHLY ||
-    priceId === serverEnv.STRIPE_PRICE_STARTER_ANNUAL
-  ) {
-    return 'starter'
-  }
-  if (
-    priceId === serverEnv.STRIPE_PRICE_PRO_MONTHLY ||
-    priceId === serverEnv.STRIPE_PRICE_PRO_ANNUAL
-  ) {
-    return 'pro'
-  }
-  return 'free'
-}
-
-function timestampToIso(timestamp: number | null | undefined): string | null {
-  return timestamp ? new Date(timestamp * 1000).toISOString() : null
 }

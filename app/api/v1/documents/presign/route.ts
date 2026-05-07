@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { getUploadBillingGate } from '@/lib/server/billing/access'
 import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
@@ -113,6 +114,20 @@ export async function POST(request: NextRequest) {
             detail: 'This workspace does not have enough credits to convert the document.',
           },
     )
+  }
+
+  const billingGate = await getUploadBillingGate({
+    supabase: auth.context.supabase,
+    userId: auth.context.user.id,
+  })
+
+  if (!billingGate.allowed) {
+    return problemResponse(context, {
+      status: 402,
+      code: billingGate.problemCode,
+      title: billingGate.title,
+      detail: billingGate.detail,
+    })
   }
 
   const s3Key = `${auth.context.user.id}/${crypto.randomUUID()}/${filename}`

@@ -1,23 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/v1/webhooks/stripe/route'
-import { recordAuditEventOrThrow } from '@/lib/server/audit'
+import { processStripeWebhookEvent } from '@/lib/server/billing/webhook-events'
 import { getStripeClient } from '@/lib/server/stripe'
 import { serverEnv } from '@/lib/shared/env'
 
-vi.mock('@/lib/server/audit', () => ({
-  recordAuditEventOrThrow: vi.fn(),
+vi.mock('@/lib/server/billing/webhook-events', () => ({
+  processStripeWebhookEvent: vi.fn(),
 }))
 
 vi.mock('@/lib/server/stripe', () => ({
   getStripeClient: vi.fn(),
 }))
 
-vi.mock('@/lib/server/supabase', () => ({
-  getServiceRoleClient: vi.fn(),
-}))
-
 const getStripeClientMock = vi.mocked(getStripeClient)
-const recordAuditEventOrThrowMock = vi.mocked(recordAuditEventOrThrow)
+const processStripeWebhookEventMock = vi.mocked(processStripeWebhookEvent)
 const constructEvent = vi.fn()
 
 describe('Stripe webhook route', () => {
@@ -34,7 +30,7 @@ describe('Stripe webhook route', () => {
       livemode: false,
       data: { object: {} },
     })
-    recordAuditEventOrThrowMock.mockResolvedValue('audit_123')
+    processStripeWebhookEventMock.mockResolvedValue({ processed: true, replayed: false })
   })
 
   afterEach(() => {
@@ -78,7 +74,7 @@ describe('Stripe webhook route', () => {
     expect(JSON.stringify(body)).not.toContain('raw stripe parser detail')
   })
 
-  it('records an audit event and returns request identifiers for valid events', async () => {
+  it('processes valid events and returns request identifiers', async () => {
     const response = await POST(
       stripeRequest('{}', 'sig', { 'x-request-id': 'req_stripe' }) as never,
     )
@@ -86,20 +82,14 @@ describe('Stripe webhook route', () => {
     const body = await response.json()
     expect(response.status).toBe(200)
     expect(body).toMatchObject({ received: true, request_id: 'req_stripe' })
-    expect(recordAuditEventOrThrowMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'stripe.ping',
-        targetType: 'stripe_event',
-        metadata: expect.objectContaining({
-          stripe_event_id: 'evt_123',
-          request_id: 'req_stripe',
-        }),
-      }),
+    expect(processStripeWebhookEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'evt_123', type: 'ping' }),
+      expect.objectContaining({ requestId: 'req_stripe' }),
     )
   })
 
   it('returns a sanitized problem response if webhook handling fails', async () => {
-    recordAuditEventOrThrowMock.mockRejectedValue(new Error('audit table unavailable'))
+    processStripeWebhookEventMock.mockRejectedValue(new Error('audit table unavailable'))
 
     const response = await POST(stripeRequest('{}', 'sig') as never)
 

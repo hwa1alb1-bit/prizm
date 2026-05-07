@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/v1/documents/presign/route'
+import { getUploadBillingGate } from '@/lib/server/billing/access'
 import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
@@ -17,6 +18,10 @@ vi.mock('@/lib/server/document-preflight', () => ({
   preflightDocumentUpload: vi.fn(),
 }))
 
+vi.mock('@/lib/server/billing/access', () => ({
+  getUploadBillingGate: vi.fn(),
+}))
+
 vi.mock('@/lib/server/s3', () => ({
   getS3Client: vi.fn(() => ({})),
   getUploadBucket: vi.fn(() => 'prizm-test-uploads'),
@@ -29,6 +34,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
 
 const requireAuthenticatedUserMock = vi.mocked(requireAuthenticatedUser)
 const preflightDocumentUploadMock = vi.mocked(preflightDocumentUpload)
+const getUploadBillingGateMock = vi.mocked(getUploadBillingGate)
 const createPendingDocumentUploadMock = vi.mocked(createPendingDocumentUpload)
 const getSignedUrlMock = vi.mocked(getSignedUrl)
 
@@ -50,6 +56,7 @@ describe('documents presign route', () => {
       requestId: 'req_preflight',
       traceId: '0123456789abcdef0123456789abcdef',
     })
+    getUploadBillingGateMock.mockResolvedValue({ allowed: true, mode: 'included_credit' })
     getSignedUrlMock.mockResolvedValue('https://s3.example/upload')
     createPendingDocumentUploadMock.mockResolvedValue({
       ok: true,
@@ -113,6 +120,35 @@ describe('documents presign route', () => {
     expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
   })
 
+  it('blocks presign before S3 signing when billing does not allow another upload', async () => {
+    getUploadBillingGateMock.mockResolvedValue({
+      allowed: false,
+      reason: 'credits_exhausted',
+      problemCode: 'PRZM_BILLING_CREDITS_EXHAUSTED',
+      title: 'Conversion credits exhausted',
+      detail: 'Upgrade or wait for the next billing period before starting another conversion.',
+    })
+    const fileSha256 = 'a'.repeat(64)
+
+    const response = await POST(
+      jsonRequest({
+        filename: 'statement.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 4096,
+        fileSha256,
+        acceptedQuote: { costCredits: 1, fileSha256 },
+      }) as never,
+    )
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 402,
+      code: 'PRZM_BILLING_CREDITS_EXHAUSTED',
+    })
+    expect(preflightDocumentUploadMock).toHaveBeenCalled()
+    expect(getSignedUrlMock).not.toHaveBeenCalled()
+    expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
+  })
+
   it('creates an audited pending document before returning the signed URL', async () => {
     const fileSha256 = 'b'.repeat(64)
     const response = await POST(
@@ -154,6 +190,10 @@ describe('documents presign route', () => {
         fileSha256,
       }),
     )
+    expect(getUploadBillingGateMock).toHaveBeenCalledWith({
+      supabase: {},
+      userId: 'user_123',
+    })
   })
 
   it('rejects presign when preflight says the PDF cannot convert', async () => {
@@ -182,6 +222,7 @@ describe('documents presign route', () => {
       status: 402,
       code: 'PRZM_CREDITS_INSUFFICIENT',
     })
+    expect(getUploadBillingGateMock).not.toHaveBeenCalled()
     expect(getSignedUrlMock).not.toHaveBeenCalled()
     expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
   })
