@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { normalizeOpsSnapshotRows } from '@/lib/server/ops/store'
 
 describe('normalizeOpsSnapshotRows', () => {
-  it('recomputes stale required snapshots as red at read time', () => {
+  it('keeps daily cron snapshots fresh inside the ops collection window', () => {
     const snapshots = normalizeOpsSnapshotRows(
       [
         {
@@ -22,6 +22,34 @@ describe('normalizeOpsSnapshotRows', () => {
         },
       ],
       { now: new Date('2026-05-05T23:30:00.000Z') },
+    )
+
+    expect(snapshots[0]).toMatchObject({
+      freshness: 'fresh',
+      status: 'green',
+    })
+  })
+
+  it('recomputes stale required snapshots as red at read time', () => {
+    const snapshots = normalizeOpsSnapshotRows(
+      [
+        {
+          provider_id: 'stripe',
+          metric_key: 'credential_gap',
+          display_name: 'Missing credential count',
+          used: 0,
+          limit_value: 1,
+          unit: 'count',
+          period_start: null,
+          period_end: null,
+          status: 'green',
+          freshness: 'fresh',
+          source_url: 'https://dashboard.stripe.com',
+          collected_at: '2026-05-05T23:00:00.000Z',
+          error_code: null,
+        },
+      ],
+      { now: new Date('2026-05-07T02:00:00.000Z') },
     )
 
     expect(snapshots[0]).toMatchObject({

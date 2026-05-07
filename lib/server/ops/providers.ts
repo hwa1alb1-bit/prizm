@@ -35,6 +35,8 @@ type ProviderDefinition = {
   staleAfterMinutes?: number
 }
 
+const DAILY_COLLECTION_STALE_AFTER_MINUTES = 26 * 60
+
 export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   {
     id: 'cloudflare',
@@ -131,7 +133,8 @@ export function isProviderId(value: string): value is ProviderId {
 
 export function getProviderStaleAfterMinutes(provider: ProviderId): number {
   return (
-    PROVIDER_DEFINITIONS.find((definition) => definition.id === provider)?.staleAfterMinutes ?? 15
+    PROVIDER_DEFINITIONS.find((definition) => definition.id === provider)?.staleAfterMinutes ??
+    DAILY_COLLECTION_STALE_AFTER_MINUTES
   )
 }
 
