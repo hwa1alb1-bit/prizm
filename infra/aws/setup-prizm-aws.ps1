@@ -61,6 +61,11 @@ $f = Write-Tmp "{`"Rules`":[{`"ApplyServerSideEncryptionByDefault`":{`"SSEAlgori
 aws s3api put-bucket-encryption --bucket $Bucket --server-side-encryption-configuration "file://$f"
 Remove-Item $f -Force -Confirm:$false
 
+Write-Host "  browser upload CORS..."
+$f = Write-Tmp '{"CORSRules":[{"AllowedHeaders":["*"],"AllowedMethods":["PUT","GET"],"AllowedOrigins":["https://prizmview.app","https://*.vercel.app","http://localhost:3030"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3000}]}'
+aws s3api put-bucket-cors --bucket $Bucket --cors-configuration "file://$f"
+Remove-Item $f -Force -Confirm:$false
+
 Write-Host "  done."
 
 # ── 3. OIDC Provider ────────────────────────────────────────────────

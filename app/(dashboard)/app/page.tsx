@@ -270,11 +270,26 @@ export default function UploadPage() {
       const presign = (await presignRes.json()) as PresignResponse
 
       setState('uploading')
-      const uploadRes = await fetch(presign.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/pdf' },
-        body: file,
-      })
+      let uploadRes: Response
+      try {
+        uploadRes = await fetch(presign.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: file,
+        })
+      } catch (err) {
+        const browserError = err instanceof Error ? err.message : 'Storage fetch rejected'
+        throw uploadFlowError({
+          kind: 'upload_failed',
+          title: 'Upload failed',
+          plainCause: `The browser could not reach secure storage. Browser error: ${browserError}. No OCR job was started.`,
+          evidence: uploadEvidenceIds(presign, [
+            { label: 'Browser upload error', value: browserError },
+          ]),
+          nextAction:
+            'Ask ops to verify S3 browser-upload CORS for prizmview.app, then upload the same PDF again.',
+        })
+      }
 
       if (!uploadRes.ok) {
         throw uploadFlowError({

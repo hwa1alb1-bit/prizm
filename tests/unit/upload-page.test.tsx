@@ -202,6 +202,41 @@ describe('UploadPage', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
+  it('keeps presign evidence when the browser PUT to S3 cannot be fetched', async () => {
+    mockSha256([0xab, 0xc1, 0x23])
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(preflightResponse())
+      .mockResolvedValueOnce(
+        jsonResponse({
+          uploadUrl: 'https://s3.example/upload',
+          documentId: 'doc_123',
+          request_id: 'req_presign',
+          trace_id: '0123456789abcdef0123456789abcdef',
+        }),
+      )
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { container } = render(<UploadPage />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+
+    await userEvent.upload(
+      input,
+      new File(['statement'], 'May Statement.pdf', { type: 'application/pdf' }),
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm conversion' }))
+
+    expect((await screen.findAllByText('Upload failed')).length).toBeGreaterThan(0)
+    expect(screen.getByText(/browser could not reach secure storage/)).toBeInTheDocument()
+    expect(screen.getByText('doc_123')).toBeInTheDocument()
+    expect(screen.getByText('req_presign')).toBeInTheDocument()
+    expect(screen.getByText('0123456789abcdef0123456789abcdef')).toBeInTheDocument()
+    expect(screen.queryByText('local-upload-validation')).not.toBeInTheDocument()
+    expect(push).not.toHaveBeenCalled()
+  })
+
   it('shows S3 verification recovery when completion cannot prove the uploaded object', async () => {
     mockSha256([0xab, 0xc1, 0x23])
     const fetchMock = vi

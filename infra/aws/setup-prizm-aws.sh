@@ -80,6 +80,18 @@ aws s3api put-bucket-encryption \
     }]
   }"
 
+aws s3api put-bucket-cors \
+  --bucket "${BUCKET}" \
+  --cors-configuration '{
+    "CORSRules": [{
+      "AllowedHeaders": ["*"],
+      "AllowedMethods": ["PUT", "GET"],
+      "AllowedOrigins": ["https://prizmview.app", "https://*.vercel.app", "http://localhost:3030"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3000
+    }]
+  }'
+
 echo "S3 bucket ${BUCKET} configured."
 
 # ── 3. OIDC Provider (idempotent) ───────────────────────────────────
