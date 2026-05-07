@@ -22,7 +22,8 @@ describe('Vercel deployment config', () => {
     expect(packageJson.engines?.node).toBe('24.x')
     expect(packageJson.packageManager).toMatch(/^pnpm@10\./)
     expect(ci).toContain("NODE_VERSION: '24'")
-    expect(ci).toContain("PNPM_VERSION: '10'")
+    expect(ci).not.toContain('PNPM_VERSION')
+    expect(ci).not.toContain('version: ${{ env.PNPM_VERSION }}')
   })
 
   it('keeps cron schedules compatible with Hobby deployments', () => {
