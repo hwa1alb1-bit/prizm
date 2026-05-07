@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: '%s · PRIZM',
   },
   description:
-    'Convert PDF bank statements into clean Excel and CSV files with review, export, and 24-hour deletion evidence.',
+    'Convert PDF bank statements into clean Excel and CSV files with review, export, 24-hour deletion evidence, and trust controls.',
   applicationName: 'PRIZM',
   robots: { index: true, follow: true },
 }

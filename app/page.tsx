@@ -10,8 +10,8 @@ const proofPoints = [
     copy: 'Every conversion lands in review before the spreadsheet is exported.',
   },
   {
-    label: 'Fast',
-    copy: 'One PDF, one quote, one clean path from upload to Excel or CSV.',
+    label: 'Audited',
+    copy: 'Security, privacy, deletion, and status evidence stay visible from launch.',
   },
 ]
 
@@ -33,9 +33,9 @@ const launchTiers = [
     detail: 'Each PDF is quoted before upload so firms know the conversion cost upfront.',
   },
   {
-    name: 'Need more?',
-    note: 'Custom intake formats',
-    detail: 'Use the same review and export path for high-volume or unusual statement work.',
+    name: 'Trust',
+    note: 'Security and status surfaced',
+    detail: 'Review the security model, subprocessors, privacy workflow, and launch status.',
   },
 ]
 
@@ -68,6 +68,12 @@ export default function Home() {
               className="inline-flex min-h-12 items-center justify-center rounded-md border border-[var(--border-subtle)] px-5 text-sm font-medium transition hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               Sign in
+            </Link>
+            <Link
+              href="/security"
+              className="inline-flex min-h-12 items-center justify-center rounded-md border border-[var(--border-subtle)] px-5 text-sm font-medium transition hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              Security
             </Link>
           </div>
 
@@ -152,6 +158,19 @@ export default function Home() {
               <h2 className="text-lg font-semibold">{tier.name}</h2>
               <p className="mt-2 text-sm font-medium text-[var(--accent)]">{tier.note}</p>
               <p className="mt-3 text-sm leading-6 text-foreground/65">{tier.detail}</p>
+              {tier.name === 'Trust' ? (
+                <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                  <Link className="font-medium text-[var(--accent)]" href="/status">
+                    Status
+                  </Link>
+                  <Link className="font-medium text-[var(--accent)]" href="/privacy">
+                    Privacy
+                  </Link>
+                  <Link className="font-medium text-[var(--accent)]" href="/terms">
+                    Terms
+                  </Link>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>
