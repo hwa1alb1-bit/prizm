@@ -48,6 +48,9 @@ describe('processTextractDocuments', () => {
       documentId: 'doc_123',
       consumedAt: now.toISOString(),
     })
+    expect(vi.mocked(deps.consumeCreditReservation).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(deps.markDocumentReady).mock.invocationCallOrder[0],
+    )
     expect(deps.releaseCreditReservation).not.toHaveBeenCalled()
     expect(deps.recordAuditEvent).toHaveBeenCalledWith({
       eventType: 'document.processing_ready',
@@ -90,6 +93,9 @@ describe('processTextractDocuments', () => {
       documentId: 'doc_123',
       releasedAt: now.toISOString(),
     })
+    expect(vi.mocked(deps.releaseCreditReservation).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(deps.markDocumentFailed).mock.invocationCallOrder[0],
+    )
     expect(deps.recordAuditEvent).toHaveBeenCalledWith({
       eventType: 'document.processing_failed',
       workspaceId: 'workspace_123',

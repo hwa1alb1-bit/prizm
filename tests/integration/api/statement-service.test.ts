@@ -3,9 +3,9 @@ import { applyStatementEdit, type StatementEditStore } from '@/lib/server/statem
 
 describe('statement edit service', () => {
   it('applies transaction update, add, delete, and reviewed state with a revision bump', async () => {
-    const updateStatement = vi.fn().mockResolvedValue(true)
+    const updateStatement = vi.fn().mockResolvedValue('updated')
     const store: StatementEditStore = {
-      getWorkspaceIdForUser: vi.fn().mockResolvedValue('workspace_123'),
+      getUserProfile: vi.fn().mockResolvedValue({ workspaceId: 'workspace_123', role: 'member' }),
       getDocument: vi.fn().mockResolvedValue({
         id: 'doc_123',
         status: 'ready',
@@ -57,6 +57,7 @@ describe('statement edit service', () => {
     })
     expect(updateStatement).toHaveBeenCalledWith(
       'statement_123',
+      3,
       expect.objectContaining({
         revision: 4,
         review_status: 'reviewed',

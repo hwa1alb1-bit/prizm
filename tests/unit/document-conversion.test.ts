@@ -58,6 +58,29 @@ describe('convertDocument', () => {
     expect(deps.markProcessingStarted).not.toHaveBeenCalled()
   })
 
+  it('releases a reserved credit when Textract cannot be started', async () => {
+    const deps = createDependencies()
+    deps.startTextractAnalysis.mockRejectedValueOnce(new Error('textract_down'))
+
+    const result = await convertDocument(conversionInput(), deps)
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'textract_start_failed',
+      status: 502,
+    })
+    expect(deps.releaseCreditReservation).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      releasedAt: expect.any(String),
+    })
+    expect(deps.markProcessingFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc_123',
+        failureReason: 'Textract analysis could not be started for the verified upload.',
+      }),
+    )
+  })
+
   it('returns the existing Textract job without reserving another credit', async () => {
     const deps = createDependencies({
       document: documentRow({
@@ -106,6 +129,7 @@ function createDependencies(overrides: { document?: ConversionDocument | null } 
     }),
     getDocument: vi.fn().mockResolvedValue(overrides.document ?? documentRow()),
     reserveCredit: vi.fn().mockResolvedValue({ ok: true, chargeStatus: 'reserved' }),
+    releaseCreditReservation: vi.fn().mockResolvedValue(undefined),
     startTextractAnalysis: vi.fn().mockResolvedValue('textract_job_123'),
     markProcessingStarted: vi.fn().mockResolvedValue(undefined),
     markProcessingFailed: vi.fn().mockResolvedValue(undefined),

@@ -2,15 +2,22 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const migrationPath = join(
+const phase1MigrationPath = join(
   process.cwd(),
   'supabase',
   'migrations',
   '0009_phase1_lean_converter.sql',
 )
+const lifecycleMigrationPath = join(
+  process.cwd(),
+  'supabase',
+  'migrations',
+  '0010_harden_conversion_lifecycle.sql',
+)
 
 describe('Phase 1 lean converter schema migration', () => {
-  const sql = () => readFileSync(migrationPath, 'utf8')
+  const sql = () => readFileSync(phase1MigrationPath, 'utf8')
+  const lifecycleSql = () => `${sql()}\n${readFileSync(lifecycleMigrationPath, 'utf8')}`
 
   it('adds the single-PDF conversion state, duplicate, and charge fields', () => {
     const migration = sql()
@@ -40,6 +47,61 @@ describe('Phase 1 lean converter schema migration', () => {
     expect(migration).toContain('create table credit_reservation')
     expect(migration).toContain('create table export_artifact')
     expect(migration).toContain('create table extraction_report')
+  })
+
+  it('defines the credit reservation lifecycle RPCs used by conversion processing', () => {
+    const migration = lifecycleSql()
+
+    expect(migration).toContain(
+      'create or replace function public.reserve_document_conversion_credit',
+    )
+    expect(migration).toContain(
+      'create or replace function public.consume_document_conversion_credit',
+    )
+    expect(migration).toContain(
+      'create or replace function public.release_document_conversion_credit',
+    )
+    expect(migration).toContain('reason')
+    expect(migration).toContain('document_id')
+    expect(migration).toContain('balance_after')
+  })
+
+  it('serializes workspace credit transitions and grants lifecycle RPCs only to the server role', () => {
+    const migration = lifecycleSql()
+
+    expect(migration).toContain('from public.workspace w')
+    expect(migration).toContain('for update;')
+    expect(migration).toContain('revoke all on function public.reserve_document_conversion_credit')
+    expect(migration).toContain(
+      'grant execute on function public.reserve_document_conversion_credit',
+    )
+    expect(migration).toContain(
+      'grant execute on function public.consume_document_conversion_credit',
+    )
+    expect(migration).toContain(
+      'grant execute on function public.release_document_conversion_credit',
+    )
+    expect(migration).toContain('to service_role')
+  })
+
+  it('adds an atomic statement edit RPC that fences document and statement lifecycle state', () => {
+    const migration = lifecycleSql()
+
+    expect(migration).toContain(
+      'create or replace function public.update_statement_edit_if_current',
+    )
+    expect(migration).toContain("d.status = 'ready'")
+    expect(migration).toContain('d.deleted_at is null')
+    expect(migration).toContain('s.deleted_at is null')
+    expect(migration).toContain('s.revision = p_expected_revision')
+  })
+
+  it('retires the pre-quote upload RPC overload', () => {
+    const migration = lifecycleSql()
+
+    expect(migration).toContain('drop function if exists public.create_pending_document_upload')
+    expect(migration).toContain('p_file_sha256 text')
+    expect(migration).toContain('p_conversion_cost_credits int')
   })
 
   it('updates audited RPCs and deletion scrubbing for sensitive hashes and transactions', () => {

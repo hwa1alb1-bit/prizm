@@ -2,6 +2,11 @@ import 'server-only'
 
 import { StartDocumentAnalysisCommand } from '@aws-sdk/client-textract'
 import { recordAuditEventOrThrow } from './audit'
+import {
+  releaseDocumentConversionCredit,
+  reserveDocumentConversionCredit,
+  type ReserveDocumentConversionCreditResult,
+} from './credit-reservation'
 import type { RouteContext } from './http'
 import { getServiceRoleClient } from './supabase'
 import { getTextractClient } from './textract'
@@ -64,14 +69,13 @@ export type ConvertDocumentFailure = {
 
 export type ConvertDocumentResult = ConvertDocumentSuccess | ConvertDocumentFailure
 
-export type ReserveCreditResult =
-  | { ok: true; chargeStatus: string }
-  | { ok: false; reason: 'insufficient_balance' | 'reservation_failed' }
+export type ReserveCreditResult = ReserveDocumentConversionCreditResult
 
 export type DocumentConversionDependencies = {
   getUserProfile: (userId: string) => Promise<ConversionProfile | null>
   getDocument: (documentId: string) => Promise<ConversionDocument | null>
   reserveCredit: (input: ReserveCreditInput) => Promise<ReserveCreditResult>
+  releaseCreditReservation: (input: { documentId: string; releasedAt: string }) => Promise<void>
   startTextractAnalysis: (input: {
     documentId: string
     s3Bucket: string
@@ -119,10 +123,6 @@ type DocumentRow = {
   charge_status: string | null
   conversion_cost_credits: number | null
   failure_reason: string | null
-}
-
-type ReserveConversionCreditRow = {
-  charge_status: string
 }
 
 type DocumentUpdateQuery = {
@@ -176,6 +176,10 @@ export async function convertDocument(
   } catch {
     const failureReason = 'Textract analysis could not be started for the verified upload.'
     try {
+      await deps.releaseCreditReservation({
+        documentId: document.id,
+        releasedAt: new Date().toISOString(),
+      })
       await deps.markProcessingFailed({ ...audit, failureReason })
     } catch {
       return conversionProblem('transition_failed')
@@ -210,6 +214,7 @@ function createDocumentConversionDependencies(): DocumentConversionDependencies 
     getUserProfile: getUserProfileForConversion,
     getDocument: getDocumentForConversion,
     reserveCredit,
+    releaseCreditReservation,
     startTextractAnalysis,
     markProcessingStarted,
     markProcessingFailed,
@@ -255,35 +260,23 @@ async function getDocumentForConversion(documentId: string): Promise<ConversionD
 }
 
 async function reserveCredit(input: ReserveCreditInput): Promise<ReserveCreditResult> {
-  const rpcClient = getServiceRoleClient() as unknown as {
-    rpc: (
-      fn: 'reserve_document_conversion_credit',
-      args: Record<string, unknown>,
-    ) => Promise<{
-      data: ReserveConversionCreditRow[] | null
-      error: { message: string } | null
-    }>
-  }
-
-  const { data, error } = await rpcClient.rpc('reserve_document_conversion_credit', {
-    p_document_id: input.documentId,
-    p_cost_credits: input.costCredits,
-    p_request_id: input.requestId,
-    p_trace_id: input.traceId,
-    p_actor_ip: input.actorIp,
-    p_actor_user_agent: input.actorUserAgent,
+  return reserveDocumentConversionCredit({
+    documentId: input.documentId,
+    actorUserId: input.actorUserId,
+    costCredits: input.costCredits,
+    actorIp: input.actorIp,
+    actorUserAgent: input.actorUserAgent,
+    requestId: input.requestId,
+    traceId: input.traceId,
   })
+}
 
-  if (error) {
-    if (error.message.includes('insufficient_balance')) {
-      return { ok: false, reason: 'insufficient_balance' }
-    }
-    return { ok: false, reason: 'reservation_failed' }
-  }
-
-  const row = data?.[0]
-  if (!row) return { ok: false, reason: 'reservation_failed' }
-  return { ok: true, chargeStatus: row.charge_status }
+async function releaseCreditReservation(input: {
+  documentId: string
+  releasedAt: string
+}): Promise<void> {
+  const result = await releaseDocumentConversionCredit(input)
+  if (!result.ok) throw new Error('credit_reservation_release_failed')
 }
 
 async function startTextractAnalysis(input: {

@@ -6,11 +6,15 @@
     },
     {
       "path": "/api/ops/deletion/sweep",
-      "schedule": "15 5 * * *"
+      "schedule": "5 5 * * *"
     },
     {
       "path": "/api/ops/deletion/monitor",
-      "schedule": "30 5 * * *"
+      "schedule": "20 5 * * *"
+    },
+    {
+      "path": "/api/ops/processing",
+      "schedule": "35 5 * * *"
     }
   ]
 }

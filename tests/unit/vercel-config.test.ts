@@ -21,4 +21,33 @@ describe('Vercel deployment config', () => {
 
     expect(invalidCrons).toEqual([])
   })
+
+  it('schedules document processing polling in production', () => {
+    const config = JSON.parse(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')) as {
+      crons?: VercelCron[]
+    }
+
+    expect(config.crons?.map((cron) => cron.path)).toContain('/api/ops/processing')
+  })
+
+  it('runs deletion before processing to avoid immediately scrubbing fresh conversions', () => {
+    const config = JSON.parse(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')) as {
+      crons?: VercelCron[]
+    }
+    const byPath = new Map(
+      (config.crons ?? []).map((cron) => [cron.path, minuteOfDay(cron.schedule)]),
+    )
+
+    expect(byPath.get('/api/ops/deletion/sweep')).toBeLessThan(
+      byPath.get('/api/ops/processing') ?? Number.POSITIVE_INFINITY,
+    )
+    expect(byPath.get('/api/ops/deletion/monitor')).toBeLessThan(
+      byPath.get('/api/ops/processing') ?? Number.POSITIVE_INFINITY,
+    )
+  })
 })
+
+function minuteOfDay(schedule: string): number {
+  const [minute, hour] = schedule.split(' ').map(Number)
+  return hour * 60 + minute
+}

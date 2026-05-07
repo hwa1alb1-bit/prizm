@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/v1/documents/presign/route'
+import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -10,6 +11,10 @@ vi.mock('@/lib/server/route-auth', () => ({
 
 vi.mock('@/lib/server/document-upload', () => ({
   createPendingDocumentUpload: vi.fn(),
+}))
+
+vi.mock('@/lib/server/document-preflight', () => ({
+  preflightDocumentUpload: vi.fn(),
 }))
 
 vi.mock('@/lib/server/s3', () => ({
@@ -23,6 +28,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
 }))
 
 const requireAuthenticatedUserMock = vi.mocked(requireAuthenticatedUser)
+const preflightDocumentUploadMock = vi.mocked(preflightDocumentUpload)
 const createPendingDocumentUploadMock = vi.mocked(createPendingDocumentUpload)
 const getSignedUrlMock = vi.mocked(getSignedUrl)
 
@@ -34,6 +40,15 @@ describe('documents presign route', () => {
         supabase: {} as never,
         user: { id: 'user_123' } as never,
       },
+    })
+    preflightDocumentUploadMock.mockResolvedValue({
+      ok: true,
+      quote: { costCredits: 1 },
+      currentBalance: 3,
+      canConvert: true,
+      duplicate: { isDuplicate: false },
+      requestId: 'req_preflight',
+      traceId: '0123456789abcdef0123456789abcdef',
     })
     getSignedUrlMock.mockResolvedValue('https://s3.example/upload')
     createPendingDocumentUploadMock.mockResolvedValue({
@@ -133,6 +148,42 @@ describe('documents presign route', () => {
         routeContext: expect.objectContaining({ requestId: 'req_presign' }),
       }),
     )
+    expect(preflightDocumentUploadMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: 'user_123',
+        fileSha256,
+      }),
+    )
+  })
+
+  it('rejects presign when preflight says the PDF cannot convert', async () => {
+    preflightDocumentUploadMock.mockResolvedValue({
+      ok: true,
+      quote: { costCredits: 1 },
+      currentBalance: 0,
+      canConvert: false,
+      duplicate: { isDuplicate: false },
+      requestId: 'req_preflight',
+      traceId: '0123456789abcdef0123456789abcdef',
+    })
+    const fileSha256 = 'f'.repeat(64)
+
+    const response = await POST(
+      jsonRequest({
+        filename: 'statement.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 4096,
+        fileSha256,
+        acceptedQuote: { costCredits: 1, fileSha256 },
+      }) as never,
+    )
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 402,
+      code: 'PRZM_CREDITS_INSUFFICIENT',
+    })
+    expect(getSignedUrlMock).not.toHaveBeenCalled()
+    expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
   })
 
   it('rejects an accepted quote when the top-level file hash does not match', async () => {

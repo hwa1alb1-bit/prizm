@@ -127,6 +127,37 @@ describe('UploadPage', () => {
     expect(push).toHaveBeenCalledWith('/app/history/doc_123')
   })
 
+  it('blocks confirmation when preflight says the PDF is not eligible to convert', async () => {
+    mockSha256([0xab, 0xc1, 0x23])
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        quote: { costCredits: 1 },
+        currentBalance: 0,
+        canConvert: false,
+        duplicate: { isDuplicate: true, existingDocumentId: 'doc_existing' },
+        request_id: 'req_preflight',
+        trace_id: '0123456789abcdef0123456789abcdef',
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { container } = render(<UploadPage />)
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+
+    await userEvent.upload(
+      input,
+      new File(['statement'], 'May Statement.pdf', { type: 'application/pdf' }),
+    )
+
+    expect(await screen.findByText('Conversion blocked')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirm conversion' })).not.toBeInTheDocument()
+    expect(screen.getByText('Duplicate doc_existing')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Resolve the duplicate or add credits before uploading/),
+    ).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('shows upload failed recovery when the browser PUT to S3 is rejected', async () => {
     mockSha256([0xab, 0xc1, 0x23])
     const fetchMock = vi

@@ -17,7 +17,7 @@ import {
 } from './store'
 
 export type DeletionSweepFailure = {
-  targetType: 'document' | 'statement' | 'receipt'
+  targetType: 'document' | 'statement' | 'receipt' | 'audit'
   targetId: string
   errorCode: string
 }
@@ -92,7 +92,7 @@ export async function runDeletionSweep(input: {
     if (s3.state === 'deleted') s3Deleted += 1
     if (s3.state === 'absent') s3Absent += 1
 
-    await recordAuditEvent({
+    const audit = await recordAuditEvent({
       eventType: 'document.deleted',
       workspaceId: document.workspaceId,
       actorUserId: null,
@@ -104,6 +104,13 @@ export async function runDeletionSweep(input: {
         expires_at: document.expiresAt,
       },
     })
+    if (!audit.ok) {
+      failures.push({
+        targetType: 'audit',
+        targetId: document.id,
+        errorCode: 'audit_write_failed',
+      })
+    }
 
     if (!document.recipientEmail) {
       receiptFailures += 1
@@ -155,7 +162,7 @@ export async function runDeletionSweep(input: {
   for (const statement of independentStatements) {
     await markStatementDeleted({ statementId: statement.id, deletedAt: nowIso })
     deletedStatements += 1
-    await recordAuditEvent({
+    const audit = await recordAuditEvent({
       eventType: 'statement.deleted',
       workspaceId: statement.workspaceId,
       actorUserId: null,
@@ -167,6 +174,13 @@ export async function runDeletionSweep(input: {
         expires_at: statement.expiresAt,
       },
     })
+    if (!audit.ok) {
+      failures.push({
+        targetType: 'audit',
+        targetId: statement.id,
+        errorCode: 'audit_write_failed',
+      })
+    }
   }
 
   const status = computeSweepStatus({
@@ -191,7 +205,8 @@ export async function runDeletionSweep(input: {
     receiptCount: receiptsSent,
     receiptFailureCount: receiptFailures,
     survivorCount: failures.filter((failure) => failure.targetType !== 'receipt').length,
-    errorDetail: failures.length > 0 ? 'deletion_sweep_partial_failure' : null,
+    errorDetail:
+      failures.length > 0 ? failures.map((failure) => failure.errorCode).join(',') : null,
   })
 
   return {

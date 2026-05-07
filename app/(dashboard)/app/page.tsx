@@ -227,6 +227,7 @@ export default function UploadPage() {
   const confirmUpload = useCallback(async () => {
     if (!pendingPreflight) return
     const { file, fileSha256, preflight } = pendingPreflight
+    if (!preflight.canConvert) return
     setRecovery(null)
     setEvidence(null)
     setState('presigning')
@@ -441,7 +442,7 @@ export default function UploadPage() {
                   >
                     Choose PDF
                   </button>
-                  {state === 'confirming' && pendingPreflight && (
+                  {state === 'confirming' && pendingPreflight?.preflight.canConvert && (
                     <button
                       type="button"
                       onClick={confirmUpload}
@@ -611,9 +612,15 @@ function PreflightConfirmation({ pendingPreflight }: { pendingPreflight: Pending
   const { preflight, fileSha256 } = pendingPreflight
   const duplicateFound = preflight.duplicate.isDuplicate
   const balanceAfter = Math.max(0, preflight.currentBalance - preflight.quote.costCredits)
+  const blockedReason = duplicateFound
+    ? 'Resolve the duplicate or add credits before uploading.'
+    : 'Add credits before uploading.'
   return (
     <section className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
-      <p className="font-medium text-[var(--accent)]">Ready to convert</p>
+      <p className="font-medium text-[var(--accent)]">
+        {preflight.canConvert ? 'Ready to convert' : 'Conversion blocked'}
+      </p>
+      {!preflight.canConvert && <p className="mt-1 text-foreground/70">{blockedReason}</p>}
       <dl className="mt-3 grid gap-2 sm:grid-cols-2">
         <EvidenceRow
           label="Duplicate"

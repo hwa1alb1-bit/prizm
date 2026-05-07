@@ -5,6 +5,8 @@ import { getServiceRoleClient } from './supabase'
 import type { Json } from '../shared/db-types'
 import type { RouteContext } from './http'
 
+const STATEMENT_EDIT_ROLES = new Set(['owner', 'admin', 'member'])
+
 export type StatementEditOperation =
   | { type: 'update'; id: string; patch: Partial<EditableTransactionRow> }
   | { type: 'add'; row: EditableTransactionRow }
@@ -47,7 +49,7 @@ export type StatementEditResult =
       documentId: string
       statementId: string
       revision: number
-      reviewStatus: 'needs_review' | 'reviewed'
+      reviewStatus: 'unreviewed' | 'reviewed'
       transactions: Json[]
       requestId: string
       traceId: string
@@ -62,20 +64,32 @@ export type StatementEditProblem = {
   detail: string
 }
 
+export type StatementEditProfile = {
+  workspaceId: string
+  role: string
+}
+
+export type StatementReviewStatus = 'unreviewed' | 'reviewed'
+
+export type StatementUpdateResult = 'updated' | 'revision_conflict' | 'failed'
+
 export type StatementEditStore = {
-  getWorkspaceIdForUser: (userId: string) => Promise<string | null>
+  getUserProfile: (userId: string) => Promise<StatementEditProfile | null>
   getDocument: (workspaceId: string, documentId: string) => Promise<EditableDocumentRow | null>
   getStatement: (workspaceId: string, documentId: string) => Promise<EditableStatementRow | null>
   updateStatement: (
     statementId: string,
+    expectedRevision: number,
     patch: {
+      workspaceId: string
+      documentId: string
       transactions: Json[]
       revision: number
-      review_status: 'needs_review' | 'reviewed'
+      review_status: StatementReviewStatus
       edited_by: string
       edited_at: string
     },
-  ) => Promise<boolean>
+  ) => Promise<StatementUpdateResult>
   recordAudit: (input: {
     workspaceId: string
     actorUserId: string
@@ -114,10 +128,15 @@ type QueryBuilder<T> = {
   single: () => Promise<QueryResult<T>>
 }
 
+type StatementEditRpcRow = {
+  updated: boolean
+}
+
 type MutationBuilder<T> = {
   eq: (column: string, value: unknown) => MutationBuilder<T>
   select: (columns: string) => MutationBuilder<T>
   single: () => Promise<QueryResult<T>>
+  maybeSingle: () => Promise<QueryResult<T>>
 }
 
 type StoreClient = {
@@ -125,14 +144,18 @@ type StoreClient = {
     select: <T>(columns: string) => QueryBuilder<T>
     update: <T>(patch: Record<string, unknown>) => MutationBuilder<T>
   }
+  rpc: (
+    fn: 'update_statement_edit_if_current',
+    args: Record<string, unknown>,
+  ) => Promise<QueryResult<StatementEditRpcRow[]>>
 }
 
 export async function applyStatementEdit(
   input: ApplyStatementEditInput,
 ): Promise<StatementEditResult> {
   const store = input.store ?? createStatementEditStore()
-  const workspaceId = await store.getWorkspaceIdForUser(input.actorUserId)
-  if (!workspaceId)
+  const profile = await store.getUserProfile(input.actorUserId)
+  if (!profile)
     return problem(
       403,
       'PRZM_AUTH_WORKSPACE_REQUIRED',
@@ -140,6 +163,16 @@ export async function applyStatementEdit(
       'The signed-in user is not attached to a workspace.',
     )
 
+  if (!STATEMENT_EDIT_ROLES.has(profile.role)) {
+    return problem(
+      403,
+      'PRZM_AUTH_FORBIDDEN',
+      'Forbidden',
+      'Owner, admin, or member access is required to edit statements.',
+    )
+  }
+
+  const workspaceId = profile.workspaceId
   const document = await store.getDocument(workspaceId, input.documentId)
   if (!document)
     return problem(
@@ -191,8 +224,10 @@ export async function applyStatementEdit(
 
   const nextTransactions = applyOperations(jsonArray(statement.transactions), input.operations)
   const nextRevision = currentRevision + 1
-  const reviewStatus = input.reviewed ? 'reviewed' : 'needs_review'
-  const updated = await store.updateStatement(statement.id, {
+  const reviewStatus = input.reviewed ? 'reviewed' : 'unreviewed'
+  const updated = await store.updateStatement(statement.id, currentRevision, {
+    workspaceId,
+    documentId: input.documentId,
     transactions: nextTransactions,
     revision: nextRevision,
     review_status: reviewStatus,
@@ -200,7 +235,16 @@ export async function applyStatementEdit(
     edited_at: new Date().toISOString(),
   })
 
-  if (!updated)
+  if (updated === 'revision_conflict') {
+    return problem(
+      409,
+      'PRZM_STATEMENT_REVISION_CONFLICT',
+      'Statement changed',
+      'Refresh the statement before editing.',
+    )
+  }
+
+  if (updated !== 'updated')
     return problem(
       500,
       'PRZM_STATEMENT_EDIT_FAILED',
@@ -309,14 +353,15 @@ function problem(
 function createStatementEditStore(): StatementEditStore {
   const client = getServiceRoleClient() as unknown as StoreClient
   return {
-    async getWorkspaceIdForUser(userId) {
+    async getUserProfile(userId) {
       const { data, error } = await client
         .from('user_profile')
-        .select<{ workspace_id: string }>('workspace_id')
+        .select<{ workspace_id: string; role: string }>('workspace_id, role')
         .eq('id', userId)
         .limit(1)
       if (error) throw new Error('workspace_lookup_failed')
-      return data?.[0]?.workspace_id ?? null
+      const profile = data?.[0]
+      return profile ? { workspaceId: profile.workspace_id, role: profile.role } : null
     },
     async getDocument(workspaceId, documentId) {
       const { data, error } = await client
@@ -341,14 +386,20 @@ function createStatementEditStore(): StatementEditStore {
       if (error) throw new Error('statement_lookup_failed')
       return data?.[0] ?? null
     },
-    async updateStatement(statementId, patch) {
-      const { data, error } = await client
-        .from('statement')
-        .update<{ id: string }>(patch)
-        .eq('id', statementId)
-        .select('id')
-        .single()
-      return !error && Boolean(data)
+    async updateStatement(statementId, expectedRevision, patch) {
+      const { data, error } = await client.rpc('update_statement_edit_if_current', {
+        p_statement_id: statementId,
+        p_workspace_id: patch.workspaceId,
+        p_document_id: patch.documentId,
+        p_expected_revision: expectedRevision,
+        p_transactions: patch.transactions,
+        p_revision: patch.revision,
+        p_review_status: patch.review_status,
+        p_edited_by: patch.edited_by,
+        p_edited_at: patch.edited_at,
+      })
+      if (error) return 'failed'
+      return data?.[0]?.updated ? 'updated' : 'revision_conflict'
     },
     async recordAudit(input) {
       const result = await recordAuditEvent({

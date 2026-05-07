@@ -1,5 +1,12 @@
 import 'server-only'
 
+import {
+  collectConnectorHealthSnapshot,
+  type ConnectorProbe,
+  type ConnectorProbeResult,
+  type ConnectorStatus,
+  type HealthSnapshot,
+} from './connector-health'
 import { pingRedis } from './ratelimit'
 import { pingResend } from './resend'
 import { pingS3 } from './s3'
@@ -9,74 +16,54 @@ import { pingSupabase } from './supabase'
 import { pingTextract } from './textract'
 import { publicEnv, serverEnv } from '../shared/env'
 
-type PingResult = { ok: boolean; error?: string }
+export type { ConnectorStatus, HealthSnapshot }
 
-type ConnectorCheck = {
-  name: string
-  required: boolean
-  shallow: () => PingResult
-  deep: () => Promise<PingResult> | PingResult
-}
-
-export type ConnectorStatus = {
-  name: string
-  ok: boolean
-  required: boolean
-  errorCode?: string
-}
-
-export type HealthSnapshot = {
-  status: 'ok' | 'degraded'
-  httpStatus: 200 | 503
-  connectors: ConnectorStatus[]
-}
-
-const CONNECTOR_CHECKS: ConnectorCheck[] = [
+const CONNECTOR_PROBES: ConnectorProbe[] = [
   {
     name: 'supabase',
     required: true,
-    shallow: () =>
+    config: () =>
       configured(
         Boolean(publicEnv.NEXT_PUBLIC_SUPABASE_URL && publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY),
       ),
-    deep: pingSupabase,
+    live: pingSupabase,
   },
   {
     name: 'stripe',
     required: true,
-    shallow: () => configured(Boolean(serverEnv.STRIPE_SECRET_KEY)),
-    deep: pingStripe,
+    config: () => configured(Boolean(serverEnv.STRIPE_SECRET_KEY)),
+    auth: pingStripe,
   },
   {
     name: 's3',
     required: true,
-    shallow: () => configured(Boolean(serverEnv.S3_UPLOAD_BUCKET)),
-    deep: pingS3,
+    config: () => configured(Boolean(serverEnv.S3_UPLOAD_BUCKET)),
+    live: pingS3,
   },
   {
     name: 'textract',
     required: true,
-    shallow: () => configured(Boolean(serverEnv.AWS_REGION)),
-    deep: pingTextract,
+    config: () => configured(Boolean(serverEnv.AWS_REGION)),
+    auth: pingTextract,
   },
   {
     name: 'resend',
     required: false,
-    shallow: () => configured(Boolean(serverEnv.RESEND_API_KEY)),
-    deep: pingResend,
+    config: () => configured(Boolean(serverEnv.RESEND_API_KEY)),
+    auth: pingResend,
   },
   {
     name: 'redis',
     required: true,
-    shallow: () =>
+    config: () =>
       configured(Boolean(serverEnv.UPSTASH_REDIS_REST_URL && serverEnv.UPSTASH_REDIS_REST_TOKEN)),
-    deep: pingRedis,
+    auth: pingRedis,
   },
   {
     name: 'sentry',
     required: false,
-    shallow: () => configured(Boolean(publicEnv.NEXT_PUBLIC_SENTRY_DSN)),
-    deep: () => pingSentry(),
+    config: () => configured(Boolean(publicEnv.NEXT_PUBLIC_SENTRY_DSN)),
+    auth: () => pingSentry(),
   },
 ]
 
@@ -84,53 +71,9 @@ export async function collectHealthSnapshot(input: {
   deep: boolean
   includeErrorCodes: boolean
 }): Promise<HealthSnapshot> {
-  const connectors = await Promise.all(
-    CONNECTOR_CHECKS.map(async (check) => runCheck(check, input.deep, input.includeErrorCodes)),
-  )
-  const hasRequiredFailure = connectors.some((connector) => connector.required && !connector.ok)
-  return {
-    status: hasRequiredFailure ? 'degraded' : 'ok',
-    httpStatus: hasRequiredFailure ? 503 : 200,
-    connectors,
-  }
+  return collectConnectorHealthSnapshot(CONNECTOR_PROBES, input)
 }
 
-async function runCheck(
-  check: ConnectorCheck,
-  deep: boolean,
-  includeErrorCodes: boolean,
-): Promise<ConnectorStatus> {
-  try {
-    const result = await (deep ? check.deep() : check.shallow())
-    return {
-      name: check.name,
-      ok: result.ok,
-      required: check.required,
-      ...(includeErrorCodes && !result.ok ? { errorCode: classifyHealthError(result.error) } : {}),
-    }
-  } catch {
-    return {
-      name: check.name,
-      ok: false,
-      required: check.required,
-      ...(includeErrorCodes ? { errorCode: 'connector_exception' } : {}),
-    }
-  }
-}
-
-function configured(ok: boolean): PingResult {
+function configured(ok: boolean): ConnectorProbeResult {
   return ok ? { ok: true } : { ok: false, error: 'configuration_missing' }
-}
-
-function classifyHealthError(error: string | undefined): string {
-  if (!error) return 'connector_failed'
-  const normalized = error.toLowerCase()
-  if (normalized.includes('missing') || normalized.includes('configured')) {
-    return 'configuration_missing'
-  }
-  if (normalized.includes('timeout')) return 'connector_timeout'
-  if (normalized.includes('unauthorized') || normalized.includes('forbidden')) {
-    return 'connector_auth_failed'
-  }
-  return 'connector_failed'
 }

@@ -3,6 +3,10 @@ import 'server-only'
 import { GetDocumentAnalysisCommand } from '@aws-sdk/client-textract'
 import type { Json } from '../shared/db-types'
 import { recordAuditEventOrThrow, type AuditEventInput } from './audit'
+import {
+  consumeDocumentConversionCredit,
+  releaseDocumentConversionCredit,
+} from './credit-reservation'
 import type { RouteContext } from './http'
 import {
   parseTextractStatement,
@@ -151,8 +155,8 @@ export async function processTextractDocuments(
       })
     }
 
-    await deps.markDocumentReady({ documentId: document.id, convertedAt: nowIso })
     await deps.consumeCreditReservation({ documentId: document.id, consumedAt: nowIso })
+    await deps.markDocumentReady({ documentId: document.id, convertedAt: nowIso })
     await deps.recordAuditEvent({
       eventType: 'document.processing_ready',
       workspaceId: document.workspaceId,
@@ -295,30 +299,16 @@ async function consumeCreditReservation(input: {
   documentId: string
   consumedAt: string
 }): Promise<void> {
-  const { error } = await getProcessingStoreClient()
-    .from('credit_reservation')
-    .update({ status: 'consumed', consumed_at: input.consumedAt })
-    .eq('document_id', input.documentId)
-    .in('status', ['reserved'])
-    .select('id')
-    .maybeSingle()
-
-  if (error) throw new Error('credit_reservation_consume_failed')
+  const result = await consumeDocumentConversionCredit(input)
+  if (!result.ok) throw new Error('credit_reservation_consume_failed')
 }
 
 async function releaseCreditReservation(input: {
   documentId: string
   releasedAt: string
 }): Promise<void> {
-  const { error } = await getProcessingStoreClient()
-    .from('credit_reservation')
-    .update({ status: 'released', released_at: input.releasedAt })
-    .eq('document_id', input.documentId)
-    .in('status', ['reserved'])
-    .select('id')
-    .maybeSingle()
-
-  if (error) throw new Error('credit_reservation_release_failed')
+  const result = await releaseDocumentConversionCredit(input)
+  if (!result.ok) throw new Error('credit_reservation_release_failed')
 }
 
 async function failProcessingDocument(input: {
@@ -328,13 +318,13 @@ async function failProcessingDocument(input: {
   releasedAt: string
   input: ProcessTextractDocumentsInput
 }): Promise<void> {
-  await input.deps.markDocumentFailed({
-    documentId: input.document.id,
-    failureReason: input.failureReason,
-  })
   await input.deps.releaseCreditReservation({
     documentId: input.document.id,
     releasedAt: input.releasedAt,
+  })
+  await input.deps.markDocumentFailed({
+    documentId: input.document.id,
+    failureReason: input.failureReason,
   })
   await input.deps.recordAuditEvent({
     eventType: 'document.processing_failed',

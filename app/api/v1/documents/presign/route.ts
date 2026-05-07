@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
 import { getS3Client, getUploadBucket, getKmsKeyId } from '@/lib/server/s3'
@@ -75,6 +76,43 @@ export async function POST(request: NextRequest) {
       title: 'Accepted quote does not match file',
       detail: 'The accepted quote file hash must match the file being uploaded.',
     })
+  }
+
+  const preflight = await preflightDocumentUpload({
+    filename,
+    contentType,
+    sizeBytes,
+    fileSha256,
+    actorUserId: auth.context.user.id,
+    routeContext: context,
+  })
+
+  if (!preflight.ok) {
+    return problemResponse(context, {
+      status: preflight.status,
+      code: preflight.code,
+      title: preflight.title,
+      detail: preflight.detail,
+    })
+  }
+
+  if (!preflight.canConvert) {
+    return problemResponse(
+      context,
+      preflight.duplicate.isDuplicate
+        ? {
+            status: 409,
+            code: 'PRZM_DOCUMENT_DUPLICATE_ACTIVE',
+            title: 'Duplicate document',
+            detail: 'This PDF matches an active document in the workspace.',
+          }
+        : {
+            status: 402,
+            code: 'PRZM_CREDITS_INSUFFICIENT',
+            title: 'Insufficient credits',
+            detail: 'This workspace does not have enough credits to convert the document.',
+          },
+    )
   }
 
   const s3Key = `${auth.context.user.id}/${crypto.randomUUID()}/${filename}`

@@ -36,7 +36,7 @@ async function sweepFromAuthorizedRequest(request: NextRequest): Promise<Respons
         trace_id: context.traceId,
       },
       {
-        status: result.status === 'failed' ? 500 : 200,
+        status: result.status === 'ok' ? 200 : 500,
         headers: { 'Cache-Control': 'no-store' },
       },
     )

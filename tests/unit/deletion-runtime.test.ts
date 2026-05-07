@@ -245,6 +245,45 @@ describe('runDeletionSweep', () => {
     expect(markStatementDeletedMock).not.toHaveBeenCalled()
   })
 
+  it('surfaces deletion audit write failures instead of reporting a clean sweep', async () => {
+    const now = new Date('2026-05-06T00:30:00.000Z')
+    listExpiredDocumentsMock.mockResolvedValue([
+      {
+        id: 'doc_123',
+        workspaceId: 'workspace_123',
+        uploadedBy: 'user_123',
+        recipientEmail: 'owner@example.com',
+        filename: 'May Statement.pdf',
+        s3Bucket: 'prizm-uploads-test',
+        s3Key: 'user_123/doc_123/May_Statement.pdf',
+        expiresAt: '2026-05-06T00:00:00.000Z',
+      },
+    ])
+    listExpiredStatementsMock.mockResolvedValue([])
+    deleteOrVerifyS3ObjectMock.mockResolvedValue({ ok: true, state: 'deleted' })
+    markStatementsDeletedForDocumentMock.mockResolvedValue(1)
+    markDocumentDeletedMock.mockResolvedValue(undefined)
+    sendDeletionReceiptEmailMock.mockResolvedValue({ ok: true, id: 'email_123' })
+    recordDeletionReceiptMock.mockResolvedValue(undefined)
+    recordDeletionSweepRunMock.mockResolvedValue(undefined)
+    recordAuditEventMock.mockResolvedValue({ ok: false, error: 'audit_down' })
+
+    const result = await runDeletionSweep({ trigger: 'test', now, batchSize: 50 })
+
+    expect(result.status).toBe('partial')
+    expect(result.failures).toContainEqual({
+      targetType: 'audit',
+      targetId: 'doc_123',
+      errorCode: 'audit_write_failed',
+    })
+    expect(recordDeletionSweepRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'partial',
+        errorDetail: expect.stringContaining('audit_write_failed'),
+      }),
+    )
+  })
+
   it('builds deletion scrub payloads that clear hashes, duplicate fingerprints, and transaction JSON', async () => {
     const deletedAt = '2026-05-06T23:00:00.000Z'
     const store = await vi.importActual<typeof import('@/lib/server/deletion/store')>(
