@@ -20,11 +20,18 @@ const statementMetadataMigrationPath = join(
   'migrations',
   '0011_add_statement_type_metadata.sql',
 )
+const exportArtifactMigrationPath = join(
+  process.cwd(),
+  'supabase',
+  'migrations',
+  '0012_export_artifact_download_contract.sql',
+)
 
 describe('Phase 1 lean converter schema migration', () => {
   const sql = () => readFileSync(phase1MigrationPath, 'utf8')
   const lifecycleSql = () => `${sql()}\n${readFileSync(lifecycleMigrationPath, 'utf8')}`
   const statementMetadataSql = () => readFileSync(statementMetadataMigrationPath, 'utf8')
+  const exportArtifactSql = () => readFileSync(exportArtifactMigrationPath, 'utf8')
 
   it('adds the single-PDF conversion state, duplicate, and charge fields', () => {
     const migration = sql()
@@ -131,5 +138,18 @@ describe('Phase 1 lean converter schema migration', () => {
     expect(migration).toContain('statement_type in (')
     expect(migration).toContain("'bank'")
     expect(migration).toContain("'credit_card'")
+  })
+
+  it('adds object storage and retention fields to export artifacts', () => {
+    const migration = exportArtifactSql()
+
+    expect(migration).toContain('alter table export_artifact')
+    expect(migration).toContain('filename text')
+    expect(migration).toContain('s3_bucket text')
+    expect(migration).toContain('s3_key text')
+    expect(migration).toContain('content_type text')
+    expect(migration).toContain('expires_at timestamptz')
+    expect(migration).toContain('deleted_at timestamptz')
+    expect(migration).toContain('export_artifact_workspace_active_idx')
   })
 })
