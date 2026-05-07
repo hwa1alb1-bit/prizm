@@ -43,7 +43,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     sourceUrl: 'https://dash.cloudflare.com',
     billingUrl: 'https://dash.cloudflare.com/?to=/:account/billing',
     managementUrl: 'https://dash.cloudflare.com',
-    requiredEnv: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ZONE_ID'],
+    requiredEnv: [],
   },
   {
     id: 'vercel',
@@ -52,7 +52,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     sourceUrl: 'https://vercel.com/dashboard',
     billingUrl: 'https://vercel.com/dashboard/usage',
     managementUrl: 'https://vercel.com/dashboard',
-    requiredEnv: ['VERCEL_ACCESS_TOKEN', 'VERCEL_PROJECT_ID'],
+    requiredEnv: ['VERCEL_PROJECT_ID', 'VERCEL_TEAM_ID'],
   },
   {
     id: 'upstash',
@@ -102,7 +102,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     sourceUrl: 'https://console.aws.amazon.com/ses/home',
     billingUrl: 'https://console.aws.amazon.com/billing/home',
     managementUrl: 'https://console.aws.amazon.com/ses/home',
-    requiredEnv: ['AWS_REGION', 'AWS_SES_INBOUND_BUCKET'],
+    requiredEnv: ['AWS_REGION'],
   },
   {
     id: 'stripe',
