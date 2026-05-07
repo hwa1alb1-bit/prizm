@@ -10,6 +10,21 @@ type VercelCron = {
 const hobbyDailySchedule = /^([0-5]?\d) ([01]?\d|2[0-3]) \* \* \*$/
 
 describe('Vercel deployment config', () => {
+  it('keeps CI and Vercel on the same Node and pnpm major versions', () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'),
+    ) as {
+      engines?: { node?: string; pnpm?: string }
+      packageManager?: string
+    }
+    const ci = readFileSync(resolve(process.cwd(), '.github/workflows/ci.yml'), 'utf8')
+
+    expect(packageJson.engines?.node).toBe('24.x')
+    expect(packageJson.packageManager).toMatch(/^pnpm@10\./)
+    expect(ci).toContain("NODE_VERSION: '24'")
+    expect(ci).toContain("PNPM_VERSION: '10'")
+  })
+
   it('keeps cron schedules compatible with Hobby deployments', () => {
     const config = JSON.parse(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')) as {
       crons?: VercelCron[]

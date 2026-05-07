@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { collectHealthSnapshot } from '@/lib/server/health'
 import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
+import { getReleaseVersion } from '@/lib/server/release'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       status: snapshot.status,
       mode: 'shallow',
       timestamp: new Date().toISOString(),
-      version: process.env.NEXT_PUBLIC_GIT_SHA ?? 'dev',
+      version: getReleaseVersion(),
       connectors: snapshot.connectors,
       request_id: context.requestId,
       trace_id: context.traceId,

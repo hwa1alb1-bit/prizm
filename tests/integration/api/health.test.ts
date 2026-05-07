@@ -14,9 +14,11 @@ vi.mock('@/lib/server/route-auth', () => ({
 
 const collectHealthSnapshotMock = vi.mocked(collectHealthSnapshot)
 const requireOpsAdminUserMock = vi.mocked(requireOpsAdminUser)
+const originalEnv = { ...process.env }
 
 describe('health routes', () => {
   beforeEach(() => {
+    process.env = { ...originalEnv }
     collectHealthSnapshotMock.mockResolvedValue({
       status: 'ok',
       httpStatus: 200,
@@ -26,6 +28,7 @@ describe('health routes', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    process.env = { ...originalEnv }
   })
 
   it('returns sanitized public shallow health', async () => {
@@ -50,6 +53,17 @@ describe('health routes', () => {
     expect(collectHealthSnapshotMock).toHaveBeenCalledWith({
       deep: false,
       includeErrorCodes: false,
+    })
+  })
+
+  it('reports the Vercel deployment commit as the live version', async () => {
+    process.env.VERCEL_GIT_COMMIT_SHA = 'abc123vercel'
+    process.env.NEXT_PUBLIC_GIT_SHA = 'fallback123'
+
+    const response = await publicHealth(new Request('http://localhost/api/health') as never)
+
+    await expect(response.json()).resolves.toMatchObject({
+      version: 'abc123vercel',
     })
   })
 
