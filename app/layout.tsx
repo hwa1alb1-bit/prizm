@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
@@ -22,6 +22,11 @@ export const metadata: Metadata = {
     'Convert PDF bank statements into clean Excel and CSV files with review, export, and 24-hour deletion evidence.',
   applicationName: 'PRIZM',
   robots: { index: true, follow: true },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({

@@ -43,7 +43,7 @@ export default function Home() {
   return (
     <main className="flex-1 bg-background text-foreground">
       <section className="mx-auto grid w-full max-w-7xl gap-12 px-6 py-16 lg:grid-cols-[minmax(0,0.96fr)_minmax(24rem,1fr)] lg:items-center lg:px-8 lg:py-20">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/50">
             PRIZM bank statement converter
           </p>
@@ -82,7 +82,7 @@ export default function Home() {
         </div>
 
         <aside
-          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 shadow-sm"
+          className="min-w-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 shadow-sm"
           aria-label="Converted statement preview"
         >
           <div className="flex items-start justify-between gap-4">
