@@ -1076,11 +1076,25 @@ function DocumentEvidence({ document }: { document: HistoryDocumentView }) {
       <EvidenceRow label="Document ID" value={document.id} />
       <EvidenceRow label="Uploaded" value={formatDateTime(document.createdAt)} />
       <EvidenceRow label="Expires" value={formatDateTime(document.expiresAt)} />
+      <EvidenceRow label="Deletion" value={deletionStateCopy(document)} />
       <EvidenceRow label="Size" value={formatBytes(document.sizeBytes)} />
       <EvidenceRow label="Pages" value={document.pages?.toString() ?? 'Not counted'} />
       <EvidenceRow label="Content type" value={document.contentType} />
     </EvidenceGrid>
   )
+}
+
+function deletionStateCopy(document: HistoryDocumentView): string {
+  if (
+    document.deletedAt ||
+    document.deletionEvidence?.deletionAuditedAt ||
+    document.deletionEvidence?.receiptSentAt ||
+    document.deletionEvidence?.receiptStatus === 'sent'
+  ) {
+    return 'Deleted'
+  }
+
+  return `Scheduled to auto-delete until ${formatDateTime(document.expiresAt)}`
 }
 
 function AuditTrail({ events }: { events: AuditEventEvidenceView[] }) {

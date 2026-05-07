@@ -4,7 +4,18 @@ import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-type UploadState = 'idle' | 'presigning' | 'uploading' | 'completing' | 'done' | 'error'
+type UploadState =
+  | 'idle'
+  | 'hashing'
+  | 'preflighting'
+  | 'confirming'
+  | 'presigning'
+  | 'uploading'
+  | 'completing'
+  | 'converting'
+  | 'polling'
+  | 'done'
+  | 'error'
 
 type UploadEvidence = {
   documentId: string
@@ -25,11 +36,41 @@ type PresignResponse = {
   trace_id: string
 }
 
+type PreflightResponse = {
+  quote: {
+    costCredits: 1
+  }
+  currentBalance: number
+  canConvert: boolean
+  duplicate: {
+    isDuplicate: boolean
+    existingDocumentId?: string
+  }
+  request_id: string
+  trace_id: string
+}
+
+type PendingPreflight = {
+  file: File
+  fileSha256: string
+  preflight: PreflightResponse
+}
+
 type CompleteResponse = {
   documentId: string
-  status: 'processing' | 'ready'
-  textractJobId: string
+  status: 'verified' | 'processing' | 'ready'
+  textractJobId?: string
   alreadyCompleted: boolean
+  request_id: string
+  trace_id: string
+}
+
+type ConvertResponse = {
+  documentId: string
+  status: 'processing' | 'ready'
+  textractJobId?: string
+  chargeStatus?: string
+  alreadyStarted?: boolean
   request_id: string
   trace_id: string
 }
@@ -97,135 +138,212 @@ export default function UploadPage() {
   const [dragOver, setDragOver] = useState(false)
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null)
   const [evidence, setEvidence] = useState<UploadEvidence | null>(null)
+  const [pendingPreflight, setPendingPreflight] = useState<PendingPreflight | null>(null)
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-      setSelectedFile({ name: file.name, size: file.size })
+  const handleFile = useCallback(async (file: File) => {
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    setSelectedFile({ name: file.name, size: file.size })
 
-      if (!isPdf) {
-        setState('error')
-        setRecovery(
-          localUploadRecovery(
-            'File type is not PDF.',
-            'Choose a bank statement exported as a PDF, then upload that file.',
-            file,
-          ),
-        )
-        return
-      }
+    if (!isPdf) {
+      setState('error')
+      setRecovery(
+        localUploadRecovery(
+          'File type is not PDF.',
+          'Choose a bank statement exported as a PDF, then upload that file.',
+          file,
+        ),
+      )
+      return
+    }
 
-      if (file.size > MAX_FILE_BYTES) {
-        setState('error')
-        setRecovery(
-          localUploadRecovery(
-            'File is larger than the 20 MB upload limit.',
-            'Export a smaller PDF from the bank portal, then upload the smaller file.',
-            file,
-          ),
-        )
-        return
-      }
+    if (file.size > MAX_FILE_BYTES) {
+      setState('error')
+      setRecovery(
+        localUploadRecovery(
+          'File is larger than the 20 MB upload limit.',
+          'Export a smaller PDF from the bank portal, then upload the smaller file.',
+          file,
+        ),
+      )
+      return
+    }
 
-      setRecovery(null)
-      setEvidence(null)
-      setState('presigning')
+    setRecovery(null)
+    setEvidence(null)
+    setPendingPreflight(null)
+    setState('hashing')
 
-      try {
-        const presignRes = await fetch('/api/v1/documents/presign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: 'application/pdf',
-            sizeBytes: file.size,
-          }),
-        })
-
-        if (!presignRes.ok) {
-          const problem = await readProblem(presignRes)
-          throw uploadFlowError(
-            recoveryFromProblem({
-              kind: 'upload_failed',
-              title: 'Upload setup failed',
-              problem,
-              fallbackCause: 'PRIZM could not create a secure upload URL for this PDF.',
-              fallbackEvidence: [{ label: 'File', value: file.name }],
-              nextAction:
-                'Keep the original PDF, refresh the upload console, and request a new upload URL.',
-            }),
-          )
-        }
-
-        const presign = (await presignRes.json()) as PresignResponse
-
-        setState('uploading')
-        const uploadRes = await fetch(presign.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/pdf' },
-          body: file,
-        })
-
-        if (!uploadRes.ok) {
-          throw uploadFlowError({
-            kind: 'upload_failed',
-            title: 'Upload failed',
-            plainCause: `The browser upload to secure storage returned HTTP ${uploadRes.status}. No OCR job was started.`,
-            evidence: uploadEvidenceIds(presign, [
-              { label: 'Storage response', value: String(uploadRes.status) },
-            ]),
-            nextAction:
-              'Upload the same PDF again. If the storage response repeats, export a fresh PDF from the bank portal before retrying.',
-          })
-        }
-
-        setState('completing')
-        const completeRes = await fetch(`/api/v1/documents/${presign.documentId}/complete`, {
-          method: 'POST',
-        })
-
-        if (!completeRes.ok) {
-          const problem = await readProblem(completeRes)
-          throw uploadFlowError(recoveryFromCompletionProblem(problem, presign))
-        }
-
-        const complete = (await completeRes.json()) as CompleteResponse
-        const uploadedAt = new Date()
-        setEvidence({
-          documentId: presign.documentId,
-          requestId: presign.request_id,
-          completionRequestId: complete.request_id,
-          traceId: complete.trace_id,
-          textractJobId: complete.textractJobId,
+    try {
+      const fileSha256 = await sha256Hex(file)
+      setState('preflighting')
+      const preflightRes = await fetch('/api/v1/documents/preflight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           filename: file.name,
+          contentType: 'application/pdf',
           sizeBytes: file.size,
-          uploadedAt: uploadedAt.toISOString(),
-          expiresAt: new Date(uploadedAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-        })
-        setState('done')
-        router.push(`/app/history/${presign.documentId}`)
-      } catch (err) {
-        setState('error')
-        setRecovery(
-          isUploadFlowError(err)
-            ? err.recovery
-            : localUploadRecovery(
-                err instanceof Error
-                  ? err.message
-                  : 'PRIZM could not finish the upload flow before OCR started.',
-                'Upload the PDF again and use the request evidence shown here if the failure repeats.',
-                file,
-              ),
+          fileSha256,
+        }),
+      })
+
+      if (!preflightRes.ok) {
+        const problem = await readProblem(preflightRes)
+        throw uploadFlowError(
+          recoveryFromProblem({
+            kind: 'upload_failed',
+            title: 'Preflight failed',
+            problem,
+            fallbackCause: 'PRIZM could not quote this PDF before upload.',
+            fallbackEvidence: [
+              { label: 'File', value: file.name },
+              { label: 'SHA-256', value: fileSha256 },
+            ],
+            nextAction:
+              'Keep the original PDF, refresh the upload console, and request a new quote.',
+          }),
         )
       }
-    },
-    [router],
-  )
+
+      const preflight = (await preflightRes.json()) as PreflightResponse
+      setPendingPreflight({ file, fileSha256, preflight })
+      setState('confirming')
+    } catch (err) {
+      setState('error')
+      setRecovery(
+        isUploadFlowError(err)
+          ? err.recovery
+          : localUploadRecovery(
+              err instanceof Error
+                ? err.message
+                : 'PRIZM could not finish the upload preflight before OCR started.',
+              'Upload the PDF again and use the request evidence shown here if the failure repeats.',
+              file,
+            ),
+      )
+    }
+  }, [])
+
+  const confirmUpload = useCallback(async () => {
+    if (!pendingPreflight) return
+    const { file, fileSha256, preflight } = pendingPreflight
+    setRecovery(null)
+    setEvidence(null)
+    setState('presigning')
+
+    try {
+      const presignRes = await fetch('/api/v1/documents/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: 'application/pdf',
+          sizeBytes: file.size,
+          fileSha256,
+          acceptedQuote: {
+            costCredits: preflight.quote.costCredits,
+            fileSha256,
+          },
+        }),
+      })
+
+      if (!presignRes.ok) {
+        const problem = await readProblem(presignRes)
+        throw uploadFlowError(
+          recoveryFromProblem({
+            kind: 'upload_failed',
+            title: 'Upload setup failed',
+            problem,
+            fallbackCause: 'PRIZM could not create a secure upload URL for this PDF.',
+            fallbackEvidence: [
+              { label: 'File', value: file.name },
+              { label: 'SHA-256', value: fileSha256 },
+              { label: 'Quote', value: formatCredits(preflight.quote.costCredits) },
+            ],
+            nextAction:
+              'Keep the original PDF, refresh the upload console, and request a new upload URL.',
+          }),
+        )
+      }
+
+      const presign = (await presignRes.json()) as PresignResponse
+
+      setState('uploading')
+      const uploadRes = await fetch(presign.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/pdf' },
+        body: file,
+      })
+
+      if (!uploadRes.ok) {
+        throw uploadFlowError({
+          kind: 'upload_failed',
+          title: 'Upload failed',
+          plainCause: `The browser upload to secure storage returned HTTP ${uploadRes.status}. No OCR job was started.`,
+          evidence: uploadEvidenceIds(presign, [
+            { label: 'Storage response', value: String(uploadRes.status) },
+          ]),
+          nextAction:
+            'Upload the same PDF again. If the storage response repeats, export a fresh PDF from the bank portal before retrying.',
+        })
+      }
+
+      setState('completing')
+      const completeRes = await fetch(`/api/v1/documents/${presign.documentId}/complete`, {
+        method: 'POST',
+      })
+
+      if (!completeRes.ok) {
+        const problem = await readProblem(completeRes)
+        throw uploadFlowError(recoveryFromCompletionProblem(problem, presign))
+      }
+
+      const complete = (await completeRes.json()) as CompleteResponse
+      setState('converting')
+      const convertRes = await fetch(`/api/v1/documents/${presign.documentId}/convert`, {
+        method: 'POST',
+      })
+      if (!convertRes.ok) {
+        const problem = await readProblem(convertRes)
+        throw uploadFlowError(recoveryFromCompletionProblem(problem, presign))
+      }
+      const convert = (await convertRes.json()) as ConvertResponse
+      setState('polling')
+      await pollDocumentStatus(presign.documentId)
+      const uploadedAt = new Date()
+      setEvidence({
+        documentId: presign.documentId,
+        requestId: presign.request_id,
+        completionRequestId: complete.request_id,
+        traceId: convert.trace_id,
+        textractJobId: convert.textractJobId ?? complete.textractJobId ?? 'not assigned',
+        filename: file.name,
+        sizeBytes: file.size,
+        uploadedAt: uploadedAt.toISOString(),
+        expiresAt: new Date(uploadedAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      })
+      setState('done')
+      router.push(`/app/history/${presign.documentId}`)
+    } catch (err) {
+      setState('error')
+      setRecovery(
+        isUploadFlowError(err)
+          ? err.recovery
+          : localUploadRecovery(
+              err instanceof Error
+                ? err.message
+                : 'PRIZM could not finish the upload flow before OCR started.',
+              'Upload the PDF again and use the request evidence shown here if the failure repeats.',
+              file,
+            ),
+      )
+    }
+  }, [pendingPreflight, router])
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setDragOver(false)
-    if (state === 'presigning' || state === 'uploading' || state === 'completing') return
+    if (working) return
     const file = e.dataTransfer.files[0]
     if (file) void handleFile(file)
   }
@@ -240,11 +358,16 @@ export default function UploadPage() {
     setRecovery(null)
     setSelectedFile(null)
     setEvidence(null)
+    setPendingPreflight(null)
     if (inputRef.current) inputRef.current.value = ''
   }
 
-  const busy = state === 'presigning' || state === 'uploading'
-  const working = busy || state === 'completing'
+  const busy =
+    state === 'hashing' ||
+    state === 'preflighting' ||
+    state === 'presigning' ||
+    state === 'uploading'
+  const working = busy || state === 'completing' || state === 'converting' || state === 'polling'
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -316,6 +439,15 @@ export default function UploadPage() {
                   >
                     Choose PDF
                   </button>
+                  {state === 'confirming' && pendingPreflight && (
+                    <button
+                      type="button"
+                      onClick={confirmUpload}
+                      className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--accent-foreground)] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      Confirm conversion
+                    </button>
+                  )}
                   {(state === 'done' || state === 'error') && (
                     <button
                       type="button"
@@ -339,7 +471,12 @@ export default function UploadPage() {
               />
 
               <div className="mt-5" aria-live="polite">
-                <UploadMessage state={state} recovery={recovery} evidence={evidence} />
+                <UploadMessage
+                  state={state}
+                  recovery={recovery}
+                  evidence={evidence}
+                  pendingPreflight={pendingPreflight}
+                />
               </div>
             </div>
           </div>
@@ -359,17 +496,27 @@ export default function UploadPage() {
 
 function StatusPill({ state }: { state: UploadState }) {
   const label =
-    state === 'presigning'
-      ? 'Preparing'
-      : state === 'uploading'
-        ? 'Uploading'
-        : state === 'completing'
-          ? 'Verifying'
-          : state === 'done'
-            ? 'Processing'
-            : state === 'error'
-              ? 'Needs action'
-              : 'Ready'
+    state === 'hashing'
+      ? 'Hashing'
+      : state === 'preflighting'
+        ? 'Quoting'
+        : state === 'confirming'
+          ? 'Confirm'
+          : state === 'presigning'
+            ? 'Preparing'
+            : state === 'uploading'
+              ? 'Uploading'
+              : state === 'completing'
+                ? 'Verifying'
+                : state === 'converting'
+                  ? 'Converting'
+                  : state === 'polling'
+                    ? 'Checking'
+                    : state === 'done'
+                      ? 'Processing'
+                      : state === 'error'
+                        ? 'Needs action'
+                        : 'Ready'
   const tone =
     state === 'done'
       ? 'success'
@@ -386,11 +533,22 @@ function UploadMessage({
   state,
   recovery,
   evidence,
+  pendingPreflight,
 }: {
   state: UploadState
   recovery: UploadRecovery | null
   evidence: UploadEvidence | null
+  pendingPreflight: PendingPreflight | null
 }) {
+  if (state === 'hashing') {
+    return <p className="text-sm text-foreground/65">Computing PDF SHA-256...</p>
+  }
+  if (state === 'preflighting') {
+    return <p className="text-sm text-foreground/65">Checking duplicate and credit quote...</p>
+  }
+  if (state === 'confirming' && pendingPreflight) {
+    return <PreflightConfirmation pendingPreflight={pendingPreflight} />
+  }
   if (state === 'presigning') {
     return <p className="text-sm text-foreground/65">Preparing secure upload URL...</p>
   }
@@ -401,6 +559,12 @@ function UploadMessage({
     return (
       <p className="text-sm text-foreground/65">Verifying S3 object evidence and starting OCR...</p>
     )
+  }
+  if (state === 'converting') {
+    return <p className="text-sm text-foreground/65">Starting statement conversion...</p>
+  }
+  if (state === 'polling') {
+    return <p className="text-sm text-foreground/65">Checking preview readiness...</p>
   }
   if (state === 'done' && evidence) {
     return (
@@ -438,6 +602,30 @@ function UploadMessage({
     <p className="text-sm text-foreground/60">
       No file selected. Choose a PDF statement to create a pending document record.
     </p>
+  )
+}
+
+function PreflightConfirmation({ pendingPreflight }: { pendingPreflight: PendingPreflight }) {
+  const { preflight, fileSha256 } = pendingPreflight
+  const duplicateFound = preflight.duplicate.isDuplicate
+  const balanceAfter = Math.max(0, preflight.currentBalance - preflight.quote.costCredits)
+  return (
+    <section className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
+      <p className="font-medium text-[var(--accent)]">Confirm conversion</p>
+      <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+        <EvidenceRow
+          label="Duplicate"
+          value={
+            duplicateFound
+              ? `Duplicate ${preflight.duplicate.existingDocumentId ?? 'found'}`
+              : 'No duplicate found'
+          }
+        />
+        <EvidenceRow label="Cost" value={formatCredits(preflight.quote.costCredits)} />
+        <EvidenceRow label="Balance" value={`${formatCredits(balanceAfter)} after conversion`} />
+        <EvidenceRow label="SHA-256" value={shortId(fileSha256)} />
+      </dl>
+    </section>
   )
 }
 
@@ -503,6 +691,21 @@ async function readProblem(response: Response): Promise<ProblemResponse> {
     detail: typeof body.detail === 'string' ? body.detail : undefined,
     request_id: typeof body.request_id === 'string' ? body.request_id : undefined,
     trace_id: typeof body.trace_id === 'string' ? body.trace_id : undefined,
+  }
+}
+
+async function sha256Hex(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const digest = await crypto.subtle.digest('SHA-256', buffer)
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function pollDocumentStatus(documentId: string): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(`/api/v1/documents/${documentId}/status`)
+    if (!response.ok) return
+    const body = (await response.json().catch(() => ({}))) as { status?: string }
+    if (body.status === 'ready' || body.status === 'failed') return
   }
 }
 
@@ -792,6 +995,10 @@ function shortId(value: string): string {
 function formatBytes(size: number): string {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatCredits(value: number): string {
+  return `${value} credit${value === 1 ? '' : 's'}`
 }
 
 function formatDateTime(value: string): string {

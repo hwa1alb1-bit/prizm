@@ -8,6 +8,8 @@ type CreatePendingDocumentUploadRpcArgs = {
   p_filename: string
   p_content_type: string
   p_size_bytes: number
+  p_file_sha256: string
+  p_conversion_cost_credits: number
   p_s3_bucket: string
   p_s3_key: string
   p_expires_at: string
@@ -37,6 +39,8 @@ export type CreatePendingDocumentUploadInput = {
   filename: string
   contentType: string
   sizeBytes: number
+  fileSha256: string
+  conversionCostCredits: number
   s3Bucket: string
   s3Key: string
   expiresAt: string
@@ -68,6 +72,8 @@ export async function createPendingDocumentUpload(
     p_filename: input.filename,
     p_content_type: input.contentType,
     p_size_bytes: input.sizeBytes,
+    p_file_sha256: input.fileSha256,
+    p_conversion_cost_credits: input.conversionCostCredits,
     p_s3_bucket: input.s3Bucket,
     p_s3_key: input.s3Key,
     p_expires_at: input.expiresAt,

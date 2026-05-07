@@ -99,12 +99,15 @@ describe('documents presign route', () => {
   })
 
   it('creates an audited pending document before returning the signed URL', async () => {
+    const fileSha256 = 'b'.repeat(64)
     const response = await POST(
       jsonRequest(
         {
           filename: 'May Statement.pdf',
           contentType: 'application/pdf',
           sizeBytes: 4096,
+          fileSha256,
+          acceptedQuote: { costCredits: 1, fileSha256 },
         },
         { 'x-request-id': 'req_presign', 'x-forwarded-for': '203.0.113.10' },
       ) as never,
@@ -122,6 +125,8 @@ describe('documents presign route', () => {
         filename: 'May_Statement.pdf',
         contentType: 'application/pdf',
         sizeBytes: 4096,
+        fileSha256,
+        conversionCostCredits: 1,
         s3Bucket: 'prizm-test-uploads',
         actorIp: '203.0.113.10',
         actorUserAgent: null,
@@ -130,17 +135,38 @@ describe('documents presign route', () => {
     )
   })
 
+  it('rejects an accepted quote when the top-level file hash does not match', async () => {
+    const response = await POST(
+      jsonRequest({
+        filename: 'statement.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 4096,
+        fileSha256: 'c'.repeat(64),
+        acceptedQuote: { costCredits: 1, fileSha256: 'd'.repeat(64) },
+      }) as never,
+    )
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 400,
+      code: 'PRZM_VALIDATION_QUOTE_MISMATCH',
+    })
+    expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
+  })
+
   it('fails closed when the audited write fails', async () => {
     createPendingDocumentUploadMock.mockResolvedValue({
       ok: false,
       reason: 'write_failed',
     })
+    const fileSha256 = 'e'.repeat(64)
 
     const response = await POST(
       jsonRequest({
         filename: 'statement.pdf',
         contentType: 'application/pdf',
         sizeBytes: 4096,
+        fileSha256,
+        acceptedQuote: { costCredits: 1, fileSha256 },
       }) as never,
     )
 

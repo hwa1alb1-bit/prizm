@@ -1,0 +1,50 @@
+{
+  "JobStatus": "SUCCEEDED",
+  "Blocks": [
+    {
+      "BlockType": "LINE",
+      "Text": "Bank: PRIZM Credit Union",
+      "Confidence": 99.1
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Account ending: 4242",
+      "Confidence": 98.7
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Statement period: 2026-04-01 - 2026-04-30",
+      "Confidence": 97.2
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Opening balance: $1,000.00",
+      "Confidence": 99
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Closing balance: $1,250.50",
+      "Confidence": 99
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Reported transaction total: $250.50",
+      "Confidence": 95.5
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "Transactions",
+      "Confidence": 94
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-03 | Coffee Shop | -$12.25",
+      "Confidence": 96.5
+    },
+    {
+      "BlockType": "LINE",
+      "Text": "2026-04-18 | Payroll Deposit | $262.75",
+      "Confidence": 82.4
+    }
+  ]
+}

@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server'
-import { completeDocumentUpload } from '@/lib/server/document-completion'
-import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
+import { getDocumentStatus } from '@/lib/server/document-status'
+import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export async function POST(
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
@@ -16,11 +16,9 @@ export async function POST(
   if (!auth.ok) return problemResponse(context, auth.problem)
 
   const { documentId } = await params
-  const result = await completeDocumentUpload({
+  const result = await getDocumentStatus({
     documentId,
     actorUserId: auth.context.user.id,
-    actorIp: getClientIp(request),
-    actorUserAgent: request.headers.get('user-agent'),
     routeContext: context,
   })
 
@@ -35,8 +33,10 @@ export async function POST(
 
   return jsonResponse(context, {
     documentId: result.documentId,
-    status: result.state,
-    alreadyCompleted: result.alreadyCompleted,
+    state: result.state,
+    chargeStatus: result.chargeStatus,
+    duplicate: result.duplicate,
+    retention: result.retention,
     request_id: result.requestId,
     trace_id: result.traceId,
   })

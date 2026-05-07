@@ -26,8 +26,7 @@ describe('documents complete route', () => {
     completeDocumentUploadMock.mockResolvedValue({
       ok: true,
       documentId: 'doc_123',
-      state: 'processing',
-      textractJobId: 'textract_job_123',
+      state: 'verified',
       alreadyCompleted: false,
       requestId: 'req_complete',
       traceId: '0123456789abcdef0123456789abcdef',
@@ -59,7 +58,7 @@ describe('documents complete route', () => {
     expect(completeDocumentUploadMock).not.toHaveBeenCalled()
   })
 
-  it('starts completion for the authenticated user and returns Textract evidence', async () => {
+  it('verifies the upload for the authenticated user without starting conversion', async () => {
     const response = await POST(
       request({ 'x-request-id': 'req_complete', 'x-forwarded-for': '203.0.113.10' }) as never,
       routeParams('doc_123'),
@@ -67,8 +66,7 @@ describe('documents complete route', () => {
 
     await expect(response.json()).resolves.toEqual({
       documentId: 'doc_123',
-      status: 'processing',
-      textractJobId: 'textract_job_123',
+      status: 'verified',
       alreadyCompleted: false,
       request_id: 'req_complete',
       trace_id: '0123456789abcdef0123456789abcdef',

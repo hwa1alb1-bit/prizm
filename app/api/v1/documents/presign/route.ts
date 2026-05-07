@@ -17,6 +17,17 @@ const requestSchema = z.object({
     .transform((s) => s.replace(/[^a-zA-Z0-9._-]/g, '_')),
   contentType: z.literal('application/pdf'),
   sizeBytes: z.number().int().min(1).max(MAX_FILE_BYTES),
+  fileSha256: z
+    .string()
+    .regex(/^[a-fA-F0-9]{64}$/)
+    .transform((value) => value.toLowerCase()),
+  acceptedQuote: z.object({
+    costCredits: z.literal(1),
+    fileSha256: z
+      .string()
+      .regex(/^[a-fA-F0-9]{64}$/)
+      .transform((value) => value.toLowerCase()),
+  }),
 })
 
 export async function POST(request: NextRequest) {
@@ -37,6 +48,15 @@ export async function POST(request: NextRequest) {
     })
   }
 
+  if (Array.isArray(body)) {
+    return problemResponse(context, {
+      status: 400,
+      code: 'PRZM_VALIDATION_BATCH_UNSUPPORTED',
+      title: 'Batch presign is not supported',
+      detail: 'Submit exactly one PDF presign request.',
+    })
+  }
+
   const parsed = requestSchema.safeParse(body)
   if (!parsed.success) {
     return problemResponse(context, {
@@ -47,7 +67,16 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  const { filename, contentType, sizeBytes } = parsed.data
+  const { filename, contentType, sizeBytes, fileSha256, acceptedQuote } = parsed.data
+  if (fileSha256 !== acceptedQuote.fileSha256) {
+    return problemResponse(context, {
+      status: 400,
+      code: 'PRZM_VALIDATION_QUOTE_MISMATCH',
+      title: 'Accepted quote does not match file',
+      detail: 'The accepted quote file hash must match the file being uploaded.',
+    })
+  }
+
   const s3Key = `${auth.context.user.id}/${crypto.randomUUID()}/${filename}`
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
@@ -79,6 +108,8 @@ export async function POST(request: NextRequest) {
     filename,
     contentType,
     sizeBytes,
+    fileSha256,
+    conversionCostCredits: acceptedQuote.costCredits,
     s3Bucket: bucket,
     s3Key,
     expiresAt,

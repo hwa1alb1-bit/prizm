@@ -171,6 +171,17 @@ describe('DocumentReview', () => {
     expect(screen.getByText('Transaction row 1')).toBeInTheDocument()
     expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
   })
+
+  it('uses scheduled auto-delete copy until deletion evidence exists', () => {
+    const { rerender } = render(<DocumentReview document={notExpiringDocument()} />)
+
+    expect(screen.getByText(/Scheduled to auto-delete until/)).toBeInTheDocument()
+    expect(screen.queryByText('Deleted')).not.toBeInTheDocument()
+
+    rerender(<DocumentReview document={historyDocument()} />)
+
+    expect(screen.getByText('Deleted')).toBeInTheDocument()
+  })
 })
 
 describe('DocumentStateBadge', () => {
@@ -199,7 +210,7 @@ function historyDocument(): HistoryDocumentView {
     filename: 'May Statement.pdf',
     state: 'ready',
     createdAt: '2026-05-06T14:00:00.000Z',
-    expiresAt: '2026-05-07T14:00:00.000Z',
+    expiresAt: '2030-05-07T14:00:00.000Z',
     deletedAt: null,
     failureReason: null,
     sizeBytes: 4096,
@@ -250,7 +261,7 @@ function historyDocument(): HistoryDocumentView {
           },
         ],
         createdAt: '2026-05-06T14:10:00.000Z',
-        expiresAt: '2026-05-07T14:00:00.000Z',
+        expiresAt: '2030-05-07T14:00:00.000Z',
         deletedAt: null,
       },
     ],

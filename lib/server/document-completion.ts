@@ -55,8 +55,7 @@ export type CompleteDocumentUploadInput = {
 export type CompleteDocumentUploadSuccess = {
   ok: true
   documentId: string
-  state: 'processing' | 'ready'
-  textractJobId: string
+  state: 'verified' | 'processing' | 'ready'
   alreadyCompleted: boolean
   requestId: string
   traceId: string
@@ -163,8 +162,7 @@ export async function completeDocumentUpload(
     return {
       ok: true,
       documentId: document.id,
-      state: document.status === 'ready' ? 'ready' : 'processing',
-      textractJobId: document.textractJobId,
+      state: completedState(document.status),
       alreadyCompleted: true,
       requestId: input.routeContext.requestId,
       traceId: input.routeContext.traceId,
@@ -208,43 +206,10 @@ export async function completeDocumentUpload(
     return completionProblem('transition_failed')
   }
 
-  let textractJobId: string
-  try {
-    textractJobId = await deps.startTextractAnalysis({
-      documentId: document.id,
-      s3Bucket: document.s3Bucket,
-      s3Key: document.s3Key,
-    })
-  } catch {
-    const failureReason = 'Textract analysis could not be started for the verified upload.'
-    try {
-      await deps.markProcessingFailed({
-        ...auditInput(input, document),
-        eventType: 'document.processing_failed',
-        failureReason,
-      })
-    } catch {
-      return completionProblem('transition_failed')
-    }
-    return completionProblem('textract_start_failed')
-  }
-
-  try {
-    await deps.markProcessingStarted({
-      ...auditInput(input, document),
-      eventType: 'document.processing_started',
-      textractJobId,
-      verification: evidence.verification,
-    })
-  } catch {
-    return completionProblem('transition_failed')
-  }
-
   return {
     ok: true,
     documentId: document.id,
-    state: 'processing',
-    textractJobId,
+    state: 'verified',
     alreadyCompleted: false,
     requestId: input.routeContext.requestId,
     traceId: input.routeContext.traceId,
@@ -328,11 +293,11 @@ async function markUploadCompleted(input: UploadCompletedInput): Promise<void> {
   const { data, error } = await getServiceRoleClient()
     .from('document')
     .update({
-      status: 'processing',
+      status: 'verified',
       failure_reason: null,
     })
     .eq('id', input.documentId)
-    .in('status', ['pending', 'processing'])
+    .eq('status', 'pending')
     .select('id')
     .maybeSingle()
 
@@ -637,14 +602,18 @@ function documentFromRow(row: DocumentRow): CompletionDocument {
   }
 }
 
-function isAlreadyCompleted(document: CompletionDocument): document is CompletionDocument & {
-  textractJobId: string
-} {
+function isAlreadyCompleted(document: CompletionDocument): boolean {
   return (
-    (document.status === 'processing' || document.status === 'ready') &&
-    typeof document.textractJobId === 'string' &&
-    document.textractJobId.length > 0
+    document.status === 'verified' ||
+    document.status === 'processing' ||
+    document.status === 'ready'
   )
+}
+
+function completedState(status: string): 'verified' | 'processing' | 'ready' {
+  if (status === 'ready') return 'ready'
+  if (status === 'processing') return 'processing'
+  return 'verified'
 }
 
 function metadataMismatchReason(mismatches: string[]): string {

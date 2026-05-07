@@ -67,7 +67,7 @@ describe('completeDocumentUpload', () => {
     expect(deps.markUploadCompleted).not.toHaveBeenCalled()
   })
 
-  it('transitions pending uploads to processing, writes audit events, and stores Textract job evidence', async () => {
+  it('transitions pending uploads to verified and writes upload evidence without starting Textract', async () => {
     const deps = createDependencies()
 
     const result = await completeDocumentUpload(completionInput(), deps)
@@ -75,8 +75,7 @@ describe('completeDocumentUpload', () => {
     expect(result).toEqual({
       ok: true,
       documentId: 'doc_123',
-      state: 'processing',
-      textractJobId: 'textract_job_123',
+      state: 'verified',
       alreadyCompleted: false,
       requestId: 'req_complete',
       traceId: '0123456789abcdef0123456789abcdef',
@@ -96,39 +95,8 @@ describe('completeDocumentUpload', () => {
         }),
       }),
     )
-    expect(deps.startTextractAnalysis).toHaveBeenCalledWith({
-      documentId: 'doc_123',
-      s3Bucket: 'prizm-uploads-test',
-      s3Key: 'user_123/doc_123/statement.pdf',
-    })
-    expect(deps.markProcessingStarted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        documentId: 'doc_123',
-        textractJobId: 'textract_job_123',
-        eventType: 'document.processing_started',
-      }),
-    )
-  })
-
-  it('fails closed with OCR start evidence when Textract cannot create a job', async () => {
-    const deps = createDependencies()
-    deps.startTextractAnalysis.mockRejectedValueOnce(new Error('textract unavailable'))
-
-    const result = await completeDocumentUpload(completionInput(), deps)
-
-    expect(result).toMatchObject({
-      ok: false,
-      reason: 'textract_start_failed',
-      status: 502,
-      code: 'PRZM_TEXTRACT_START_FAILED',
-    })
-    expect(deps.markProcessingFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        documentId: 'doc_123',
-        eventType: 'document.processing_failed',
-        failureReason: 'Textract analysis could not be started for the verified upload.',
-      }),
-    )
+    expect(deps.startTextractAnalysis).not.toHaveBeenCalled()
+    expect(deps.markProcessingStarted).not.toHaveBeenCalled()
   })
 
   it('returns an idempotent result when completion is repeated for a processing document with a job id', async () => {
@@ -145,7 +113,6 @@ describe('completeDocumentUpload', () => {
       ok: true,
       documentId: 'doc_123',
       state: 'processing',
-      textractJobId: 'textract_existing',
       alreadyCompleted: true,
       requestId: 'req_complete',
       traceId: '0123456789abcdef0123456789abcdef',

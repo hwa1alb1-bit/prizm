@@ -244,4 +244,24 @@ describe('runDeletionSweep', () => {
     })
     expect(markStatementDeletedMock).not.toHaveBeenCalled()
   })
+
+  it('builds deletion scrub payloads that clear hashes, duplicate fingerprints, and transaction JSON', async () => {
+    const deletedAt = '2026-05-06T23:00:00.000Z'
+    const store = await vi.importActual<typeof import('@/lib/server/deletion/store')>(
+      '@/lib/server/deletion/store',
+    )
+
+    expect(store.documentDeletionScrubPayload(deletedAt)).toEqual({
+      deleted_at: deletedAt,
+      status: 'expired',
+      file_sha256: null,
+      duplicate_of_document_id: null,
+      duplicate_checked_at: null,
+      duplicate_fingerprint: null,
+    })
+    expect(store.statementDeletionScrubPayload(deletedAt)).toEqual({
+      deleted_at: deletedAt,
+      transactions: [],
+    })
+  })
 })

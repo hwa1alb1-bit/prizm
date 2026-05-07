@@ -167,7 +167,7 @@ export async function markDocumentDeleted(input: {
 }): Promise<void> {
   const { error } = await getDeletionStoreClient()
     .from('document')
-    .update({ deleted_at: input.deletedAt, status: 'expired' })
+    .update(documentDeletionScrubPayload(input.deletedAt))
     .eq('id', input.documentId)
     .select('id')
 
@@ -180,7 +180,7 @@ export async function markStatementsDeletedForDocument(input: {
 }): Promise<number> {
   const { data, error } = await getDeletionStoreClient()
     .from('statement')
-    .update({ deleted_at: input.deletedAt })
+    .update(statementDeletionScrubPayload(input.deletedAt))
     .eq('document_id', input.documentId)
     .select('id')
 
@@ -194,7 +194,7 @@ export async function markStatementDeleted(input: {
 }): Promise<void> {
   const { error } = await getDeletionStoreClient()
     .from('statement')
-    .update({ deleted_at: input.deletedAt })
+    .update(statementDeletionScrubPayload(input.deletedAt))
     .eq('id', input.statementId)
     .select('id')
 
@@ -312,6 +312,24 @@ function normalizeProfileEmail(profile: DocumentRow['user_profile']): string | n
   if (!profile) return null
   if (Array.isArray(profile)) return profile[0]?.email ?? null
   return profile.email
+}
+
+export function documentDeletionScrubPayload(deletedAt: string): Record<string, unknown> {
+  return {
+    deleted_at: deletedAt,
+    status: 'expired',
+    file_sha256: null,
+    duplicate_of_document_id: null,
+    duplicate_checked_at: null,
+    duplicate_fingerprint: null,
+  }
+}
+
+export function statementDeletionScrubPayload(deletedAt: string): Record<string, unknown> {
+  return {
+    deleted_at: deletedAt,
+    transactions: [],
+  }
 }
 
 function getDeletionStoreClient(): ServiceRoleLike {
