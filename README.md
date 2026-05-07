@@ -1,12 +1,23 @@
 # PRIZM
 
-Trust-first, SOC 2-ready bank statement converter for accountants and bookkeepers.
+Lean PDF bank statement converter for accountants and bookkeepers.
 
-Files auto-delete in 24 hours. Every server-side write produces an audit event. Multi-tenant by workspace from day one.
+Upload a bank statement PDF, review the extracted rows, and export clean XLSX or CSV. Files auto-delete in 24 hours. Every server-side write produces an audit event. Multi-tenant by workspace from day one.
+
+## Product direction
+
+PRIZM is moving toward the lean converter model: PDF bank statements in, spreadsheet output out, with trust evidence visible but never heavy. The Phase 1 workflow is intentionally narrow:
+
+- one PDF per conversion
+- duplicate and credit preflight before upload
+- verified upload before OCR
+- review before export
+- XLSX, CSV, QuickBooks CSV, and Xero CSV outputs
+- 24-hour retention with audit evidence
 
 ## Status
 
-Phase 1 (Trust-Native MVP) under construction. Wave 0 scaffold and Wave 1 connector layer are complete. Wave 2 server actions and auth land next.
+Phase 1 Lean Converter is merged locally. The app now has preflight, verified upload, conversion start, review, export, bad-extraction reporting, processing ops, and schema support under active verification.
 
 ## Stack
 

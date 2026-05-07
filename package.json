@@ -2,7 +2,7 @@
   "name": "prizm",
   "version": "0.1.0-alpha.0",
   "private": true,
-  "description": "PRIZM: trust-first SOC 2-ready bank statement converter",
+  "description": "PRIZM: lean PDF bank statement to Excel and CSV converter",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=10.0.0"

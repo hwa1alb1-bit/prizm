@@ -79,7 +79,7 @@ describe('UploadPage', () => {
     expect(await screen.findByRole('button', { name: 'Confirm conversion' })).toBeInTheDocument()
     expect(screen.getByText('No duplicate found')).toBeInTheDocument()
     expect(screen.getByText('1 credit')).toBeInTheDocument()
-    expect(screen.getByText(/9 credits after conversion/)).toBeInTheDocument()
+    expect(screen.getByText('9 credits')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirm conversion' }))
 
@@ -122,7 +122,7 @@ describe('UploadPage', () => {
       { method: 'POST' },
     ])
     expect(fetchMock.mock.calls[5]?.[0]).toBe('/api/v1/documents/doc_123/status')
-    expect(await screen.findByText('Processing started.')).toBeInTheDocument()
+    expect(await screen.findByText('Conversion started.')).toBeInTheDocument()
     expect(screen.getByText(/Textract job textract_job_123/)).toBeInTheDocument()
     expect(push).toHaveBeenCalledWith('/app/history/doc_123')
   })

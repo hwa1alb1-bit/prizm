@@ -16,7 +16,7 @@ Use the canonical five-label triage vocabulary. See `docs/agents/triage-labels.m
 
 Single-context repo: read root `CONTEXT.md` when present and root ADRs under `docs/adr/`. See `docs/agents/domain.md`.
 
-PRIZM is a trust-first, SOC 2-ready bank statement converter SaaS. Phase 1 Trust-Native MVP. Multi-tenant by workspace. 24-hour auto-delete on every uploaded document.
+PRIZM is a lean, trust-backed bank statement converter SaaS. Phase 1 Lean Converter. Multi-tenant by workspace. 24-hour auto-delete on every uploaded document.
 
 ## Where to start
 
@@ -25,11 +25,11 @@ PRIZM is a trust-first, SOC 2-ready bank statement converter SaaS. Phase 1 Trust
 3. Read the ADRs under `docs/adr/` (numbered 001-007 plus the template) to understand the architectural ground rules.
 4. Run `pnpm verify` before claiming any work complete.
 
-## Current state (2026-04-29)
+## Current state (2026-05-07)
 
-- **Wave 0**: scaffold + verify gate green. Commit `e157c4d`.
-- **Wave 1**: connector layer + `/api/health` + landing page + Stripe sandbox provisioning. Commits `5a80d98`, `a4b7f54`, `e40946a`.
-- **Wave 2**: not started. Server actions for upload presign, Textract job kickoff, status poll, statement parsing, deletion sweep, Stripe webhook handler.
+- **Phase 1 Lean Converter**: branch `origin/feature/phase-1-lean-converter` merged locally at commit `2259ba1`.
+- **Current product direction**: mimic the lean converter pattern. PDF bank statements in, clean XLSX or CSV out, with trust evidence visible but not dominant.
+- **Implemented workflow surface**: one-PDF preflight, verified upload, conversion start, status polling, review, export, bad-extraction reports, processing ops, and migration `0009_phase1_lean_converter.sql`.
 
 ## Active resource IDs
 

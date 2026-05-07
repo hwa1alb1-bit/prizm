@@ -106,28 +106,28 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024
 
 const workflowSteps = [
   {
-    label: 'Upload verified',
-    detail: 'PRIZM verifies S3 object evidence before OCR is allowed to start.',
+    label: 'Check PDF',
+    detail: 'PRIZM hashes the PDF, checks duplicates, and quotes one conversion credit.',
   },
   {
-    label: 'OCR processing',
-    detail: 'Textract reads the statement and returns extraction data for review.',
+    label: 'Upload securely',
+    detail: 'The browser uploads to a short-lived URL before OCR can begin.',
   },
   {
-    label: 'Review exceptions',
-    detail: 'Rows that need attention are separated from rows ready to export.',
+    label: 'Convert rows',
+    detail: 'Textract output becomes a statement preview with exceptions called out.',
   },
   {
-    label: 'Export and expire',
-    detail: 'Ledger-ready output stays tied to the 24-hour deletion window.',
+    label: 'Export spreadsheet',
+    detail: 'Reviewed rows export to XLSX or CSV before the 24-hour deletion window closes.',
   },
 ]
 
 const trustControls = [
-  { label: 'Retention', value: '24-hour auto-delete' },
-  { label: 'Server write', value: 'Upload and OCR audit events required' },
-  { label: 'Traceability', value: 'Request, trace, and Textract job returned' },
-  { label: 'Access', value: 'Workspace role checked before upload' },
+  { label: 'Input', value: 'One bank statement PDF per conversion' },
+  { label: 'Quote', value: 'One credit reserved only after confirmation' },
+  { label: 'Output', value: 'XLSX, CSV, QuickBooks CSV, and Xero CSV' },
+  { label: 'Retention', value: '24-hour auto-delete with request evidence' },
 ]
 
 export default function UploadPage() {
@@ -374,12 +374,14 @@ export default function UploadPage() {
       <header className="grid gap-4 border-b border-[var(--border-subtle)] pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/50">
-            Upload console
+            Bank statement converter
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Convert a statement</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            Convert PDF statements to Excel and CSV
+          </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            Upload one PDF at a time. PRIZM records the request, returns trace evidence, and starts
-            the statement path toward review and export.
+            Upload one bank statement PDF. PRIZM checks the file, quotes the conversion, starts OCR,
+            and opens a review record for spreadsheet export.
           </p>
         </div>
         <Link
@@ -396,10 +398,10 @@ export default function UploadPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 id="upload-heading" className="text-lg font-semibold">
-                  Statement intake
+                  PDF to spreadsheet
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-foreground/60">
-                  PDF only, 20 MB max. Upload URLs expire after 10 minutes.
+                  One PDF, 20 MB max. Upload URLs expire after 10 minutes.
                 </p>
               </div>
               <StatusPill state={state} />
@@ -422,12 +424,12 @@ export default function UploadPage() {
               <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
                 <div>
                   <p className="text-base font-semibold">
-                    {selectedFile?.name ?? 'Drop a bank statement PDF here'}
+                    {selectedFile?.name ?? 'Drop a PDF bank statement here'}
                   </p>
                   <p className="mt-1 text-sm text-foreground/60">
                     {selectedFile
                       ? `${formatBytes(selectedFile.size)} selected`
-                      : 'The file is checked before PRIZM asks S3 for a secure upload URL.'}
+                      : 'PRIZM checks the file hash before the secure upload starts.'}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
@@ -454,7 +456,7 @@ export default function UploadPage() {
                       onClick={resetUpload}
                       className="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--border-subtle)] px-4 text-sm font-medium hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                     >
-                      Upload another
+                      Convert another
                     </button>
                   )}
                 </div>
@@ -544,7 +546,7 @@ function UploadMessage({
     return <p className="text-sm text-foreground/65">Computing PDF SHA-256...</p>
   }
   if (state === 'preflighting') {
-    return <p className="text-sm text-foreground/65">Checking duplicate and credit quote...</p>
+    return <p className="text-sm text-foreground/65">Checking duplicate and one-credit quote...</p>
   }
   if (state === 'confirming' && pendingPreflight) {
     return <PreflightConfirmation pendingPreflight={pendingPreflight} />
@@ -569,7 +571,7 @@ function UploadMessage({
   if (state === 'done' && evidence) {
     return (
       <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
-        <p className="font-medium text-[var(--success)]">Processing started.</p>
+        <p className="font-medium text-[var(--success)]">Conversion started.</p>
         <p className="mt-1 text-foreground/65">
           Textract job {evidence.textractJobId} is attached to document{' '}
           {shortId(evidence.documentId)}.
@@ -578,7 +580,7 @@ function UploadMessage({
           href={`/app/history/${evidence.documentId}`}
           className="mt-3 inline-flex text-sm font-medium text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
-          Open review record
+          Open review and export
         </Link>
       </div>
     )
@@ -600,7 +602,7 @@ function UploadMessage({
   }
   return (
     <p className="text-sm text-foreground/60">
-      No file selected. Choose a PDF statement to create a pending document record.
+      No file selected. Choose a bank statement PDF to start conversion.
     </p>
   )
 }
@@ -611,7 +613,7 @@ function PreflightConfirmation({ pendingPreflight }: { pendingPreflight: Pending
   const balanceAfter = Math.max(0, preflight.currentBalance - preflight.quote.costCredits)
   return (
     <section className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
-      <p className="font-medium text-[var(--accent)]">Confirm conversion</p>
+      <p className="font-medium text-[var(--accent)]">Ready to convert</p>
       <dl className="mt-3 grid gap-2 sm:grid-cols-2">
         <EvidenceRow
           label="Duplicate"
@@ -621,8 +623,8 @@ function PreflightConfirmation({ pendingPreflight }: { pendingPreflight: Pending
               : 'No duplicate found'
           }
         />
-        <EvidenceRow label="Cost" value={formatCredits(preflight.quote.costCredits)} />
-        <EvidenceRow label="Balance" value={`${formatCredits(balanceAfter)} after conversion`} />
+        <EvidenceRow label="Quote" value={formatCredits(preflight.quote.costCredits)} />
+        <EvidenceRow label="Remaining" value={formatCredits(balanceAfter)} />
         <EvidenceRow label="SHA-256" value={shortId(fileSha256)} />
       </dl>
     </section>
@@ -809,9 +811,9 @@ function WorkflowPanel({
     <section className="rounded-lg border border-[var(--border-subtle)] p-4 sm:p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold">Workflow evidence</h2>
+          <h2 className="text-base font-semibold">Conversion path</h2>
           <p className="mt-1 text-sm text-foreground/60">
-            Each step should leave a state the firm can inspect later.
+            Simple by design. Each step leaves evidence without slowing the converter.
           </p>
         </div>
         {evidence && <ToneBadge tone="info">Trace {shortId(evidence.traceId)}</ToneBadge>}
@@ -846,16 +848,16 @@ function CurrentDocumentHandoff({ evidence }: { evidence: UploadEvidence | null 
     <section className="rounded-lg border border-[var(--border-subtle)] p-4 sm:p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold">Review handoff</h2>
+          <h2 className="text-base font-semibold">Review and export</h2>
           <p className="mt-1 text-sm text-foreground/60">
-            Uploaded documents should enter history with status, evidence, and expiration visible.
+            Converted statements open in history with status, evidence, and expiration visible.
           </p>
         </div>
         <Link
           href={evidence ? `/app/history/${evidence.documentId}` : '/app/history'}
           className="text-sm font-medium text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
-          {evidence ? 'Open review record' : 'Open history'}
+          {evidence ? 'Open review and export' : 'Open history'}
         </Link>
       </div>
 
@@ -886,7 +888,7 @@ function CurrentDocumentHandoff({ evidence }: { evidence: UploadEvidence | null 
                   <ToneBadge tone="neutral">Waiting</ToneBadge>
                 </td>
                 <td className="py-4 pr-4 text-foreground/65">
-                  Upload a PDF to create the first document record.
+                  Upload a PDF to create the first conversion record.
                 </td>
                 <td className="py-4 text-foreground/65">24 hours after upload</td>
               </tr>
@@ -901,7 +903,7 @@ function CurrentDocumentHandoff({ evidence }: { evidence: UploadEvidence | null 
 function EvidencePanel({ evidence }: { evidence: UploadEvidence | null }) {
   return (
     <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4">
-      <h2 className="text-base font-semibold">Current evidence</h2>
+      <h2 className="text-base font-semibold">Conversion evidence</h2>
       <dl className="mt-4 space-y-3 text-sm">
         <EvidenceRow label="Filename" value={evidence?.filename ?? 'Waiting for upload'} />
         <EvidenceRow
@@ -934,7 +936,7 @@ function EvidencePanel({ evidence }: { evidence: UploadEvidence | null }) {
 function TrustControls() {
   return (
     <section className="rounded-lg border border-[var(--border-subtle)] p-4">
-      <h2 className="text-base font-semibold">Trust controls</h2>
+      <h2 className="text-base font-semibold">Lean controls</h2>
       <div className="mt-4 space-y-3">
         {trustControls.map((control) => (
           <div

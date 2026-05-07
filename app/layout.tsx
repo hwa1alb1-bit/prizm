@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://prizmview.app'),
   title: {
-    default: 'PRIZM — trust-first bank statement conversion',
+    default: 'PRIZM - PDF bank statement converter',
     template: '%s · PRIZM',
   },
   description:
-    'Convert bank statements with verifiable accuracy. SOC 2 controls, 24-hour auto-delete, audit logs by default.',
+    'Convert PDF bank statements into clean Excel and CSV files with review, export, and 24-hour deletion evidence.',
   applicationName: 'PRIZM',
   robots: { index: true, follow: true },
 }
