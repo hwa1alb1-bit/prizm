@@ -6,7 +6,7 @@ const migrationPath = path.join(
   process.cwd(),
   'supabase',
   'migrations',
-  '0009_create_privacy_request_tables.sql',
+  '0014_create_privacy_request_tables.sql',
 )
 
 describe('privacy request schema', () => {

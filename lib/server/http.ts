@@ -61,6 +61,7 @@ export function problemResponse(context: RouteContext, problem: ProblemInit): Re
   }
   const headers = routeHeaders(context)
   headers.set('Content-Type', 'application/problem+json')
+  headers.set('Cache-Control', 'no-store')
   return new Response(JSON.stringify(body), { status: problem.status, headers })
 }
 
