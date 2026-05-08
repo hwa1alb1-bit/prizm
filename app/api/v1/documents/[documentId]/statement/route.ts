@@ -8,6 +8,27 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const scalar = z.union([z.string(), z.number(), z.null()])
+const metadataScalar = z.union([z.string(), z.number(), z.boolean(), z.null()])
+const statementPatchSchema = z.object({
+  statementType: z.enum(['bank', 'credit_card']).optional(),
+  statement_type: z.enum(['bank', 'credit_card']).optional(),
+  statementMetadata: z.record(z.string(), metadataScalar).optional(),
+  statement_metadata: z.record(z.string(), metadataScalar).optional(),
+  bankName: z.string().nullable().optional(),
+  bank_name: z.string().nullable().optional(),
+  accountLast4: z.string().nullable().optional(),
+  account_last4: z.string().nullable().optional(),
+  periodStart: z.string().nullable().optional(),
+  period_start: z.string().nullable().optional(),
+  periodEnd: z.string().nullable().optional(),
+  period_end: z.string().nullable().optional(),
+  openingBalance: scalar.optional(),
+  opening_balance: scalar.optional(),
+  closingBalance: scalar.optional(),
+  closing_balance: scalar.optional(),
+  reportedTotal: scalar.optional(),
+  reported_total: scalar.optional(),
+})
 const transactionPatchSchema = z.object({
   id: z.string().min(1).optional(),
   postedAt: z.string().min(1).nullable().optional(),
@@ -30,6 +51,7 @@ const transactionPatchSchema = z.object({
 const editRequestSchema = z.object({
   expectedRevision: z.number().int().min(0),
   reviewed: z.boolean().optional(),
+  statement: statementPatchSchema.optional(),
   operations: z
     .array(
       z.discriminatedUnion('type', [

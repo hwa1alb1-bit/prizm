@@ -31,10 +31,32 @@ export type EditableTransactionRow = {
   review_reason?: string | null
 }
 
+export type EditableStatementMetadataPatch = {
+  statementType?: 'bank' | 'credit_card'
+  statement_type?: 'bank' | 'credit_card'
+  statementMetadata?: Record<string, Json>
+  statement_metadata?: Record<string, Json>
+  bankName?: string | null
+  bank_name?: string | null
+  accountLast4?: string | null
+  account_last4?: string | null
+  periodStart?: string | null
+  period_start?: string | null
+  periodEnd?: string | null
+  period_end?: string | null
+  openingBalance?: number | string | null
+  opening_balance?: number | string | null
+  closingBalance?: number | string | null
+  closing_balance?: number | string | null
+  reportedTotal?: number | string | null
+  reported_total?: number | string | null
+}
+
 export type ApplyStatementEditInput = {
   documentId: string
   actorUserId: string
   expectedRevision: number
+  statement?: EditableStatementMetadataPatch
   operations: StatementEditOperation[]
   reviewed?: boolean
   actorIp: string | null
@@ -83,6 +105,17 @@ export type StatementEditStore = {
     patch: {
       workspaceId: string
       documentId: string
+      statement_type: 'bank' | 'credit_card'
+      statement_metadata: Json
+      bank_name: string | null
+      account_last4: string | null
+      period_start: string | null
+      period_end: string | null
+      opening_balance: number | null
+      closing_balance: number | null
+      reported_total: number | null
+      computed_total: number
+      reconciles: boolean
       transactions: Json[]
       revision: number
       review_status: StatementReviewStatus
@@ -95,7 +128,9 @@ export type StatementEditStore = {
     actorUserId: string
     statementId: string
     documentId: string
+    eventType: 'statement.edited' | 'statement.reviewed'
     operationCount: number
+    metadataChanged: boolean
     revision: number
     actorIp: string | null
     actorUserAgent: string | null
@@ -112,11 +147,36 @@ type EditableDocumentRow = {
 
 type EditableStatementRow = {
   id: string
+  statement_type?: string | null
+  statement_metadata?: Json | null
+  bank_name?: string | null
+  account_last4?: string | null
+  period_start?: string | null
+  period_end?: string | null
+  opening_balance?: number | string | null
+  closing_balance?: number | string | null
+  reported_total?: number | string | null
+  computed_total?: number | string | null
+  reconciles?: boolean | null
   transactions: Json
   revision?: number | null
   review_status?: string | null
   expires_at: string
   deleted_at: string | null
+}
+
+type EditableStatementFields = {
+  statement_type: 'bank' | 'credit_card'
+  statement_metadata: Json
+  bank_name: string | null
+  account_last4: string | null
+  period_start: string | null
+  period_end: string | null
+  opening_balance: number | null
+  closing_balance: number | null
+  reported_total: number | null
+  computed_total: number
+  reconciles: boolean
 }
 
 type QueryResult<T> = { data: T | null; error: { message: string } | null }
@@ -223,11 +283,25 @@ export async function applyStatementEdit(
   }
 
   const nextTransactions = applyOperations(jsonArray(statement.transactions), input.operations)
+  const nextStatement = applyStatementPatch(statement, input.statement, nextTransactions)
+  if (input.reviewed) {
+    const readiness = reviewReadinessFor(nextStatement, nextTransactions)
+    if (!readiness.ready) {
+      return problem(
+        409,
+        'PRZM_STATEMENT_REVIEW_BLOCKED',
+        'Statement review blocked',
+        `Resolve ${readiness.reasons.join(', ')} before marking reviewed.`,
+      )
+    }
+  }
+
   const nextRevision = currentRevision + 1
   const reviewStatus = input.reviewed ? 'reviewed' : 'unreviewed'
   const updated = await store.updateStatement(statement.id, currentRevision, {
     workspaceId,
     documentId: input.documentId,
+    ...nextStatement,
     transactions: nextTransactions,
     revision: nextRevision,
     review_status: reviewStatus,
@@ -257,7 +331,9 @@ export async function applyStatementEdit(
     actorUserId: input.actorUserId,
     statementId: statement.id,
     documentId: input.documentId,
+    eventType: input.reviewed ? 'statement.reviewed' : 'statement.edited',
     operationCount: input.operations.length,
+    metadataChanged: Boolean(input.statement && Object.keys(input.statement).length > 0),
     revision: nextRevision,
     actorIp: input.actorIp,
     actorUserAgent: input.actorUserAgent,
@@ -307,6 +383,201 @@ function applyOperations(transactions: Json[], operations: StatementEditOperatio
   return next
 }
 
+function applyStatementPatch(
+  statement: EditableStatementRow,
+  patch: EditableStatementMetadataPatch | undefined,
+  transactions: Json[],
+): EditableStatementFields {
+  const statementType = normalizeStatementType(
+    withFallback(patchField(patch, 'statementType', 'statement_type'), statement.statement_type),
+  )
+  const statementMetadata = normalizeMetadata(
+    withFallback(
+      patchField(patch, 'statementMetadata', 'statement_metadata'),
+      statement.statement_metadata,
+    ),
+  )
+  const reportedTotal = normalizeMoney(
+    withFallback(patchField(patch, 'reportedTotal', 'reported_total'), statement.reported_total),
+  )
+  const computedTotal = computeStatementTotal(transactions, statementType)
+
+  return {
+    statement_type: statementType,
+    statement_metadata: statementMetadata,
+    bank_name: normalizeText(
+      withFallback(patchField(patch, 'bankName', 'bank_name'), statement.bank_name),
+    ),
+    account_last4: normalizeText(
+      withFallback(patchField(patch, 'accountLast4', 'account_last4'), statement.account_last4),
+    ),
+    period_start: normalizeText(
+      withFallback(patchField(patch, 'periodStart', 'period_start'), statement.period_start),
+    ),
+    period_end: normalizeText(
+      withFallback(patchField(patch, 'periodEnd', 'period_end'), statement.period_end),
+    ),
+    opening_balance: normalizeMoney(
+      withFallback(
+        patchField(patch, 'openingBalance', 'opening_balance'),
+        statement.opening_balance,
+      ),
+    ),
+    closing_balance: normalizeMoney(
+      withFallback(
+        patchField(patch, 'closingBalance', 'closing_balance'),
+        statement.closing_balance,
+      ),
+    ),
+    reported_total: reportedTotal,
+    computed_total: computedTotal,
+    reconciles: reportedTotal !== null && computedTotal === reportedTotal,
+  }
+}
+
+function reviewReadinessFor(
+  statement: EditableStatementFields,
+  transactions: Json[],
+): { ready: boolean; reasons: string[] } {
+  const reasons: string[] = []
+  const isCreditCard = statement.statement_type === 'credit_card'
+
+  if (!hasText(statement.bank_name)) reasons.push(isCreditCard ? 'issuer' : 'bank name')
+  if (!hasText(statement.account_last4))
+    reasons.push(isCreditCard ? 'card last 4' : 'account last 4')
+  if (!hasText(statement.period_start) || !hasText(statement.period_end)) {
+    reasons.push('statement period')
+  }
+  if (!hasMoney(statement.opening_balance)) reasons.push('opening balance')
+  if (!hasMoney(statement.closing_balance)) reasons.push('closing balance')
+  if (!hasMoney(statement.reported_total)) reasons.push('reported total')
+  if (transactions.length === 0) reasons.push('transaction rows')
+
+  const invalidRowCount = transactions.filter(transactionBlocksReview).length
+  if (invalidRowCount > 0) {
+    reasons.push(`${invalidRowCount} invalid transaction ${invalidRowCount === 1 ? 'row' : 'rows'}`)
+  }
+
+  if (statement.reconciles !== true) reasons.push('reconciliation')
+
+  return { ready: reasons.length === 0, reasons }
+}
+
+function patchField(
+  patch: EditableStatementMetadataPatch | undefined,
+  camelKey: keyof EditableStatementMetadataPatch,
+  snakeKey: keyof EditableStatementMetadataPatch,
+): unknown {
+  if (!patch) return undefined
+  if (Object.prototype.hasOwnProperty.call(patch, camelKey)) return patch[camelKey]
+  if (Object.prototype.hasOwnProperty.call(patch, snakeKey)) return patch[snakeKey]
+  return undefined
+}
+
+function withFallback(value: unknown, fallback: unknown): unknown {
+  return value === undefined ? fallback : value
+}
+
+function normalizeStatementType(value: unknown): 'bank' | 'credit_card' {
+  return value === 'credit_card' ? 'credit_card' : 'bank'
+}
+
+function normalizeMetadata(value: unknown): Json {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Json
+}
+
+function normalizeText(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function normalizeMoney(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return roundMoney(value)
+  if (typeof value !== 'string' || value.trim().length === 0) return null
+  const numeric = Number(value.replace(/[$,\s]/g, ''))
+  return Number.isFinite(numeric) ? roundMoney(numeric) : null
+}
+
+function computeStatementTotal(
+  transactions: Json[],
+  statementType: 'bank' | 'credit_card',
+): number {
+  return roundMoney(
+    transactions.reduce<number>(
+      (sum, transaction) => sum + transactionSignedAmount(transaction, statementType),
+      0,
+    ),
+  )
+}
+
+function transactionSignedAmount(transaction: Json, statementType: 'bank' | 'credit_card'): number {
+  const row = objectRow(transaction)
+  if (!row) return 0
+
+  const amount = numericValue(row, ['amount'])
+  const debit = numericValue(row, ['debit', 'withdrawal', 'outflow'])
+  const credit = numericValue(row, ['credit', 'deposit', 'inflow'])
+
+  if (statementType === 'credit_card') {
+    if (debit !== null) return debit
+    if (credit !== null) return -credit
+    return amount ?? 0
+  }
+
+  if (amount !== null) return amount
+  if (credit !== null) return credit
+  if (debit !== null) return -Math.abs(debit)
+  return 0
+}
+
+function numericValue(
+  row: Record<string, Json | undefined>,
+  keys: readonly string[],
+): number | null {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const numeric = Number(value.replace(/[$,\s]/g, ''))
+      if (Number.isFinite(numeric)) return numeric
+    }
+  }
+  return null
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function transactionBlocksReview(row: Json): boolean {
+  const object = objectRow(row)
+  if (!object) return true
+  if (booleanValue(object, ['needs_review', 'needsReview', 'flagged'])) return true
+  return (
+    !hasTransactionDate(object) ||
+    !hasTransactionDescription(object) ||
+    !hasTransactionAmount(object)
+  )
+}
+
+function hasTransactionDate(row: Record<string, Json | undefined>): boolean {
+  return stringValue(row, ['posted_at', 'postedAt', 'date', 'transaction_date']) !== null
+}
+
+function hasTransactionDescription(row: Record<string, Json | undefined>): boolean {
+  return stringValue(row, ['description', 'memo', 'details', 'name']) !== null
+}
+
+function hasTransactionAmount(row: Record<string, Json | undefined>): boolean {
+  return (
+    moneyValue(row, ['amount']) !== null ||
+    moneyValue(row, ['debit', 'withdrawal', 'outflow']) !== null ||
+    moneyValue(row, ['credit', 'deposit', 'inflow']) !== null
+  )
+}
+
 function normalizeTransaction(row: EditableTransactionRow, index: number): Json {
   const id = typeof row.id === 'string' && row.id.length > 0 ? row.id : `row_${index + 1}`
   return {
@@ -331,6 +602,47 @@ function transactionId(row: Json): string | null {
 
 function objectRow(row: Json): Record<string, Json | undefined> | null {
   return row && typeof row === 'object' && !Array.isArray(row) ? row : null
+}
+
+function hasText(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function hasMoney(value: unknown): boolean {
+  if (typeof value === 'number') return Number.isFinite(value)
+  return typeof value === 'string' && value.trim().length > 0 && Number.isFinite(Number(value))
+}
+
+function stringValue(
+  row: Record<string, Json | undefined>,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+  }
+  return null
+}
+
+function moneyValue(
+  row: Record<string, Json | undefined>,
+  keys: readonly string[],
+): number | string | null {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim().length > 0 && Number.isFinite(Number(value))) {
+      return value.trim()
+    }
+  }
+  return null
+}
+
+function booleanValue(row: Record<string, Json | undefined>, keys: readonly string[]): boolean {
+  for (const key of keys) {
+    if (typeof row[key] === 'boolean') return row[key] as boolean
+  }
+  return false
 }
 
 function jsonArray(value: Json): Json[] {
@@ -377,7 +689,25 @@ function createStatementEditStore(): StatementEditStore {
       const { data, error } = await client
         .from('statement')
         .select<EditableStatementRow>(
-          'id, transactions, revision, review_status, expires_at, deleted_at',
+          [
+            'id',
+            'statement_type',
+            'statement_metadata',
+            'bank_name',
+            'account_last4',
+            'period_start',
+            'period_end',
+            'opening_balance',
+            'closing_balance',
+            'reported_total',
+            'computed_total',
+            'reconciles',
+            'transactions',
+            'revision',
+            'review_status',
+            'expires_at',
+            'deleted_at',
+          ].join(', '),
         )
         .eq('workspace_id', workspaceId)
         .eq('document_id', documentId)
@@ -392,6 +722,17 @@ function createStatementEditStore(): StatementEditStore {
         p_workspace_id: patch.workspaceId,
         p_document_id: patch.documentId,
         p_expected_revision: expectedRevision,
+        p_statement_type: patch.statement_type,
+        p_statement_metadata: patch.statement_metadata,
+        p_bank_name: patch.bank_name,
+        p_account_last4: patch.account_last4,
+        p_period_start: patch.period_start,
+        p_period_end: patch.period_end,
+        p_opening_balance: patch.opening_balance,
+        p_closing_balance: patch.closing_balance,
+        p_reported_total: patch.reported_total,
+        p_computed_total: patch.computed_total,
+        p_reconciles: patch.reconciles,
         p_transactions: patch.transactions,
         p_revision: patch.revision,
         p_review_status: patch.review_status,
@@ -403,7 +744,7 @@ function createStatementEditStore(): StatementEditStore {
     },
     async recordAudit(input) {
       const result = await recordAuditEvent({
-        eventType: 'statement.edited',
+        eventType: input.eventType,
         workspaceId: input.workspaceId,
         actorUserId: input.actorUserId,
         actorIp: input.actorIp,
@@ -413,6 +754,8 @@ function createStatementEditStore(): StatementEditStore {
         metadata: {
           document_id: input.documentId,
           operation_count: input.operationCount,
+          metadata_changed: input.metadataChanged,
+          review_status: input.eventType === 'statement.reviewed' ? 'reviewed' : 'unreviewed',
           revision: input.revision,
           request_id: input.routeContext.requestId,
           trace_id: input.routeContext.traceId,

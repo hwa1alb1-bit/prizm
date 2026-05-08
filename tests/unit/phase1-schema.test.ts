@@ -26,12 +26,19 @@ const exportArtifactMigrationPath = join(
   'migrations',
   '0012_export_artifact_download_contract.sql',
 )
+const editableReviewMigrationPath = join(
+  process.cwd(),
+  'supabase',
+  'migrations',
+  '20260508160000_extend_statement_review_edit_rpc.sql',
+)
 
 describe('Phase 1 lean converter schema migration', () => {
   const sql = () => readFileSync(phase1MigrationPath, 'utf8')
   const lifecycleSql = () => `${sql()}\n${readFileSync(lifecycleMigrationPath, 'utf8')}`
   const statementMetadataSql = () => readFileSync(statementMetadataMigrationPath, 'utf8')
   const exportArtifactSql = () => readFileSync(exportArtifactMigrationPath, 'utf8')
+  const editableReviewSql = () => readFileSync(editableReviewMigrationPath, 'utf8')
 
   it('adds the single-PDF conversion state, duplicate, and charge fields', () => {
     const migration = sql()
@@ -151,5 +158,18 @@ describe('Phase 1 lean converter schema migration', () => {
     expect(migration).toContain('expires_at timestamptz')
     expect(migration).toContain('deleted_at timestamptz')
     expect(migration).toContain('export_artifact_workspace_active_idx')
+  })
+
+  it('extends the statement edit RPC for editable metadata and reconciliation evidence', () => {
+    const migration = editableReviewSql()
+
+    expect(migration).toContain('p_statement_metadata jsonb')
+    expect(migration).toContain('p_bank_name text')
+    expect(migration).toContain('p_reported_total numeric')
+    expect(migration).toContain('p_computed_total numeric')
+    expect(migration).toContain('statement_metadata = coalesce(p_statement_metadata')
+    expect(migration).toContain('reconciles = p_reconciles')
+    expect(migration).toContain('s.revision = p_expected_revision')
+    expect(migration).toContain('to service_role')
   })
 })

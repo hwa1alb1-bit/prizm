@@ -61,6 +61,60 @@ describe('documents statement edit route', () => {
       }),
     )
   })
+
+  it('accepts statement metadata and transaction edits in one patch request', async () => {
+    applyStatementEditMock.mockResolvedValue({
+      ok: true,
+      documentId: 'doc_123',
+      statementId: 'statement_123',
+      revision: 5,
+      reviewStatus: 'reviewed',
+      transactions: [],
+      requestId: 'req_statement',
+      traceId: '0123456789abcdef0123456789abcdef',
+    })
+
+    const response = await PATCH(
+      jsonRequest({
+        expectedRevision: 4,
+        reviewed: true,
+        statement: {
+          bankName: 'Acme Bank',
+          accountLast4: '1234',
+          periodStart: '2026-05-01',
+          periodEnd: '2026-05-31',
+          reportedTotal: 25,
+          statementMetadata: { reviewerNote: 'Verified against source PDF' },
+        },
+        operations: [{ type: 'update', id: 'txn_1', patch: { amount: 25, needsReview: false } }],
+      }) as never,
+      routeParams('doc_123'),
+    )
+
+    await expect(response.json()).resolves.toMatchObject({
+      documentId: 'doc_123',
+      statementId: 'statement_123',
+      revision: 5,
+      reviewStatus: 'reviewed',
+    })
+    expect(applyStatementEditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc_123',
+        actorUserId: 'user_123',
+        expectedRevision: 4,
+        reviewed: true,
+        statement: {
+          bankName: 'Acme Bank',
+          accountLast4: '1234',
+          periodStart: '2026-05-01',
+          periodEnd: '2026-05-31',
+          reportedTotal: 25,
+          statementMetadata: { reviewerNote: 'Verified against source PDF' },
+        },
+        operations: [{ type: 'update', id: 'txn_1', patch: { amount: 25, needsReview: false } }],
+      }),
+    )
+  })
 })
 
 function jsonRequest(body: unknown): Request {

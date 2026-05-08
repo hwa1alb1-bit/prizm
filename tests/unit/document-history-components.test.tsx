@@ -1,11 +1,15 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   DocumentHistoryList,
   DocumentReview,
   DocumentStateBadge,
   type HistoryDocumentView,
 } from '@/components/app/document-history'
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}))
 
 describe('DocumentHistoryList', () => {
   it('renders an empty state before any document records exist', () => {
@@ -146,7 +150,7 @@ describe('DocumentReview', () => {
   it('renders credit-card statement metadata and visible export actions', () => {
     render(<DocumentReview document={creditCardDocument()} />)
 
-    expect(screen.getByText('Issuer')).toBeInTheDocument()
+    expect(screen.getAllByText('Issuer').length).toBeGreaterThan(0)
     expect(screen.getByText('PRIZM Rewards Visa')).toBeInTheDocument()
     expect(screen.getByText('Card')).toBeInTheDocument()
     expect(screen.getByText('Payment due date')).toBeInTheDocument()
@@ -185,6 +189,16 @@ describe('DocumentReview', () => {
     expect(screen.queryByRole('link', { name: 'XLSX' })).not.toBeInTheDocument()
   })
 
+  it('blocks visible export actions when review status is missing', () => {
+    render(<DocumentReview document={missingReviewStatusDocument()} />)
+
+    expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText('Statement review must be completed before export.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'CSV' })).not.toBeInTheDocument()
+  })
+
   it('shows distinct recovery for S3 verification failure', () => {
     render(<DocumentReview document={s3VerificationFailedDocument()} />)
 
@@ -219,7 +233,7 @@ describe('DocumentReview', () => {
     expect(screen.getAllByText('Extraction incomplete').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Reconciliation mismatch').length).toBeGreaterThan(0)
     expect(screen.getByText(/missing account last 4, statement period/)).toBeInTheDocument()
-    expect(screen.getByText('Transaction row 1')).toBeInTheDocument()
+    expect(screen.getAllByText('Transaction row 1').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
   })
 
@@ -275,6 +289,7 @@ function historyDocument(): HistoryDocumentView {
     statements: [
       {
         id: 'statement_123',
+        revision: 4,
         statementType: 'bank',
         statementMetadata: {},
         reviewStatus: 'reviewed',
@@ -500,6 +515,20 @@ function unreviewedDocument(): HistoryDocumentView {
         ...historyDocument().statements[0]!,
         id: 'statement_unreviewed',
         reviewStatus: 'unreviewed',
+      },
+    ],
+  }
+}
+
+function missingReviewStatusDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_missing_review_status',
+    statements: [
+      {
+        ...historyDocument().statements[0]!,
+        id: 'statement_missing_review_status',
+        reviewStatus: null,
       },
     ],
   }

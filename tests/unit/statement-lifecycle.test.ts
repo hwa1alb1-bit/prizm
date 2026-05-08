@@ -12,15 +12,22 @@ describe('statement lifecycle edits', () => {
       reviewStatus: 'unreviewed',
       revision: 3,
     })
-    expect(store.updateStatement).toHaveBeenCalledWith('stmt_123', 2, {
-      workspaceId: 'workspace_123',
-      documentId: 'doc_123',
-      transactions: [expect.objectContaining({ id: 'txn_1', description: 'New memo' })],
-      revision: 3,
-      review_status: 'unreviewed',
-      edited_by: 'user_123',
-      edited_at: expect.any(String),
-    })
+    expect(store.updateStatement).toHaveBeenCalledWith(
+      'stmt_123',
+      2,
+      expect.objectContaining({
+        workspaceId: 'workspace_123',
+        documentId: 'doc_123',
+        statement_type: 'bank',
+        computed_total: 0,
+        reconciles: false,
+        transactions: [expect.objectContaining({ id: 'txn_1', description: 'New memo' })],
+        revision: 3,
+        review_status: 'unreviewed',
+        edited_by: 'user_123',
+        edited_at: expect.any(String),
+      }),
+    )
   })
 
   it('rejects viewer edits before touching statement rows', async () => {
