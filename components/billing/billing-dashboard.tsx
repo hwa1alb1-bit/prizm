@@ -4,24 +4,27 @@ import { useState } from 'react'
 import type { BillingPlan, BillingSummary, SubscriptionStatus } from '@/lib/shared/billing'
 
 type BillingActionState = 'idle' | 'loading' | 'error'
+type PaidPlan = 'starter' | 'pro'
+type BillingCycle = 'monthly' | 'annual'
 
 export function BillingDashboard({ summary }: { summary: BillingSummary }) {
   const [actionState, setActionState] = useState<BillingActionState>('idle')
   const usagePercent =
     summary.monthlyCredits > 0
-      ? Math.min(100, Math.round((summary.creditBalance / summary.monthlyCredits) * 100))
+      ? Math.min(100, Math.round((summary.usedCredits / summary.monthlyCredits) * 100))
       : 0
 
-  async function startCheckout(plan: 'starter' | 'pro') {
+  async function startCheckout(plan: PaidPlan, billingCycle: BillingCycle) {
     setActionState('loading')
     try {
       const response = await fetch('/api/v1/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, billingCycle: 'monthly' }),
+        body: JSON.stringify({ plan, billingCycle }),
       })
       const body = (await response.json().catch(() => ({}))) as { url?: string }
       if (!response.ok || !body.url) throw new Error('checkout_failed')
+      setActionState('idle')
       window.location.assign(body.url)
     } catch {
       setActionState('error')
@@ -34,6 +37,7 @@ export function BillingDashboard({ summary }: { summary: BillingSummary }) {
       const response = await fetch('/api/v1/billing/portal', { method: 'POST' })
       const body = (await response.json().catch(() => ({}))) as { url?: string }
       if (!response.ok || !body.url) throw new Error('portal_failed')
+      setActionState('idle')
       window.location.assign(body.url)
     } catch {
       setActionState('error')
@@ -65,6 +69,7 @@ export function BillingDashboard({ summary }: { summary: BillingSummary }) {
               <p className="font-medium">
                 {summary.creditBalance} / {summary.monthlyCredits} credits
               </p>
+              <p className="mt-1 text-foreground/55">{summary.usedCredits} used this period</p>
               <p className="mt-1 text-foreground/55">{renewalText(summary)}</p>
             </div>
           </div>
@@ -72,10 +77,17 @@ export function BillingDashboard({ summary }: { summary: BillingSummary }) {
           <div className="mt-5 h-2 overflow-hidden rounded-full bg-foreground/10">
             <div className="h-full bg-emerald-500" style={{ width: `${usagePercent}%` }} />
           </div>
+          <div className="mt-3 grid gap-2 text-xs text-foreground/60 sm:grid-cols-2">
+            <p>{usagePercent}% of included credits used</p>
+            <p className="sm:text-right">{overageStatus(summary)}</p>
+          </div>
         </div>
 
         <aside className="rounded-lg border border-foreground/10 p-4">
           <h2 className="text-sm font-semibold">Billing controls</h2>
+          <p className="mt-2 text-xs leading-5 text-foreground/60">
+            Invoices and receipts are managed in the Stripe portal.
+          </p>
           <div className="mt-4 space-y-2">
             {summary.hasStripeCustomer && (
               <button
@@ -89,19 +101,35 @@ export function BillingDashboard({ summary }: { summary: BillingSummary }) {
             )}
             <button
               type="button"
-              onClick={() => void startCheckout('starter')}
+              onClick={() => void startCheckout('starter', 'monthly')}
               disabled={actionState === 'loading'}
               className="w-full rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
             >
-              Choose Starter
+              Starter monthly
             </button>
             <button
               type="button"
-              onClick={() => void startCheckout('pro')}
+              onClick={() => void startCheckout('starter', 'annual')}
               disabled={actionState === 'loading'}
               className="w-full rounded-md border border-foreground/20 px-3 py-2 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
             >
-              Choose Pro
+              Starter annual
+            </button>
+            <button
+              type="button"
+              onClick={() => void startCheckout('pro', 'monthly')}
+              disabled={actionState === 'loading'}
+              className="w-full rounded-md border border-foreground/20 px-3 py-2 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
+            >
+              Pro monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => void startCheckout('pro', 'annual')}
+              disabled={actionState === 'loading'}
+              className="w-full rounded-md border border-foreground/20 px-3 py-2 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
+            >
+              Pro annual
             </button>
             {actionState === 'error' && (
               <p className="text-xs text-red-600">Billing action failed. Try again.</p>
@@ -127,6 +155,13 @@ export function BillingDashboard({ summary }: { summary: BillingSummary }) {
       </section>
     </div>
   )
+}
+
+function overageStatus(summary: BillingSummary): string {
+  if (!summary.overageAllowed) return 'Overage unavailable on this plan'
+  return summary.overageMeterConfigured
+    ? 'Overage metering configured'
+    : 'Overage metering needs setup'
 }
 
 function PlanSummary({

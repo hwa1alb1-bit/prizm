@@ -13,7 +13,6 @@ export default async function BillingPage() {
   let summary
   try {
     summary = await getBillingSummaryForUser({
-      supabase: auth.context.supabase,
       userId: auth.context.user.id,
     })
   } catch {
