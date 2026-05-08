@@ -11,6 +11,7 @@ Use a single rehearsal correlation ID for all actions. Store command output, req
 - Run `pnpm test:connectors:live` only when `LIVE_CONNECTOR_SMOKE=1`, `LAUNCH_GATE_TARGET=staging`, and the staging HTTPS site URL are set.
 - Confirm the staging GitHub environment has no static `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY`.
 - Confirm Ops Dashboard provider credentials are present for Supabase, AWS/S3, Stripe, Resend, Sentry, Upstash, and Cron.
+- Call `/api/ops/health` as an ops admin for deep provider health. The public health route is shallow.
 
 ## Upload And Conversion Path
 
@@ -18,17 +19,24 @@ Use a single rehearsal correlation ID for all actions. Store command output, req
 - Upload a seeded test PDF through the browser flow.
 - Verify `/api/v1/documents/presign` returns a request ID, document ID, S3 PUT URL, and 24-hour expiration.
 - Complete the browser PUT to S3 and verify S3 CORS accepts the upload from the staging origin.
+- Call `/api/v1/documents/{documentId}/complete` and verify it returns a verified document state.
+- Call `/api/v1/documents/{documentId}/convert` and verify the conversion moves to processing or ready.
+- Poll `/api/v1/documents/{documentId}/status` until the document reaches a terminal state.
+- Review parsed statement rows in the browser workflow.
+- Create a retained CSV export through `/api/v1/documents/{documentId}/exports`.
+- Fetch a signed download URL through `/api/v1/exports/{exportId}/download`.
 - Query audit evidence for `document.upload_requested`.
-- Mark upload-complete, Textract start, parser output, statement detail, and CSV export as blocked until the Phase 3 conversion pipeline routes exist.
 
 ## Billing And Webhook Sanity
 
 - Confirm Stripe test-mode keys, webhook secret, publishable key, and four plan price IDs are present in staging launch gates.
+- Confirm `STRIPE_METER_OVERAGE` and `STRIPE_PRICE_OVERAGE_PAGE` are present before running overage checks.
+- Create a Checkout session through `/api/v1/billing/checkout` for a paid plan.
+- Open a Customer Portal session through `/api/v1/billing/portal` for a workspace with a Stripe customer.
 - Send a Stripe webhook signature acceptance check to `/api/v1/webhooks/stripe`.
 - Send a bad-signature check and verify it returns a sanitized problem response.
 - Deliver at least one subscription created or updated event and verify subscription row sync when the customer row exists.
 - Query audit evidence for `stripe.<event_type>`.
-- Mark Checkout, Customer Portal, usage metering, credit debit, and webhook event ledger checks as blocked until Phase 5 billing implementation is complete.
 
 ## Deletion Expiry
 

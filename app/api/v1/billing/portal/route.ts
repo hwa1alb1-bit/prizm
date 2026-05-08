@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { BillingStripeError, createCustomerPortalSession } from '@/lib/server/billing/stripe'
 import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireOwnerOrAdminUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
@@ -11,20 +12,30 @@ export async function POST(request: NextRequest): Promise<Response> {
   const auth = await requireOwnerOrAdminUser()
   if (!auth.ok) return problemResponse(context, auth.problem)
 
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'billing',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
+
   try {
     const session = await createCustomerPortalSession({
       workspaceId: auth.context.profile.workspace_id,
       userId: auth.context.user.id,
     })
 
-    return jsonResponse(
-      context,
-      {
-        url: session.url,
-        request_id: context.requestId,
-        trace_id: context.traceId,
-      },
-      { status: 201 },
+    return withRateLimitHeaders(
+      jsonResponse(
+        context,
+        {
+          url: session.url,
+          request_id: context.requestId,
+          trace_id: context.traceId,
+        },
+        { status: 201 },
+      ),
+      rateLimitDecision.result,
     )
   } catch (err) {
     return problemResponse(context, problemForPortalError(err))

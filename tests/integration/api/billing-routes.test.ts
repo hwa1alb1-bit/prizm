@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST as checkoutPost } from '@/app/api/v1/billing/checkout/route'
 import { POST as portalPost } from '@/app/api/v1/billing/portal/route'
 import { createCheckoutSession, createCustomerPortalSession } from '@/lib/server/billing/stripe'
+import { rateLimit } from '@/lib/server/ratelimit'
 import { requireOwnerOrAdminUser } from '@/lib/server/route-auth'
 
 vi.mock('@/lib/server/route-auth', () => ({
@@ -13,9 +14,14 @@ vi.mock('@/lib/server/billing/stripe', () => ({
   createCustomerPortalSession: vi.fn(),
 }))
 
+vi.mock('@/lib/server/ratelimit', () => ({
+  rateLimit: vi.fn(),
+}))
+
 const requireOwnerOrAdminUserMock = vi.mocked(requireOwnerOrAdminUser)
 const createCheckoutSessionMock = vi.mocked(createCheckoutSession)
 const createCustomerPortalSessionMock = vi.mocked(createCustomerPortalSession)
+const rateLimitMock = vi.mocked(rateLimit)
 
 describe('billing routes', () => {
   beforeEach(() => {
@@ -32,6 +38,12 @@ describe('billing routes', () => {
     })
     createCustomerPortalSessionMock.mockResolvedValue({
       url: 'https://billing.stripe.com/p/session_123',
+    })
+    rateLimitMock.mockResolvedValue({
+      success: true,
+      limit: 60,
+      remaining: 59,
+      resetSeconds: 60,
     })
   })
 
@@ -56,6 +68,25 @@ describe('billing routes', () => {
       status: 403,
       code: 'PRZM_AUTH_FORBIDDEN',
     })
+    expect(createCheckoutSessionMock).not.toHaveBeenCalled()
+  })
+
+  it('rate-limits Checkout session creation before calling Stripe', async () => {
+    rateLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 60,
+      remaining: 0,
+      resetSeconds: 20,
+    })
+
+    const response = await checkoutPost(checkoutRequest({ plan: 'starter' }) as never)
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 429,
+      code: 'PRZM_RATE_LIMITED',
+    })
+    expect(response.headers.get('retry-after')).toBe('20')
+    expect(rateLimitMock).toHaveBeenCalledWith('api:billing:user_123', 60, 60)
     expect(createCheckoutSessionMock).not.toHaveBeenCalled()
   })
 
@@ -111,6 +142,25 @@ describe('billing routes', () => {
         userId: 'user_123',
       }),
     )
+  })
+
+  it('rate-limits Customer Portal session creation before calling Stripe', async () => {
+    rateLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 60,
+      remaining: 0,
+      resetSeconds: 25,
+    })
+
+    const response = await portalPost(portalRequest() as never)
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 429,
+      code: 'PRZM_RATE_LIMITED',
+    })
+    expect(response.headers.get('retry-after')).toBe('25')
+    expect(rateLimitMock).toHaveBeenCalledWith('api:billing:user_123', 60, 60)
+    expect(createCustomerPortalSessionMock).not.toHaveBeenCalled()
   })
 })
 

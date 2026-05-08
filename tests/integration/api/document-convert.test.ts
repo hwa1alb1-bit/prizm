@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/v1/documents/[documentId]/convert/route'
 import { convertDocument } from '@/lib/server/document-conversion'
+import { rateLimit } from '@/lib/server/ratelimit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 vi.mock('@/lib/server/route-auth', () => ({
@@ -11,8 +12,13 @@ vi.mock('@/lib/server/document-conversion', () => ({
   convertDocument: vi.fn(),
 }))
 
+vi.mock('@/lib/server/ratelimit', () => ({
+  rateLimit: vi.fn(),
+}))
+
 const requireAuthenticatedUserMock = vi.mocked(requireAuthenticatedUser)
 const convertDocumentMock = vi.mocked(convertDocument)
+const rateLimitMock = vi.mocked(rateLimit)
 
 describe('documents convert route', () => {
   beforeEach(() => {
@@ -32,6 +38,12 @@ describe('documents convert route', () => {
       alreadyStarted: false,
       requestId: 'req_convert',
       traceId: '0123456789abcdef0123456789abcdef',
+    })
+    rateLimitMock.mockResolvedValue({
+      success: true,
+      limit: 60,
+      remaining: 59,
+      resetSeconds: 60,
     })
   })
 
@@ -64,6 +76,25 @@ describe('documents convert route', () => {
         routeContext: expect.objectContaining({ requestId: 'req_convert' }),
       }),
     )
+  })
+
+  it('rate-limits conversion starts before reserving credits or starting Textract', async () => {
+    rateLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 60,
+      remaining: 0,
+      resetSeconds: 50,
+    })
+
+    const response = await POST(request() as never, routeParams('doc_123'))
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 429,
+      code: 'PRZM_RATE_LIMITED',
+    })
+    expect(response.headers.get('retry-after')).toBe('50')
+    expect(rateLimitMock).toHaveBeenCalledWith('api:upload:user_123', 60, 60)
+    expect(convertDocumentMock).not.toHaveBeenCalled()
   })
 })
 

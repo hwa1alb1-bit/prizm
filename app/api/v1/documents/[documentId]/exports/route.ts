@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { createStatementExportArtifact } from '@/lib/server/statement-export'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
@@ -18,6 +19,13 @@ export async function POST(
   const context = createRouteContext(request)
   const auth = await requireAuthenticatedUser()
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'export',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   let body: unknown = {}
   try {
@@ -61,19 +69,22 @@ export async function POST(
     })
   }
 
-  return jsonResponse(
-    context,
-    {
-      exportId: result.exportId,
-      documentId: result.documentId,
-      format: result.format,
-      filename: result.filename,
-      contentType: result.contentType,
-      expiresAt: result.expiresAt,
-      downloadPath: `/api/v1/exports/${result.exportId}/download`,
-      request_id: result.requestId,
-      trace_id: result.traceId,
-    },
-    { status: 201 },
+  return withRateLimitHeaders(
+    jsonResponse(
+      context,
+      {
+        exportId: result.exportId,
+        documentId: result.documentId,
+        format: result.format,
+        filename: result.filename,
+        contentType: result.contentType,
+        expiresAt: result.expiresAt,
+        downloadPath: `/api/v1/exports/${result.exportId}/download`,
+        request_id: result.requestId,
+        trace_id: result.traceId,
+      },
+      { status: 201 },
+    ),
+    rateLimitDecision.result,
   )
 }

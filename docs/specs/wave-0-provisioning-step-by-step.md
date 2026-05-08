@@ -1,8 +1,11 @@
 # Wave 0 Provisioning: Step-by-Step
 
-## Verified state as of 2026-04-29
+## Verified state updates through 2026-05-08
 
-Post-investigation snapshot of all 10 Wave 0 items. Score: 0 of 10 fully closed. 5 Partial (1, 2, 3, 6, plus Sentry-local). 5 Outstanding externally (4, 5, 7, 9, 10). The click-by-click instructions below remain accurate for the home-desktop bring-up.
+This document began as the 2026-04-29 Wave 0 bring-up checklist. The rows below
+now carry the later contract and drift corrections that affect launch promises.
+The click-by-click instructions remain useful for a fresh home-desktop bring-up,
+but live service state must be rechecked before using a row as release evidence.
 
 | #   | Item                   | Status                 | Verified facts                                                                                                                                                                                                                                                                                                                                                                       |
 | --- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -11,7 +14,7 @@ Post-investigation snapshot of all 10 Wave 0 items. Score: 0 of 10 fully closed.
 | 3   | Supabase               | PARTIAL                | Project `dcirauvtuvvokvcwczft` ACTIVE_HEALTHY us-east-1 Postgres 17.6.1.111. 8 of 8 tables. RLS on all 8. 11 policies. 2 migrations applied (0001 schema, 0002 trigger rename + search_path harden). Bootstrap trigger lives under canonical name `on_auth_user_created` and was verified post-apply via `pg_trigger`. PITR not visible via MCP. Service role key not in Vercel env. |
 | 4   | Vercel                 | OUTSTANDING            | Team `plknokos-projects` confirmed. Zero projects. Zero deployments.                                                                                                                                                                                                                                                                                                                 |
 | 5   | AWS                    | OUTSTANDING            | AWS CLI not installed (`aws --version` exit 127). aws-api MCP connected but no host credentials.                                                                                                                                                                                                                                                                                     |
-| 6   | Stripe                 | PARTIAL                | Sandbox `acct_1TRZFv44hvL1QSxT` livemode false. 4 products + 4 subscription prices verified. Overage product has no price (needs billing meter via `pnpm seed:stripe`). Webhook endpoint, Customer Portal, billing meter unverifiable through MCP.                                                                                                                                   |
+| 6   | Stripe                 | PARTIAL                | Sandbox `acct_1TRZG9KKeaydfVMo` livemode false. Products, subscription prices, webhook handling, Customer Portal route, `STRIPE_METER_OVERAGE`, and `STRIPE_PRICE_OVERAGE_PAGE` are represented in code and launch gates. Recheck Stripe dashboard state before treating this as live provider evidence.                                                                             |
 | 7   | Resend                 | OUTSTANDING            | DNS structure correct (uses SES-backed records as Resend expects). DKIM placeholder unreplaced. `RESEND_API_KEY` not in `.env.local`. Domain not verified in Resend dashboard.                                                                                                                                                                                                       |
 | 8   | Sentry                 | OUTSTANDING externally | No account, no project, no DSN. Wrapper `lib/server/sentry.ts` ready as no-op until DSN set. No init files needed for Wave 0.                                                                                                                                                                                                                                                        |
 | 9   | Upstash Redis          | OUTSTANDING            | DB `close-stag-109648` exists per docs. Token compromised in chat earlier, must rotate. URL and token not in `.env.local`.                                                                                                                                                                                                                                                           |
@@ -752,7 +755,7 @@ SENTRY_PROJECT=prizm-web
 
 ### What you are doing
 
-Creating a Redis database for token-bucket rate limiting and Stripe webhook idempotency.
+Creating a Redis database for fixed-window rate limiting and Stripe webhook idempotency.
 
 ### Pre-flight
 

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { convertDocument } from '@/lib/server/document-conversion'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +15,13 @@ export async function POST(
   const auth = await requireAuthenticatedUser()
 
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'upload',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   const { documentId } = await params
   const result = await convertDocument({
@@ -33,13 +41,16 @@ export async function POST(
     })
   }
 
-  return jsonResponse(context, {
-    documentId: result.documentId,
-    status: result.status,
-    textractJobId: result.textractJobId,
-    chargeStatus: result.chargeStatus,
-    alreadyStarted: result.alreadyStarted,
-    request_id: result.requestId,
-    trace_id: result.traceId,
-  })
+  return withRateLimitHeaders(
+    jsonResponse(context, {
+      documentId: result.documentId,
+      status: result.status,
+      textractJobId: result.textractJobId,
+      chargeStatus: result.chargeStatus,
+      alreadyStarted: result.alreadyStarted,
+      request_id: result.requestId,
+      trace_id: result.traceId,
+    }),
+    rateLimitDecision.result,
+  )
 }

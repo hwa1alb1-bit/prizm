@@ -3,8 +3,10 @@ import { recordAuditEvent } from '@/lib/server/audit'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
 import { collectOpsProviderSnapshots } from '@/lib/server/ops/collector'
 import { isProviderId } from '@/lib/server/ops/providers'
-import { rateLimit } from '@/lib/server/ratelimit'
+import { rateLimit, type RateLimitResult } from '@/lib/server/ratelimit'
+import { withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireOpsAdminUser } from '@/lib/server/route-auth'
+import { captureException } from '@/lib/server/sentry'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -28,13 +30,23 @@ export async function POST(
   const auth = await requireOpsAdminUser()
   if (!auth.ok) return problemResponse(context, auth.problem)
 
-  const limit = await rateLimit(`ops-refresh:${auth.context.user.id}:${provider}`, 3, 300)
-  if (!limit.success) {
+  const limit = await safeOpsRateLimit(
+    context.pathname,
+    `ops-refresh:${auth.context.user.id}:${provider}`,
+    3,
+    300,
+  )
+  if (limit && !limit.success) {
     return rateLimitProblem(context, limit)
   }
 
-  const providerLimit = await rateLimit(`ops-refresh:provider:${provider}`, 12, 300)
-  if (!providerLimit.success) {
+  const providerLimit = await safeOpsRateLimit(
+    context.pathname,
+    `ops-refresh:provider:${provider}`,
+    12,
+    300,
+  )
+  if (providerLimit && !providerLimit.success) {
     return rateLimitProblem(context, providerLimit)
   }
 
@@ -62,27 +74,28 @@ export async function POST(
 
   const result = await collectOpsProviderSnapshots({ provider, trigger: 'manual' })
 
-  return jsonResponse(
-    context,
-    {
-      ...result,
-      request_id: context.requestId,
-      trace_id: context.traceId,
-    },
-    {
-      status: result.status === 'failed' ? 500 : 200,
-      headers: {
-        'Cache-Control': 'no-store',
-        'X-RateLimit-Limit': String(limit.limit),
-        'X-RateLimit-Remaining': String(limit.remaining),
+  return withRateLimitHeaders(
+    jsonResponse(
+      context,
+      {
+        ...result,
+        request_id: context.requestId,
+        trace_id: context.traceId,
       },
-    },
+      {
+        status: result.status === 'failed' ? 500 : 200,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      },
+    ),
+    limit,
   )
 }
 
 function rateLimitProblem(
   context: ReturnType<typeof createRouteContext>,
-  limit: { limit: number; remaining: number; resetSeconds: number },
+  limit: RateLimitResult,
 ): Response {
   const response = problemResponse(context, {
     status: 429,
@@ -90,8 +103,22 @@ function rateLimitProblem(
     title: 'Manual refresh rate limit exceeded',
     detail: 'Wait before refreshing this provider again.',
   })
-  response.headers.set('Retry-After', String(limit.resetSeconds))
-  response.headers.set('X-RateLimit-Limit', String(limit.limit))
-  response.headers.set('X-RateLimit-Remaining', String(limit.remaining))
-  return response
+  return withRateLimitHeaders(response, limit, true)
+}
+
+async function safeOpsRateLimit(
+  pathname: string,
+  key: string,
+  limit: number,
+  windowSec: number,
+): Promise<RateLimitResult | null> {
+  try {
+    return await rateLimit(key, limit, windowSec)
+  } catch (err) {
+    captureException(err, {
+      route: pathname,
+      rateLimitPolicy: key,
+    })
+    return null
+  }
 }

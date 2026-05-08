@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/v1/documents/[documentId]/complete/route'
 import { completeDocumentUpload } from '@/lib/server/document-completion'
+import { rateLimit } from '@/lib/server/ratelimit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 vi.mock('@/lib/server/route-auth', () => ({
@@ -11,8 +12,13 @@ vi.mock('@/lib/server/document-completion', () => ({
   completeDocumentUpload: vi.fn(),
 }))
 
+vi.mock('@/lib/server/ratelimit', () => ({
+  rateLimit: vi.fn(),
+}))
+
 const requireAuthenticatedUserMock = vi.mocked(requireAuthenticatedUser)
 const completeDocumentUploadMock = vi.mocked(completeDocumentUpload)
+const rateLimitMock = vi.mocked(rateLimit)
 
 describe('documents complete route', () => {
   beforeEach(() => {
@@ -30,6 +36,12 @@ describe('documents complete route', () => {
       alreadyCompleted: false,
       requestId: 'req_complete',
       traceId: '0123456789abcdef0123456789abcdef',
+    })
+    rateLimitMock.mockResolvedValue({
+      success: true,
+      limit: 60,
+      remaining: 59,
+      resetSeconds: 60,
     })
   })
 
@@ -55,6 +67,25 @@ describe('documents complete route', () => {
       code: 'PRZM_AUTH_UNAUTHORIZED',
     })
     expect(response.headers.get('content-type')).toBe('application/problem+json')
+    expect(completeDocumentUploadMock).not.toHaveBeenCalled()
+  })
+
+  it('rate-limits upload completion before S3 verification', async () => {
+    rateLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 60,
+      remaining: 0,
+      resetSeconds: 45,
+    })
+
+    const response = await POST(request() as never, routeParams('doc_123'))
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 429,
+      code: 'PRZM_RATE_LIMITED',
+    })
+    expect(response.headers.get('retry-after')).toBe('45')
+    expect(rateLimitMock).toHaveBeenCalledWith('api:upload:user_123', 60, 60)
     expect(completeDocumentUploadMock).not.toHaveBeenCalled()
   })
 

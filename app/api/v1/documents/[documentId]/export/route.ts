@@ -5,6 +5,7 @@ import {
   type StatementExportFormat,
 } from '@/lib/server/statement-export'
 import { createRouteContext, getClientIp, problemResponse, routeHeaders } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
@@ -17,6 +18,13 @@ export async function GET(
   const context = createRouteContext(request)
   const auth = await requireAuthenticatedUser()
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'export',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   const url = new URL(request.url)
   const format = url.searchParams.get('format') ?? 'csv'
@@ -56,5 +64,8 @@ export async function GET(
     typeof result.body === 'string'
       ? result.body
       : new Blob([result.body.buffer as ArrayBuffer], { type: result.contentType })
-  return new Response(body, { status: 200, headers })
+  return withRateLimitHeaders(
+    new Response(body, { status: 200, headers }),
+    rateLimitDecision.result,
+  )
 }

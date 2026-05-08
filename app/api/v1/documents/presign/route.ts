@@ -6,6 +6,7 @@ import { getUploadBillingGate } from '@/lib/server/billing/access'
 import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { getS3Client, getUploadBucket, getKmsKeyId } from '@/lib/server/s3'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
@@ -37,6 +38,13 @@ export async function POST(request: NextRequest) {
   const auth = await requireAuthenticatedUser()
 
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'upload',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   let body: unknown
   try {
@@ -175,15 +183,18 @@ export async function POST(request: NextRequest) {
     return problemResponse(context, uploadProblemFor(document.reason))
   }
 
-  return jsonResponse(
-    context,
-    {
-      uploadUrl,
-      documentId: document.document.id,
-      request_id: context.requestId,
-      trace_id: context.traceId,
-    },
-    { status: 201 },
+  return withRateLimitHeaders(
+    jsonResponse(
+      context,
+      {
+        uploadUrl,
+        documentId: document.document.id,
+        request_id: context.requestId,
+        trace_id: context.traceId,
+      },
+      { status: 201 },
+    ),
+    rateLimitDecision.result,
   )
 }
 
