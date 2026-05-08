@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -44,6 +44,22 @@ describe('Vercel deployment config', () => {
     }
 
     expect(config.crons?.map((cron) => cron.path)).toContain('/api/ops/processing')
+  })
+
+  it('allows browser uploads to presigned S3 endpoints in the content security policy', () => {
+    const nextConfig = readFileSync(resolve(process.cwd(), 'next.config.ts'), 'utf8')
+
+    expect(nextConfig).toContain('https://*.s3.amazonaws.com')
+    expect(nextConfig).toContain('https://s3.amazonaws.com')
+  })
+
+  it('uses the Next proxy file convention instead of deprecated middleware', () => {
+    const root = process.cwd()
+    const proxyPath = resolve(root, 'proxy.ts')
+
+    expect(existsSync(resolve(root, 'middleware.ts'))).toBe(false)
+    expect(existsSync(proxyPath)).toBe(true)
+    expect(readFileSync(proxyPath, 'utf8')).toContain('export async function proxy')
   })
 
   it('runs deletion before processing to avoid immediately scrubbing fresh conversions', () => {

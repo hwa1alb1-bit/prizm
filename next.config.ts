@@ -11,7 +11,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.sentry.io",
+  "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.sentry.io https://s3.amazonaws.com https://*.s3.amazonaws.com",
   'frame-src https://js.stripe.com https://hooks.stripe.com',
 ].join('; ')
 

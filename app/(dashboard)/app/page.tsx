@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { pollDocumentStatus } from '@/lib/client/document-polling'
 
 type UploadState =
   | 'idle'
@@ -722,15 +723,6 @@ async function sha256Hex(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
   const digest = await crypto.subtle.digest('SHA-256', buffer)
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-async function pollDocumentStatus(documentId: string): Promise<void> {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const response = await fetch(`/api/v1/documents/${documentId}/status`)
-    if (!response.ok) return
-    const body = (await response.json().catch(() => ({}))) as { status?: string }
-    if (body.status === 'ready' || body.status === 'failed') return
-  }
 }
 
 function recoveryFromProblem({
