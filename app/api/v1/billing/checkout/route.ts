@@ -7,6 +7,7 @@ import {
   type PaidBillingPlan,
 } from '@/lib/server/billing/stripe'
 import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireOwnerOrAdminUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,13 @@ export async function POST(request: NextRequest): Promise<Response> {
   const context = createRouteContext(request)
   const auth = await requireOwnerOrAdminUser()
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'billing',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   let body: unknown
   try {
@@ -53,14 +61,17 @@ export async function POST(request: NextRequest): Promise<Response> {
       billingCycle: parsed.data.billingCycle as BillingCycle,
     })
 
-    return jsonResponse(
-      context,
-      {
-        url: session.url,
-        request_id: context.requestId,
-        trace_id: context.traceId,
-      },
-      { status: 201 },
+    return withRateLimitHeaders(
+      jsonResponse(
+        context,
+        {
+          url: session.url,
+          request_id: context.requestId,
+          trace_id: context.traceId,
+        },
+        { status: 201 },
+      ),
+      rateLimitDecision.result,
     )
   } catch (err) {
     return problemResponse(context, problemForCheckoutError(err))

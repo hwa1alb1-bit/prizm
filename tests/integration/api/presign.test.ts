@@ -3,6 +3,7 @@ import { POST } from '@/app/api/v1/documents/presign/route'
 import { getUploadBillingGate } from '@/lib/server/billing/access'
 import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
+import { rateLimit } from '@/lib/server/ratelimit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
@@ -22,6 +23,10 @@ vi.mock('@/lib/server/billing/access', () => ({
   getUploadBillingGate: vi.fn(),
 }))
 
+vi.mock('@/lib/server/ratelimit', () => ({
+  rateLimit: vi.fn(),
+}))
+
 vi.mock('@/lib/server/s3', () => ({
   getS3Client: vi.fn(() => ({})),
   getUploadBucket: vi.fn(() => 'prizm-test-uploads'),
@@ -37,6 +42,7 @@ const preflightDocumentUploadMock = vi.mocked(preflightDocumentUpload)
 const getUploadBillingGateMock = vi.mocked(getUploadBillingGate)
 const createPendingDocumentUploadMock = vi.mocked(createPendingDocumentUpload)
 const getSignedUrlMock = vi.mocked(getSignedUrl)
+const rateLimitMock = vi.mocked(rateLimit)
 
 describe('documents presign route', () => {
   beforeEach(() => {
@@ -58,6 +64,12 @@ describe('documents presign route', () => {
     })
     getUploadBillingGateMock.mockResolvedValue({ allowed: true, mode: 'included_credit' })
     getSignedUrlMock.mockResolvedValue('https://s3.example/upload')
+    rateLimitMock.mockResolvedValue({
+      success: true,
+      limit: 60,
+      remaining: 59,
+      resetSeconds: 60,
+    })
     createPendingDocumentUploadMock.mockResolvedValue({
       ok: true,
       document: { id: 'doc_123', s3Key: 'workspace/doc/statement.pdf' },
@@ -87,6 +99,38 @@ describe('documents presign route', () => {
     })
     expect(response.headers.get('content-type')).toBe('application/problem+json')
     expect(getSignedUrlMock).not.toHaveBeenCalled()
+  })
+
+  it('rate-limits authenticated presign requests before S3 signing or upload writes', async () => {
+    rateLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 60,
+      remaining: 0,
+      resetSeconds: 42,
+    })
+    const fileSha256 = 'a'.repeat(64)
+
+    const response = await POST(
+      jsonRequest({
+        filename: 'statement.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 4096,
+        fileSha256,
+        acceptedQuote: { costCredits: 1, fileSha256 },
+      }) as never,
+    )
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 429,
+      code: 'PRZM_RATE_LIMITED',
+    })
+    expect(response.headers.get('retry-after')).toBe('42')
+    expect(response.headers.get('ratelimit-limit')).toBe('60')
+    expect(response.headers.get('x-ratelimit-remaining')).toBe('0')
+    expect(rateLimitMock).toHaveBeenCalledWith('api:upload:user_123', 60, 60)
+    expect(preflightDocumentUploadMock).not.toHaveBeenCalled()
+    expect(getSignedUrlMock).not.toHaveBeenCalled()
+    expect(createPendingDocumentUploadMock).not.toHaveBeenCalled()
   })
 
   it('rejects invalid JSON before creating upload state', async () => {

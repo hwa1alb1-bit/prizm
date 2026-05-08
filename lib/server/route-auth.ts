@@ -28,31 +28,6 @@ export type OpsAdminUserContext = AuthenticatedUserContext & {
 
 type AuthResult<T> = { ok: true; context: T } | { ok: false; problem: ProblemInit }
 
-type OpsAdminRow = {
-  role: 'owner' | 'admin' | 'viewer'
-}
-
-type OpsAdminLookupClient = {
-  from: (table: 'ops_admin') => {
-    select: (columns: string) => {
-      eq: (
-        column: 'user_id',
-        value: string,
-      ) => {
-        is: (
-          column: 'revoked_at',
-          value: null,
-        ) => {
-          maybeSingle: () => Promise<{
-            data: OpsAdminRow | null
-            error: { message: string } | null
-          }>
-        }
-      }
-    }
-  }
-}
-
 export async function requireAuthenticatedUser(): Promise<AuthResult<AuthenticatedUserContext>> {
   const clientResult = await createCookieServerClient()
   if (!clientResult.ok) return clientResult
@@ -125,7 +100,7 @@ export async function requireOpsAdminUser(): Promise<AuthResult<OpsAdminUserCont
   if (!auth.ok) return auth
 
   try {
-    const client = getServiceRoleClient() as unknown as OpsAdminLookupClient
+    const client = getServiceRoleClient()
     const { data, error } = await client
       .from('ops_admin')
       .select('role')

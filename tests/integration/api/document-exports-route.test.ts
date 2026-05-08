@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/v1/documents/[documentId]/exports/route'
+import { rateLimit } from '@/lib/server/ratelimit'
 import { createStatementExportArtifact } from '@/lib/server/statement-export'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
@@ -11,8 +12,13 @@ vi.mock('@/lib/server/statement-export', () => ({
   createStatementExportArtifact: vi.fn(),
 }))
 
+vi.mock('@/lib/server/ratelimit', () => ({
+  rateLimit: vi.fn(),
+}))
+
 const requireAuthenticatedUserMock = vi.mocked(requireAuthenticatedUser)
 const createStatementExportArtifactMock = vi.mocked(createStatementExportArtifact)
+const rateLimitMock = vi.mocked(rateLimit)
 
 describe('document exports route', () => {
   beforeEach(() => {
@@ -33,6 +39,12 @@ describe('document exports route', () => {
       expiresAt: '2026-05-08T12:00:00.000Z',
       requestId: 'req_export',
       traceId: '0123456789abcdef0123456789abcdef',
+    })
+    rateLimitMock.mockResolvedValue({
+      success: true,
+      limit: 60,
+      remaining: 59,
+      resetSeconds: 60,
     })
   })
 
@@ -71,6 +83,25 @@ describe('document exports route', () => {
         routeContext: expect.objectContaining({ requestId: 'req_export' }),
       }),
     )
+  })
+
+  it('rate-limits export artifact creation before generating files', async () => {
+    rateLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 60,
+      remaining: 0,
+      resetSeconds: 33,
+    })
+
+    const response = await POST(request({ format: 'csv' }) as never, routeParams('doc_123'))
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 429,
+      code: 'PRZM_RATE_LIMITED',
+    })
+    expect(response.headers.get('retry-after')).toBe('33')
+    expect(rateLimitMock).toHaveBeenCalledWith('api:export:user_123', 60, 60)
+    expect(createStatementExportArtifactMock).not.toHaveBeenCalled()
   })
 })
 

@@ -3,7 +3,9 @@ import 'server-only'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from './http'
 import { createPrivacyRequest, type PrivacyRequestType } from './privacy-requests'
 import { rateLimit, type RateLimitResult } from './ratelimit'
+import { withRateLimitHeaders } from './route-rate-limit'
 import { requireOwnerOrAdminUser } from './route-auth'
+import { captureException } from './sentry'
 
 const PRIVACY_REQUEST_LIMIT = 2
 const PRIVACY_REQUEST_WINDOW_SECONDS = 86_400
@@ -24,13 +26,13 @@ export async function handlePrivacyRequestRoute(
 
   if (!auth.ok) return problemResponse(context, auth.problem)
 
-  const privacyRateLimit = await rateLimit(
-    `privacy:${config.requestType}:${auth.context.user.id}`,
-    PRIVACY_REQUEST_LIMIT,
-    PRIVACY_REQUEST_WINDOW_SECONDS,
+  const privacyRateLimit = await safePrivacyRateLimit(
+    context.pathname,
+    config.requestType,
+    auth.context.user.id,
   )
 
-  if (!privacyRateLimit.success) {
+  if (privacyRateLimit && !privacyRateLimit.success) {
     return withRateLimitHeaders(
       problemResponse(context, {
         status: 429,
@@ -83,14 +85,23 @@ export async function handlePrivacyRequestRoute(
   )
 }
 
-function withRateLimitHeaders(
-  response: Response,
-  result: RateLimitResult,
-  includeRetryAfter: boolean,
-): Response {
-  response.headers.set('X-RateLimit-Limit', String(result.limit))
-  response.headers.set('X-RateLimit-Remaining', String(result.remaining))
-  response.headers.set('X-RateLimit-Reset', String(result.resetSeconds))
-  if (includeRetryAfter) response.headers.set('Retry-After', String(result.resetSeconds))
-  return response
+async function safePrivacyRateLimit(
+  pathname: string,
+  requestType: PrivacyRequestType,
+  userId: string,
+): Promise<RateLimitResult | null> {
+  try {
+    return await rateLimit(
+      `privacy:${requestType}:${userId}`,
+      PRIVACY_REQUEST_LIMIT,
+      PRIVACY_REQUEST_WINDOW_SECONDS,
+    )
+  } catch (err) {
+    captureException(err, {
+      route: pathname,
+      rateLimitPolicy: 'privacy',
+      requestType,
+    })
+    return null
+  }
 }

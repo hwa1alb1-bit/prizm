@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { getStatementExportDownload } from '@/lib/server/statement-export'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,13 @@ export async function GET(
   const context = createRouteContext(request)
   const auth = await requireAuthenticatedUser()
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'exportDownload',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   const { exportId } = await params
   const result = await getStatementExportDownload({
@@ -32,11 +40,14 @@ export async function GET(
     })
   }
 
-  return jsonResponse(context, {
-    exportId: result.exportId,
-    downloadUrl: result.downloadUrl,
-    expiresInSeconds: result.expiresInSeconds,
-    request_id: result.requestId,
-    trace_id: result.traceId,
-  })
+  return withRateLimitHeaders(
+    jsonResponse(context, {
+      exportId: result.exportId,
+      downloadUrl: result.downloadUrl,
+      expiresInSeconds: result.expiresInSeconds,
+      request_id: result.requestId,
+      trace_id: result.traceId,
+    }),
+    rateLimitDecision.result,
+  )
 }

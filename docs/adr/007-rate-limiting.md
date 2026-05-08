@@ -9,15 +9,27 @@ The audit flagged the target's lack of rate-limit transparency (F8) and the abse
 
 ## Decision
 
-Rate limits enforced via Upstash Redis token-bucket. Per-IP for unauthenticated traffic. Per-API-key-and-scope for authenticated traffic. Per-account aggregate cap for paid plans. Default budgets:
+Rate limits are enforced through Upstash Redis with the fixed-window helper in
+`lib/server/ratelimit.ts`. The current app uses authenticated Supabase user IDs
+for app routes and ops admin user IDs for provider refreshes. API-key scoped
+budgets stay a future extension until API keys are issued to customers.
 
-- Unauthenticated: 60 requests / minute / IP
-- Authenticated read: 600 requests / minute / key
-- Authenticated upload: 60 requests / minute / key
-- Authenticated status poll: 1200 requests / minute / key
-- Webhooks (Stripe): unlimited (idempotency by `event.id`)
+Published budgets:
 
-Every response carries `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`, `Retry-After` (on 429). Limits are documented at `/docs/rate-limits`.
+- Upload and conversion routes: 60 requests / minute / authenticated user.
+- Document status polling: 1200 requests / minute / authenticated user.
+- Billing Checkout and Customer Portal session creation: 60 requests / minute / authenticated user.
+- Export creation and direct export streaming: 60 requests / minute / authenticated user.
+- Export download URL creation: 600 requests / minute / authenticated user.
+- Privacy data export and account deletion requests: 2 accepted requests / 24 hours / authenticated user.
+- Ops manual provider refresh: 3 requests / 5 minutes / ops admin and 12 requests / 5 minutes / provider.
+- Webhooks (Stripe): unlimited, with idempotency by `event.id`.
+
+Limited routes return `RateLimit-Limit`, `RateLimit-Remaining`,
+`RateLimit-Reset`, and legacy `X-RateLimit-Limit`,
+`X-RateLimit-Remaining`, `X-RateLimit-Reset` headers when a limiter result is
+available. HTTP 429 responses also return `Retry-After` and an RFC 7807 problem
+document. Limits are documented at `/docs/rate-limits`.
 
 ## Consequences
 
@@ -25,7 +37,7 @@ Eased:
 
 - Customers can build retry logic with confidence.
 - Abuse from a single IP is bounded.
-- Per-key scoping means a leaked read key cannot DoS the upload pipeline.
+- Per-scope budgets mean a noisy status poller cannot consume the upload or billing budget.
 
 Locked in:
 
@@ -41,7 +53,7 @@ Locked in:
 
 - A loop of 100 requests / minute from a single IP starts seeing 429 before the loop ends.
 - 429 response includes `Retry-After` and follows ADR-006 problem+json shape.
-- A leaked `read` scoped key cannot exceed the read budget. Upload endpoints reject the read key with 403.
+- Upload, status, billing, and export route tests assert that 429 responses stop downstream work before provider calls or database writes.
 
 ## References
 

@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024
@@ -25,6 +26,13 @@ export async function POST(request: NextRequest) {
   const auth = await requireAuthenticatedUser()
 
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'upload',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   let body: unknown
   try {
@@ -72,12 +80,15 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  return jsonResponse(context, {
-    quote: result.quote,
-    currentBalance: result.currentBalance,
-    canConvert: result.canConvert,
-    duplicate: result.duplicate,
-    request_id: result.requestId,
-    trace_id: result.traceId,
-  })
+  return withRateLimitHeaders(
+    jsonResponse(context, {
+      quote: result.quote,
+      currentBalance: result.currentBalance,
+      canConvert: result.canConvert,
+      duplicate: result.duplicate,
+      request_id: result.requestId,
+      trace_id: result.traceId,
+    }),
+    rateLimitDecision.result,
+  )
 }

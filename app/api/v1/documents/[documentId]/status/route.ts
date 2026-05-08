@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { getDocumentStatus } from '@/lib/server/document-status'
 import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
+import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +15,13 @@ export async function GET(
   const auth = await requireAuthenticatedUser()
 
   if (!auth.ok) return problemResponse(context, auth.problem)
+
+  const rateLimitDecision = await applyAuthenticatedRateLimit(
+    context,
+    'status',
+    auth.context.user.id,
+  )
+  if (!rateLimitDecision.ok) return rateLimitDecision.response
 
   const { documentId } = await params
   const result = await getDocumentStatus({
@@ -31,13 +39,16 @@ export async function GET(
     })
   }
 
-  return jsonResponse(context, {
-    documentId: result.documentId,
-    state: result.state,
-    chargeStatus: result.chargeStatus,
-    duplicate: result.duplicate,
-    retention: result.retention,
-    request_id: result.requestId,
-    trace_id: result.traceId,
-  })
+  return withRateLimitHeaders(
+    jsonResponse(context, {
+      documentId: result.documentId,
+      state: result.state,
+      chargeStatus: result.chargeStatus,
+      duplicate: result.duplicate,
+      retention: result.retention,
+      request_id: result.requestId,
+      trace_id: result.traceId,
+    }),
+    rateLimitDecision.result,
+  )
 }

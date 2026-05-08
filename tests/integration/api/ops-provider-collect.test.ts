@@ -82,6 +82,10 @@ describe('ops provider manual collection route', () => {
       request_id: 'req_manual_limited',
     })
     expect(response.headers.get('retry-after')).toBe('60')
+    expect(response.headers.get('ratelimit-limit')).toBe('3')
+    expect(response.headers.get('ratelimit-remaining')).toBe('0')
+    expect(response.headers.get('x-ratelimit-limit')).toBe('3')
+    expect(response.headers.get('x-ratelimit-remaining')).toBe('0')
     expect(rateLimitMock).toHaveBeenCalledWith('ops-refresh:user_admin:stripe', 3, 300)
     expect(collectOpsProviderSnapshotsMock).not.toHaveBeenCalled()
   })
@@ -116,6 +120,10 @@ describe('ops provider manual collection route', () => {
 
     const body = await response.json()
     expect(response.status).toBe(200)
+    expect(response.headers.get('ratelimit-limit')).toBe('3')
+    expect(response.headers.get('ratelimit-remaining')).toBe('2')
+    expect(response.headers.get('x-ratelimit-limit')).toBe('3')
+    expect(response.headers.get('x-ratelimit-remaining')).toBe('2')
     expect(body).toMatchObject({
       status: 'ok',
       providers: 1,

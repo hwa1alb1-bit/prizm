@@ -33,7 +33,7 @@ Known gaps:
 - Deletion is mostly an ADR promise. Cron sweep, stale-row monitor, S3 deletion verification, deletion receipts, and Sentry paging are not implemented.
 - Rate-limit and idempotency helpers exist but are not applied to routes.
 - Routes return ad hoc JSON errors rather than RFC 7807 `problem+json`.
-- `/api/health?deep=true` can expose raw provider error text and should not be public.
+- Public `/api/health` stays shallow. Deep provider health belongs behind ops auth at `/api/ops/health`.
 - The presign route writes user data through the service-role client and does not record an audit event.
 - Billing UI, Checkout, Customer Portal, usage reporting, credit debits, and webhook idempotency are incomplete.
 - Privacy and security claims reference endpoints and pages that do not exist yet.

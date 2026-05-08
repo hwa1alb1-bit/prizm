@@ -66,6 +66,8 @@ describe('privacy request routes', () => {
 
     const body = await response.json()
     expect(response.status).toBe(202)
+    expect(response.headers.get('ratelimit-limit')).toBe('2')
+    expect(response.headers.get('ratelimit-remaining')).toBe('1')
     expect(response.headers.get('x-ratelimit-limit')).toBe('2')
     expect(response.headers.get('x-ratelimit-remaining')).toBe('1')
     expect(body).toMatchObject({
@@ -185,6 +187,8 @@ describe('privacy request routes', () => {
     })
     expect(response.headers.get('content-type')).toBe('application/problem+json')
     expect(response.headers.get('retry-after')).toBe('120')
+    expect(response.headers.get('ratelimit-limit')).toBe('2')
+    expect(response.headers.get('ratelimit-remaining')).toBe('0')
     expect(response.headers.get('x-ratelimit-limit')).toBe('2')
     expect(response.headers.get('x-ratelimit-remaining')).toBe('0')
     expect(createPrivacyRequestMock).not.toHaveBeenCalled()

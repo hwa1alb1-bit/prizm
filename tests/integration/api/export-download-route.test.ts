@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET } from '@/app/api/v1/exports/[exportId]/download/route'
+import { rateLimit } from '@/lib/server/ratelimit'
 import { getStatementExportDownload } from '@/lib/server/statement-export'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
@@ -11,8 +12,13 @@ vi.mock('@/lib/server/statement-export', () => ({
   getStatementExportDownload: vi.fn(),
 }))
 
+vi.mock('@/lib/server/ratelimit', () => ({
+  rateLimit: vi.fn(),
+}))
+
 const requireAuthenticatedUserMock = vi.mocked(requireAuthenticatedUser)
 const getStatementExportDownloadMock = vi.mocked(getStatementExportDownload)
+const rateLimitMock = vi.mocked(rateLimit)
 
 describe('export download route', () => {
   beforeEach(() => {
@@ -30,6 +36,12 @@ describe('export download route', () => {
       expiresInSeconds: 300,
       requestId: 'req_download',
       traceId: '0123456789abcdef0123456789abcdef',
+    })
+    rateLimitMock.mockResolvedValue({
+      success: true,
+      limit: 600,
+      remaining: 599,
+      resetSeconds: 60,
     })
   })
 
@@ -60,6 +72,25 @@ describe('export download route', () => {
         routeContext: expect.objectContaining({ requestId: 'req_download' }),
       }),
     )
+  })
+
+  it('rate-limits export download URL requests before signing S3 URLs', async () => {
+    rateLimitMock.mockResolvedValueOnce({
+      success: false,
+      limit: 600,
+      remaining: 0,
+      resetSeconds: 18,
+    })
+
+    const response = await GET(request() as never, routeParams('export_123'))
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 429,
+      code: 'PRZM_RATE_LIMITED',
+    })
+    expect(response.headers.get('retry-after')).toBe('18')
+    expect(rateLimitMock).toHaveBeenCalledWith('api:export-download:user_123', 600, 60)
+    expect(getStatementExportDownloadMock).not.toHaveBeenCalled()
   })
 })
 
