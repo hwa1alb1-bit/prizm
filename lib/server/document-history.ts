@@ -31,6 +31,7 @@ export type StatementTransactionView = {
 
 export type StatementEvidenceView = {
   id: string
+  revision: number
   statementType: StatementType
   statementMetadata: StatementMetadata
   reviewStatus: string | null
@@ -142,6 +143,7 @@ type StatementRow = {
   statement_type?: string | null
   statement_metadata?: Json | null
   review_status?: string | null
+  revision?: number | null
   bank_name: string | null
   account_last4: string | null
   period_start: string | null
@@ -345,6 +347,7 @@ async function listStatementsForDocuments(
         'statement_type',
         'statement_metadata',
         'review_status',
+        'revision',
         'bank_name',
         'account_last4',
         'period_start',
@@ -430,6 +433,7 @@ function statementView(row: StatementRow): StatementEvidenceView {
 
   return {
     id: row.id,
+    revision: row.revision ?? 0,
     statementType: normalizeStatementType(row.statement_type),
     statementMetadata: normalizeStatementMetadata(row.statement_metadata),
     reviewStatus: row.review_status ?? null,

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { EditableReviewWorkflow } from './editable-review-workflow'
 import {
   documentStateLabel,
   type AuditEventEvidenceView,
@@ -137,6 +138,18 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
               document={document}
               statement={primaryStatement}
               processingAudit={processingAudit}
+            />
+          </EvidenceSection>
+
+          <EvidenceSection title="Editable review">
+            <EditableReviewWorkflow
+              documentId={document.id}
+              statement={primaryStatement}
+              exceptions={exceptions.map((exception) => ({
+                id: exception.id,
+                title: exception.title,
+                cause: exception.cause,
+              }))}
             />
           </EvidenceSection>
 
@@ -1443,14 +1456,14 @@ function exportReadinessFor(
   }
 
   const reviewStatus = statementReviewStatus(statement)
-  if (reviewStatus && reviewStatus !== 'reviewed' && reviewStatus !== 'reconciled') {
+  if (reviewStatus !== 'reviewed') {
     return {
       label: 'Export blocked',
       tone: 'warning',
       cause: 'Statement review must be completed before export.',
       evidence: [
         { label: 'Statement ID', value: statement.id },
-        { label: 'Review', value: reviewStatus },
+        { label: 'Review', value: reviewStatus ?? 'unreviewed' },
       ],
       nextAction: 'Review this statement before exporting ledger-ready output.',
       actions: [],
@@ -1473,7 +1486,7 @@ function exportReadinessFor(
 
 function exportActionsFor(statement: StatementEvidenceView): ExportAction[] {
   const reviewStatus = statementReviewStatus(statement)
-  if (reviewStatus && reviewStatus !== 'reviewed' && reviewStatus !== 'reconciled') return []
+  if (reviewStatus !== 'reviewed') return []
   return [
     { format: 'csv', label: 'CSV' },
     { format: 'xlsx', label: 'XLSX' },
