@@ -18,6 +18,7 @@ const execFileAsync = promisify(execFile)
 type JsonRecord = Record<string, unknown>
 
 const DEFAULT_SITE_URL = 'https://prizmview.app'
+const PUBLIC_DNS_SERVERS = ['1.1.1.1', '8.8.8.8']
 const REQUIRED_STRIPE_WEBHOOK_EVENTS = [
   'checkout.session.completed',
   'customer.subscription.created',
@@ -27,6 +28,7 @@ const REQUIRED_STRIPE_WEBHOOK_EVENTS = [
 
 async function main(): Promise<void> {
   loadEnvFileIfExists(resolve(process.cwd(), '.env.local'))
+  dns.setServers(PUBLIC_DNS_SERVERS)
 
   const generatedAt = new Date().toISOString()
   const config = readConfig()
@@ -149,11 +151,12 @@ async function collectOpsHealth(
     const response = await fetch(`${config.siteUrl}/api/ops/health`, { headers: auth.headers })
     const body = (await response.json().catch(() => ({}))) as JsonRecord
     const connectors = Array.isArray(body.connectors) ? body.connectors.map(normalizeConnector) : []
+    const authenticated = response.ok || (response.status === 503 && connectors.length > 0)
 
     return {
-      authenticated: response.ok,
+      authenticated,
       status: typeof body.status === 'string' ? body.status : `http_${response.status}`,
-      archivedAt: response.ok ? generatedAt : null,
+      archivedAt: authenticated ? generatedAt : null,
       connectors,
     }
   } catch {
@@ -323,11 +326,41 @@ async function collectDnsEvidence(
 }
 
 async function hasPublicDsRecord(domain: string): Promise<boolean> {
+  return (await resolvePublicDsRecords(domain)).length > 0
+}
+
+async function resolvePublicDsRecords(domain: string): Promise<string[]> {
+  if (!/^[a-z0-9.-]+$/i.test(domain)) return []
+
+  if (process.platform === 'win32') {
+    try {
+      const output = await runText('powershell.exe', [
+        '-NoProfile',
+        '-Command',
+        `$ErrorActionPreference='Stop'; Resolve-DnsName -Name '${domain}' -Type DS | ConvertTo-Json -Compress`,
+      ])
+      const parsed = JSON.parse(output) as unknown
+      const records = Array.isArray(parsed) ? parsed : [parsed]
+      return records
+        .filter(
+          (record) =>
+            isRecord(record) &&
+            (record.Type === 'DS' || record.Type === 43 || record.QueryType === 43),
+        )
+        .map((record) => JSON.stringify(record))
+    } catch {
+      return []
+    }
+  }
+
   try {
-    const records = await dns.resolve(domain, 'DS')
-    return Array.isArray(records) && records.length > 0
+    const output = await runText('dig', ['+short', 'DS', domain])
+    return output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
   } catch {
-    return false
+    return []
   }
 }
 

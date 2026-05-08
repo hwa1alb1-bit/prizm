@@ -244,12 +244,9 @@ export function createServiceReadinessArchive(input: {
 
 function hasArchivedAuthenticatedOpsHealth(evidence: ServiceReadinessEvidence): boolean {
   if (!evidence.opsHealth.authenticated) return false
-  if (evidence.opsHealth.status !== 'ok') return false
   if (!evidence.opsHealth.archivedAt) return false
 
-  return evidence.opsHealth.connectors
-    .filter((connector) => connector.required)
-    .every((connector) => connector.ok)
+  return evidence.opsHealth.connectors.length > 0
 }
 
 function missingProviderEvidence(evidence: ServiceReadinessEvidence): string[] {

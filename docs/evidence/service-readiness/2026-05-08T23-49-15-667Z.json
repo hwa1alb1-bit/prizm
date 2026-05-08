@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "branch": "Branch 4: service readiness",
+  "generatedAt": "2026-05-08T23:49:15.667Z",
+  "evidence": {
+    "opsHealth": {
+      "authenticated": true,
+      "status": "degraded",
+      "archivedAt": "2026-05-08T23:49:15.667Z",
+      "connectors": [
+        {
+          "name": "supabase",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "stripe",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "s3",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "textract",
+          "ok": false,
+          "required": true,
+          "errorCode": "connector_failed"
+        },
+        {
+          "name": "resend",
+          "ok": true,
+          "required": false,
+          "errorCode": null
+        },
+        {
+          "name": "redis",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "sentry",
+          "ok": true,
+          "required": false,
+          "errorCode": null
+        }
+      ]
+    },
+    "liveConnectorSmoke": {
+      "status": "degraded",
+      "collectedAt": "2026-05-08T23:49:15.667Z",
+      "connectors": [
+        {
+          "name": "supabase",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "stripe",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "s3",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "textract",
+          "ok": false,
+          "required": true,
+          "errorCode": "connector_failed"
+        },
+        {
+          "name": "resend",
+          "ok": true,
+          "required": false
+        },
+        {
+          "name": "redis",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "sentry",
+          "ok": true,
+          "required": false
+        }
+      ]
+    },
+    "providers": {
+      "vercel": true,
+      "supabase": true,
+      "stripe": true,
+      "cloudflareDns": true,
+      "sentry": true,
+      "awsS3Textract": false,
+      "resend": true,
+      "redis": true
+    },
+    "stripe": {
+      "webhookEndpoint": {
+        "registered": true,
+        "url": "https://prizmview.app/api/v1/webhooks/stripe",
+        "subscribedEvents": [
+          "checkout.session.completed",
+          "customer.subscription.created",
+          "customer.subscription.updated",
+          "customer.subscription.deleted"
+        ],
+        "deliverySuccess": true
+      },
+      "customerPortal": {
+        "configured": true
+      },
+      "checkoutSubscriptionCreditGrant": {
+        "proven": true
+      }
+    },
+    "dns": {
+      "dnssecDsDelegated": true,
+      "cloudflareTemplateReconciled": true,
+      "drift": []
+    },
+    "github": {
+      "repoPublic": true,
+      "rulesetsConfigured": true,
+      "requiredStatusChecks": ["Lint, types, unit tests", "Playwright E2E"],
+      "dependabotConfigured": true,
+      "vulnerabilityAlertsEnabled": true,
+      "secretScanningEnabled": true,
+      "environmentsProtected": true
+    },
+    "dashboardOnlyItems": [
+      {
+        "area": "AWS/Textract",
+        "item": "Textract live connector smoke failed with connector_failed",
+        "owner": "AWS admin",
+        "nextProofStep": "Run authenticated /api/ops/health from Vercel production and, if Textract still fails, verify Textract service access in the AWS account and region."
+      }
+    ]
+  },
+  "result": {
+    "ok": false,
+    "failures": ["Production provider evidence is missing for AWS/S3/Textract."]
+  }
+}
