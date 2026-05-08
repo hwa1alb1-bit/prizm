@@ -22,12 +22,11 @@
 ;;      manages TLS termination. Orange-cloud proxy breaks the cert
 ;;      handshake the same way it does on the apex.
 ;;
-;;   3. Replace `REPLACE_WITH_RESEND_DKIM_VALUE` on the
-;;      `resend._domainkey` record with the real DKIM public key from
-;;      the Resend dashboard. Long DKIM values must be split into
-;;      255-character chunks separated by spaces inside the same TXT
-;;      record (BIND requirement). Cloudflare's importer concatenates
-;;      consecutive quoted strings correctly.
+;;   3. Confirm the `resend._domainkey` record still matches the DKIM
+;;      public key shown in the Resend dashboard. Long DKIM values must
+;;      be split into 255-character chunks separated by spaces inside
+;;      the same TXT record (BIND requirement). Cloudflare's importer
+;;      concatenates consecutive quoted strings correctly.
 ;;
 ;;   4. Verify DNSSEC is enabled at Cloudflare zone DNS settings.
 ;;      DNS -> Settings -> DNSSEC -> Enable.
@@ -64,14 +63,9 @@ send                    1   IN  TXT     "v=spf1 include:amazonses.com ~all"
 @                       1   IN  TXT     "v=spf1 include:amazonses.com ~all"
 
 ;; --- Resend DKIM ---
-;; REPLACE the value below with the exact DKIM string from your Resend
-;; domain setup page. The Resend value typically looks like:
-;;   "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBi..."
-;; If the value exceeds 255 chars, BIND requires splitting into
-;; consecutive quoted strings, e.g.
-;;   "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3..." "...AB+ALIDAQAB"
-;; Cloudflare's import handles that concatenation correctly.
-resend._domainkey       1   IN  TXT     "REPLACE_WITH_RESEND_DKIM_VALUE"
+;; Mirrors the public TXT currently resolving for
+;; resend._domainkey.prizmview.app.
+resend._domainkey       1   IN  TXT     "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC08luikY2j6avfEk494GvY7TV0L2awoZnMnpFms7U0keDYVxJVp0CZ2ZpHaSnZQowlBckQv6Ph0dliZDf3l7kIBhWM1n+8IQ2BFARd5Xf21CsrlfQB2d0u0uENHZgmJgggaQ21JlwOW4n0mQ9RNNypENmk5JqZ6S4+VpLnYjMNtQIDAQAB"
 
 ;; --- DMARC policy ---
 ;; dmarc@prizmview.app archive mailbox active (SES inbound rule).

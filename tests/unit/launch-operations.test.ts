@@ -96,4 +96,35 @@ describe('launch operations controls', () => {
       expect(rehearsal).toContain(section)
     }
   })
+
+  it('documents Branch 4 service readiness evidence and Dependabot governance', () => {
+    const runbookPath = 'docs/runbooks/service-readiness-follow-up.md'
+    const evidenceReadmePath = 'docs/evidence/service-readiness/README.md'
+    const dependabotPath = '.github/dependabot.yml'
+    const packageJson = readFileSync('package.json', 'utf8')
+
+    expect(packageJson).toContain('"verify:service-readiness"')
+    expect(existsSync(runbookPath)).toBe(true)
+    expect(existsSync(evidenceReadmePath)).toBe(true)
+    expect(existsSync(dependabotPath)).toBe(true)
+
+    const runbook = readFileSync(runbookPath, 'utf8')
+    for (const section of [
+      '## Evidence Collection',
+      '## Stripe Proof',
+      '## DNSSEC And Cloudflare',
+      '## GitHub Governance',
+      '## Dashboard-Only Exceptions',
+    ]) {
+      expect(runbook).toContain(section)
+    }
+
+    const evidenceReadme = readFileSync(evidenceReadmePath, 'utf8')
+    expect(evidenceReadme).toContain('Branch 4: service readiness')
+    expect(evidenceReadme).toContain('SERVICE_READINESS_ALLOW_INCOMPLETE=1')
+
+    const dependabot = readFileSync(dependabotPath, 'utf8')
+    expect(dependabot).toContain("package-ecosystem: 'npm'")
+    expect(dependabot).toContain("package-ecosystem: 'github-actions'")
+  })
 })
