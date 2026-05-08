@@ -77,7 +77,6 @@ describe('privacy request routes', () => {
     })
     expect(createPrivacyRequestMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        supabase: {},
         requestType: 'data_export',
         auditEventType: 'privacy.data_export.requested',
         workspaceId: 'workspace_123',
@@ -123,7 +122,6 @@ describe('privacy request routes', () => {
     })
     expect(createPrivacyRequestMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        supabase: {},
         requestType: 'account_deletion',
         auditEventType: 'privacy.account_deletion.requested',
         workspaceId: 'workspace_123',

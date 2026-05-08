@@ -38,13 +38,30 @@ describe('getSettingsSummaryForUser', () => {
     expect(getServiceRoleClient).toHaveBeenCalled()
     expect(serviceRole.from).toHaveBeenCalledWith('user_profile')
     expect(serviceRole.from).toHaveBeenCalledWith('workspace')
+    expect(serviceRole.selectCalls).toContainEqual([
+      'user_profile',
+      '*',
+      { count: 'exact', head: true },
+    ])
+  })
+
+  it('fails closed when the workspace member count cannot be loaded', async () => {
+    const serviceRole = settingsSupabase({ memberError: 'timeout' })
+    vi.mocked(getServiceRoleClient).mockReturnValue(serviceRole as never)
+
+    await expect(getSettingsSummaryForUser({ userId: 'user_123' })).rejects.toThrow(
+      'settings_members_not_found',
+    )
   })
 })
 
-function settingsSupabase() {
+function settingsSupabase(options: { memberError?: string } = {}) {
+  const selectCalls: Array<[string, string, unknown?]> = []
   return {
+    selectCalls,
     from: vi.fn((table: 'user_profile' | 'workspace') => ({
-      select: vi.fn((columns: string) => {
+      select: vi.fn((columns: string, optionsArg?: unknown) => {
+        selectCalls.push([table, columns, optionsArg])
         if (table === 'user_profile' && columns === 'workspace_id, email, full_name, role') {
           return eqBuilder({
             singleResult: {
@@ -68,14 +85,19 @@ function settingsSupabase() {
         }
 
         return eqBuilder({
-          listResult: [{ id: 'user_123' }, { id: 'user_456' }],
+          countResult: options.memberError
+            ? { count: null, error: { message: options.memberError } }
+            : { count: 2, error: null },
         })
       }),
     })),
   }
 }
 
-function eqBuilder(input: { singleResult?: unknown; listResult?: unknown[] }) {
+function eqBuilder(input: {
+  singleResult?: unknown
+  countResult?: { count: number | null; error: { message: string } | null }
+}) {
   const result = {
     eq: vi.fn(() => result),
     single: vi.fn().mockResolvedValue({
@@ -83,9 +105,18 @@ function eqBuilder(input: { singleResult?: unknown; listResult?: unknown[] }) {
       error: null,
     }),
     then: (
-      resolve: (value: { data: unknown[] | null; error: null }) => unknown,
+      resolve: (value: {
+        data: null
+        count: number | null
+        error: { message: string } | null
+      }) => unknown,
       reject: (reason: unknown) => unknown,
-    ) => Promise.resolve({ data: input.listResult ?? [], error: null }).then(resolve, reject),
+    ) =>
+      Promise.resolve({
+        data: null,
+        count: input.countResult?.count ?? null,
+        error: input.countResult?.error ?? null,
+      }).then(resolve, reject),
   }
   return result
 }

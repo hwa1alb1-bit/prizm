@@ -21,27 +21,29 @@ type SettingsWorkspaceRow = {
   created_at: string
 }
 
-type SettingsMemberRow = {
-  id: string
-}
-
 type QueryResult<T> = {
   data: T | null
+  error: { message: string } | null
+}
+
+type ListQueryResult<T> = {
+  data: T[] | null
+  count: number | null
   error: { message: string } | null
 }
 
 type SettingsFilter<T> = {
   eq: (column: 'id' | 'workspace_id', value: string) => SettingsFilter<T>
   single: () => Promise<QueryResult<T>>
-  then: <TResult1 = QueryResult<T[]>, TResult2 = never>(
-    onfulfilled?: ((value: QueryResult<T[]>) => TResult1 | PromiseLike<TResult1>) | null,
+  then: <TResult1 = ListQueryResult<T>, TResult2 = never>(
+    onfulfilled?: ((value: ListQueryResult<T>) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ) => PromiseLike<TResult1 | TResult2>
 }
 
 type SettingsSummaryClient = {
   from: (table: 'user_profile' | 'workspace') => {
-    select: <T>(columns: string) => SettingsFilter<T>
+    select: <T>(columns: string, options?: { count?: 'exact'; head?: boolean }) => SettingsFilter<T>
   }
 }
 
@@ -72,10 +74,13 @@ export async function getSettingsSummaryForUser(
 
   const membersResult = await client
     .from('user_profile')
-    .select<SettingsMemberRow>('id')
+    .select<never>('*', { count: 'exact', head: true })
     .eq('workspace_id', profile.workspace_id)
 
-  const members = membersResult.data ?? []
+  if (membersResult.error || membersResult.count === null) {
+    throw new Error('settings_members_not_found')
+  }
+
   const workspace = workspaceResult.data as SettingsWorkspaceRow
 
   return {
@@ -88,7 +93,7 @@ export async function getSettingsSummaryForUser(
       id: workspace.id,
       name: workspace.name,
       defaultRegion: workspace.default_region,
-      memberCount: members.length,
+      memberCount: membersResult.count,
       createdAt: workspace.created_at,
     },
     controls: {

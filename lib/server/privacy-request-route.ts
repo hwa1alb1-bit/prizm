@@ -46,7 +46,6 @@ export async function handlePrivacyRequestRoute(
   const actorIp = getClientIp(req)
   const actorUserAgent = req.headers.get('user-agent')
   const privacyRequest = await createPrivacyRequest({
-    supabase: auth.context.supabase,
     requestType: config.requestType,
     auditEventType: config.auditEventType,
     workspaceId: auth.context.profile.workspace_id,

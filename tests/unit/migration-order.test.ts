@@ -7,7 +7,7 @@ describe('Supabase migration order', () => {
     const migrationNames = readdirSync(resolve(process.cwd(), 'supabase/migrations')).filter(
       (name) => name.endsWith('.sql'),
     )
-    const prefixes = migrationNames.map((name) => name.slice(0, 4))
+    const prefixes = migrationNames.map((name) => name.split('_')[0])
     const duplicates = prefixes.filter((prefix, index) => prefixes.indexOf(prefix) !== index)
 
     expect(duplicates).toEqual([])

@@ -1,8 +1,7 @@
 import 'server-only'
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { getServiceRoleClient } from './supabase'
 import type { RouteContext } from './http'
-import type { Database } from '../shared/db-types'
 
 export type PrivacyRequestType = 'data_export' | 'account_deletion'
 export type PrivacyRequestStatus = 'received' | 'processing' | 'completed' | 'rejected'
@@ -15,7 +14,6 @@ export type PrivacyRequestRecord = {
 }
 
 export type CreatePrivacyRequestInput = {
-  supabase: SupabaseClient<Database>
   requestType: PrivacyRequestType
   auditEventType: string
   workspaceId: string
@@ -34,6 +32,7 @@ type PrivacyRequestRow = {
 }
 
 type CreatePrivacyRequestRpcArgs = {
+  p_actor_user_id: string
   p_request_type: PrivacyRequestType
   p_audit_event_type: string
   p_due_at: string
@@ -45,7 +44,7 @@ type CreatePrivacyRequestRpcArgs = {
 
 type PrivacyRequestClient = {
   rpc: (
-    fn: 'create_privacy_request',
+    fn: 'create_privacy_request_for_actor',
     args: CreatePrivacyRequestRpcArgs,
   ) => Promise<{
     data: PrivacyRequestRow[] | null
@@ -58,10 +57,11 @@ export async function createPrivacyRequest(
 ): Promise<{ ok: true; request: PrivacyRequestRecord } | { ok: false; reason: string }> {
   const now = new Date()
   const dueAt = new Date(now.getTime() + (input.dueDays ?? 30) * 24 * 60 * 60 * 1000)
-  const client = input.supabase as unknown as PrivacyRequestClient
+  const client = getServiceRoleClient() as unknown as PrivacyRequestClient
 
   try {
-    const { data, error } = await client.rpc('create_privacy_request', {
+    const { data, error } = await client.rpc('create_privacy_request_for_actor', {
+      p_actor_user_id: input.requestedBy,
       p_request_type: input.requestType,
       p_audit_event_type: input.auditEventType,
       p_due_at: dueAt.toISOString(),

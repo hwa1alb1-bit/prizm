@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
+import { getServiceRoleClient } from '@/lib/server/supabase'
+
+vi.mock('@/lib/server/supabase', () => ({
+  getServiceRoleClient: vi.fn(),
+}))
 
 describe('createPendingDocumentUpload', () => {
   const baseInput = {
+    actorUserId: 'user_123',
     filename: 'statement.pdf',
     contentType: 'application/pdf',
     sizeBytes: 1024,
@@ -25,17 +31,18 @@ describe('createPendingDocumentUpload', () => {
       data: [{ document_id: 'doc_123', s3_key: 'workspace/doc/statement.pdf' }],
       error: null,
     })
+    vi.mocked(getServiceRoleClient).mockReturnValue({ rpc } as never)
 
     const result = await createPendingDocumentUpload({
       ...baseInput,
-      supabase: { rpc } as never,
     })
 
     expect(result).toEqual({
       ok: true,
       document: { id: 'doc_123', s3Key: 'workspace/doc/statement.pdf' },
     })
-    expect(rpc).toHaveBeenCalledWith('create_pending_document_upload', {
+    expect(rpc).toHaveBeenCalledWith('create_pending_document_upload_for_actor', {
+      p_actor_user_id: 'user_123',
       p_filename: 'statement.pdf',
       p_content_type: 'application/pdf',
       p_size_bytes: 1024,
@@ -52,14 +59,15 @@ describe('createPendingDocumentUpload', () => {
   })
 
   it('maps workspace failures without leaking database details', async () => {
+    vi.mocked(getServiceRoleClient).mockReturnValue({
+      rpc: vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'workspace_profile_not_found' },
+      }),
+    } as never)
+
     const result = await createPendingDocumentUpload({
       ...baseInput,
-      supabase: {
-        rpc: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'workspace_profile_not_found' },
-        }),
-      } as never,
     })
 
     expect(result).toEqual({ ok: false, reason: 'no_workspace' })

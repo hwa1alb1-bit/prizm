@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
   }
 
   const document = await createPendingDocumentUpload({
-    supabase: auth.context.supabase,
+    actorUserId: auth.context.user.id,
     filename,
     contentType,
     sizeBytes,

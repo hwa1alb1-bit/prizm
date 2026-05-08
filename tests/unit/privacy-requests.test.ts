@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createPrivacyRequest } from '@/lib/server/privacy-requests'
+import { getServiceRoleClient } from '@/lib/server/supabase'
+
+vi.mock('@/lib/server/supabase', () => ({
+  getServiceRoleClient: vi.fn(),
+}))
 
 describe('createPrivacyRequest', () => {
   it('writes privacy requests through the atomic RPC that also records audit evidence', async () => {
@@ -14,9 +19,9 @@ describe('createPrivacyRequest', () => {
       ],
       error: null,
     })
+    vi.mocked(getServiceRoleClient).mockReturnValue({ rpc } as never)
 
     const result = await createPrivacyRequest({
-      supabase: { rpc } as never,
       requestType: 'data_export',
       auditEventType: 'privacy.data_export.requested',
       workspaceId: 'workspace_123',
@@ -39,7 +44,8 @@ describe('createPrivacyRequest', () => {
         dueAt: '2026-06-05T00:00:00.000Z',
       },
     })
-    expect(rpc).toHaveBeenCalledWith('create_privacy_request', {
+    expect(rpc).toHaveBeenCalledWith('create_privacy_request_for_actor', {
+      p_actor_user_id: 'user_123',
       p_request_type: 'data_export',
       p_audit_event_type: 'privacy.data_export.requested',
       p_due_at: expect.any(String),
@@ -51,13 +57,14 @@ describe('createPrivacyRequest', () => {
   })
 
   it('maps rejected privacy request writes without leaking database details', async () => {
+    vi.mocked(getServiceRoleClient).mockReturnValue({
+      rpc: vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'workspace_write_forbidden' },
+      }),
+    } as never)
+
     const result = await createPrivacyRequest({
-      supabase: {
-        rpc: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'workspace_write_forbidden' },
-        }),
-      } as never,
       requestType: 'account_deletion',
       auditEventType: 'privacy.account_deletion.requested',
       workspaceId: 'workspace_123',

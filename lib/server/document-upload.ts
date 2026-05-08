@@ -1,10 +1,10 @@
 import 'server-only'
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { getServiceRoleClient } from './supabase'
 import type { RouteContext } from './http'
-import type { Database } from '../shared/db-types'
 
 type CreatePendingDocumentUploadRpcArgs = {
+  p_actor_user_id: string
   p_filename: string
   p_content_type: string
   p_size_bytes: number
@@ -26,7 +26,7 @@ type CreatePendingDocumentUploadRpcRow = {
 
 type UploadRpcClient = {
   rpc: (
-    fn: 'create_pending_document_upload',
+    fn: 'create_pending_document_upload_for_actor',
     args: CreatePendingDocumentUploadRpcArgs,
   ) => Promise<{
     data: CreatePendingDocumentUploadRpcRow[] | null
@@ -35,7 +35,7 @@ type UploadRpcClient = {
 }
 
 export type CreatePendingDocumentUploadInput = {
-  supabase: SupabaseClient<Database>
+  actorUserId: string
   filename: string
   contentType: string
   sizeBytes: number
@@ -67,8 +67,9 @@ type UploadFailureReason = 'unauthorized' | 'no_workspace' | 'forbidden' | 'writ
 export async function createPendingDocumentUpload(
   input: CreatePendingDocumentUploadInput,
 ): Promise<CreatePendingDocumentUploadResult> {
-  const rpcClient = input.supabase as unknown as UploadRpcClient
-  const { data, error } = await rpcClient.rpc('create_pending_document_upload', {
+  const rpcClient = getServiceRoleClient() as unknown as UploadRpcClient
+  const { data, error } = await rpcClient.rpc('create_pending_document_upload_for_actor', {
+    p_actor_user_id: input.actorUserId,
     p_filename: input.filename,
     p_content_type: input.contentType,
     p_size_bytes: input.sizeBytes,

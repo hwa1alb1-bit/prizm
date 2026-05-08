@@ -173,6 +173,7 @@ describe('documents presign route', () => {
     })
     expect(createPendingDocumentUploadMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        actorUserId: 'user_123',
         filename: 'May_Statement.pdf',
         contentType: 'application/pdf',
         sizeBytes: 4096,
