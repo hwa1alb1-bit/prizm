@@ -34,8 +34,6 @@ const launchGates: readonly LaunchGateDefinition[] = [
       'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       'SUPABASE_SERVICE_ROLE_KEY',
-      'SUPABASE_ACCESS_TOKEN',
-      'SUPABASE_PROJECT_ID',
     ],
   },
   {
@@ -45,8 +43,8 @@ const launchGates: readonly LaunchGateDefinition[] = [
   },
   {
     id: 's3-upload-bucket-configured',
-    title: 'S3 browser upload bucket and KMS key are configured',
-    requiredEnv: ['S3_UPLOAD_BUCKET', 'S3_KMS_KEY_ID'],
+    title: 'S3 browser upload bucket is configured',
+    requiredEnv: ['S3_UPLOAD_BUCKET'],
   },
   {
     id: 'stripe-configured',

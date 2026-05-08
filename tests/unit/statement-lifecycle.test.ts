@@ -98,7 +98,7 @@ function createStore(overrides: { role?: string } = {}) {
     getDocument: vi.fn().mockResolvedValue({
       id: 'doc_123',
       status: 'ready',
-      expires_at: '2026-05-08T00:00:00.000Z',
+      expires_at: activeExpiry(),
       deleted_at: null,
     }),
     getStatement: vi.fn().mockResolvedValue({
@@ -106,10 +106,14 @@ function createStore(overrides: { role?: string } = {}) {
       transactions: [{ id: 'txn_1', description: 'Old memo' }],
       revision: 2,
       review_status: 'unreviewed',
-      expires_at: '2026-05-08T00:00:00.000Z',
+      expires_at: activeExpiry(),
       deleted_at: null,
     }),
     updateStatement: vi.fn().mockResolvedValue('updated'),
     recordAudit: vi.fn().mockResolvedValue(true),
   } satisfies StatementEditStore
+}
+
+function activeExpiry() {
+  return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 }

@@ -37,12 +37,9 @@ describe('launch readiness gates', () => {
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
-        SUPABASE_ACCESS_TOKEN: 'supabase-access',
-        SUPABASE_PROJECT_ID: 'project',
         AWS_REGION: 'us-east-1',
         AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/prizm-vercel',
         S3_UPLOAD_BUCKET: 'prizm-uploads-staging',
-        S3_KMS_KEY_ID: 'kms-key',
         STRIPE_SECRET_KEY: 'sk_test_123',
         STRIPE_WEBHOOK_SECRET: 'whsec_123',
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
@@ -63,6 +60,39 @@ describe('launch readiness gates', () => {
     })
 
     expect(result).toMatchObject({ ok: true, target: 'staging', failures: [] })
+  })
+
+  it('passes with runtime launch credentials without management-only Supabase token or optional S3 KMS key', () => {
+    const result = evaluateLaunchReadiness({
+      target: 'production',
+      env: {
+        NEXT_PUBLIC_SITE_URL: 'https://prizmview.app',
+        NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
+        SUPABASE_SERVICE_ROLE_KEY: 'service-role',
+        AWS_REGION: 'us-east-1',
+        AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/prizm-vercel',
+        S3_UPLOAD_BUCKET: 'prizm-uploads-production',
+        STRIPE_SECRET_KEY: 'sk_live_123',
+        STRIPE_WEBHOOK_SECRET: 'whsec_123',
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_live_123',
+        STRIPE_PRICE_STARTER_MONTHLY: 'price_starter_monthly',
+        STRIPE_PRICE_STARTER_ANNUAL: 'price_starter_annual',
+        STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
+        STRIPE_PRICE_PRO_ANNUAL: 'price_pro_annual',
+        RESEND_API_KEY: 're_123',
+        RESEND_FROM_EMAIL: 'noreply@prizmview.app',
+        NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1',
+        SENTRY_AUTH_TOKEN: 'sentry-token',
+        SENTRY_ORG: 'prizm',
+        SENTRY_PROJECT: 'web',
+        UPSTASH_REDIS_REST_URL: 'https://redis.upstash.io',
+        UPSTASH_REDIS_REST_TOKEN: 'redis-token',
+        CRON_SECRET: 'cron-secret',
+      },
+    })
+
+    expect(result).toMatchObject({ ok: true, target: 'production', failures: [] })
   })
 
   it('requires explicit safe launch-smoke flags before live connector checks run', () => {
@@ -112,12 +142,9 @@ describe('launch readiness gates', () => {
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
-        SUPABASE_ACCESS_TOKEN: 'supabase-access',
-        SUPABASE_PROJECT_ID: 'project',
         AWS_REGION: 'us-east-1',
         AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/prizm-vercel',
         S3_UPLOAD_BUCKET: 'prizm-uploads-production',
-        S3_KMS_KEY_ID: 'kms-key',
         STRIPE_SECRET_KEY: 'sk_live_123',
         STRIPE_WEBHOOK_SECRET: 'whsec_123',
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_live_123',
@@ -154,12 +181,9 @@ describe('launch readiness gates', () => {
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
-        SUPABASE_ACCESS_TOKEN: 'supabase-access',
-        SUPABASE_PROJECT_ID: 'project',
         AWS_REGION: 'us-east-1',
         AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/prizm-vercel',
         S3_UPLOAD_BUCKET: 'prizm-uploads-staging',
-        S3_KMS_KEY_ID: 'kms-key',
         STRIPE_SECRET_KEY: 'sk_test_123',
         STRIPE_WEBHOOK_SECRET: 'whsec_123',
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
@@ -195,14 +219,11 @@ describe('launch readiness gates', () => {
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
-        SUPABASE_ACCESS_TOKEN: 'supabase-access',
-        SUPABASE_PROJECT_ID: 'project',
         AWS_REGION: 'us-east-1',
         AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/prizm-vercel',
         AWS_ACCESS_KEY_ID: 'static-key',
         AWS_SECRET_ACCESS_KEY: 'static-secret',
         S3_UPLOAD_BUCKET: 'prizm-uploads-production',
-        S3_KMS_KEY_ID: 'kms-key',
         STRIPE_SECRET_KEY: 'sk_live_123',
         STRIPE_WEBHOOK_SECRET: 'whsec_123',
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_live_123',

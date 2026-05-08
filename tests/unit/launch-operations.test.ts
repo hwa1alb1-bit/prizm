@@ -10,12 +10,9 @@ describe('launch operations controls', () => {
       'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       'SUPABASE_SERVICE_ROLE_KEY',
-      'SUPABASE_ACCESS_TOKEN',
-      'SUPABASE_PROJECT_ID',
       'AWS_REGION',
       'AWS_ROLE_ARN',
       'S3_UPLOAD_BUCKET',
-      'S3_KMS_KEY_ID',
       'STRIPE_SECRET_KEY',
       'STRIPE_WEBHOOK_SECRET',
       'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
@@ -52,6 +49,9 @@ describe('launch operations controls', () => {
 
     expect(workflow).not.toContain('AWS_ACCESS_KEY_ID:')
     expect(workflow).not.toContain('AWS_SECRET_ACCESS_KEY:')
+    expect(workflow).not.toContain('SUPABASE_ACCESS_TOKEN:')
+    expect(workflow).not.toContain('SUPABASE_PROJECT_ID:')
+    expect(workflow).not.toContain('S3_KMS_KEY_ID:')
     expect(workflow).not.toContain('LIVE_CONNECTOR_SMOKE:')
   })
 
