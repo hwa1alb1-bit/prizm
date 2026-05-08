@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   createServiceReadinessArchive,
+  createServiceReadinessProviders,
   evaluateServiceReadinessEvidence,
+  resolveOpsHealthAuth,
   type ServiceReadinessEvidence,
 } from '@/lib/server/service-readiness'
 
@@ -105,6 +107,68 @@ describe('service readiness evidence', () => {
           authenticated: true,
           status: 'ok',
         },
+      },
+    })
+  })
+
+  it('does not count local connector smoke as production provider proof without ops auth', () => {
+    const providers = createServiceReadinessProviders({
+      opsHealth: {
+        authenticated: false,
+        status: 'missing_auth',
+        archivedAt: null,
+        connectors: [],
+      },
+      localConnectorSmoke: {
+        status: 'ok',
+        collectedAt: '2026-05-08T19:00:00.000Z',
+        connectors: [
+          { name: 'supabase', ok: true, required: true },
+          { name: 'stripe', ok: true, required: true },
+          { name: 's3', ok: true, required: true },
+          { name: 'textract', ok: true, required: true },
+          { name: 'resend', ok: true, required: false },
+          { name: 'redis', ok: true, required: true },
+          { name: 'sentry', ok: true, required: false },
+        ],
+      },
+      vercel: true,
+      stripeWebhookRegistered: true,
+      cloudflareDnsReady: true,
+    })
+
+    expect(providers).toEqual({
+      vercel: true,
+      supabase: false,
+      stripe: false,
+      cloudflareDns: true,
+      sentry: false,
+      awsS3Textract: false,
+      resend: false,
+      redis: false,
+    })
+  })
+
+  it('keeps ops health readiness auth cookie-only', () => {
+    expect(
+      resolveOpsHealthAuth({
+        OPS_HEALTH_BEARER_TOKEN: 'token',
+      }),
+    ).toEqual({
+      ok: false,
+      status: 'unsupported_bearer_auth',
+    })
+
+    expect(
+      resolveOpsHealthAuth({
+        OPS_HEALTH_COOKIE: 'session=abc',
+        OPS_HEALTH_BEARER_TOKEN: 'token',
+      }),
+    ).toEqual({
+      ok: true,
+      headers: {
+        'cache-control': 'no-store',
+        cookie: 'session=abc',
       },
     })
   })

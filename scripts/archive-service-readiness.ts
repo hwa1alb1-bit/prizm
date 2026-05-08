@@ -7,6 +7,8 @@ import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import {
   createServiceReadinessArchive,
+  createServiceReadinessProviders,
+  resolveOpsHealthAuth,
   type ServiceReadinessConnector,
   type ServiceReadinessEvidence,
 } from '@/lib/server/service-readiness'
@@ -82,41 +84,25 @@ async function collectServiceReadinessEvidence(
     collectDnsEvidence(config),
     collectGithubEvidence(config),
   ])
-  const providerConnectors = opsHealth.authenticated
-    ? opsHealth.connectors
-    : liveConnectorSmoke.connectors
+  const providers = createServiceReadinessProviders({
+    opsHealth,
+    localConnectorSmoke: liveConnectorSmoke,
+    vercel,
+    stripeWebhookRegistered: stripe.webhookEndpoint.registered,
+    cloudflareDnsReady: dnsEvidence.dnssecDsDelegated && dnsEvidence.cloudflareTemplateReconciled,
+  })
 
   return {
     opsHealth,
     liveConnectorSmoke,
-    providers: {
-      vercel,
-      supabase: connectorOk(providerConnectors, 'supabase'),
-      stripe: connectorOk(providerConnectors, 'stripe') && stripe.webhookEndpoint.registered,
-      cloudflareDns: dnsEvidence.dnssecDsDelegated && dnsEvidence.cloudflareTemplateReconciled,
-      sentry: connectorOk(providerConnectors, 'sentry'),
-      awsS3Textract:
-        connectorOk(providerConnectors, 's3') && connectorOk(providerConnectors, 'textract'),
-      resend: connectorOk(providerConnectors, 'resend'),
-      redis: connectorOk(providerConnectors, 'redis'),
-    },
+    providers,
     stripe,
     dns: dnsEvidence,
     github,
     dashboardOnlyItems: dashboardOnlyItemsFromEvidence({
       opsHealth,
       liveConnectorSmoke,
-      providers: {
-        vercel,
-        supabase: connectorOk(providerConnectors, 'supabase'),
-        stripe: connectorOk(providerConnectors, 'stripe') && stripe.webhookEndpoint.registered,
-        cloudflareDns: dnsEvidence.dnssecDsDelegated && dnsEvidence.cloudflareTemplateReconciled,
-        sentry: connectorOk(providerConnectors, 'sentry'),
-        awsS3Textract:
-          connectorOk(providerConnectors, 's3') && connectorOk(providerConnectors, 'textract'),
-        resend: connectorOk(providerConnectors, 'resend'),
-        redis: connectorOk(providerConnectors, 'redis'),
-      },
+      providers,
       stripe,
       dnsEvidence,
       github,
@@ -148,24 +134,19 @@ async function collectOpsHealth(
   config: ReadinessConfig,
   generatedAt: string,
 ): Promise<ServiceReadinessEvidence['opsHealth']> {
-  const cookie = process.env.OPS_HEALTH_COOKIE ?? process.env.SERVICE_READINESS_OPS_COOKIE
-  const bearer = process.env.OPS_HEALTH_BEARER_TOKEN ?? process.env.SERVICE_READINESS_OPS_BEARER
+  const auth = resolveOpsHealthAuth(process.env)
 
-  if (!cookie && !bearer) {
+  if (!auth.ok) {
     return {
       authenticated: false,
-      status: 'missing_auth',
+      status: auth.status,
       archivedAt: null,
       connectors: [],
     }
   }
 
   try {
-    const headers: HeadersInit = { 'cache-control': 'no-store' }
-    if (cookie) headers.cookie = cookie
-    if (bearer) headers.authorization = `Bearer ${bearer}`
-
-    const response = await fetch(`${config.siteUrl}/api/ops/health`, { headers })
+    const response = await fetch(`${config.siteUrl}/api/ops/health`, { headers: auth.headers })
     const body = (await response.json().catch(() => ({}))) as JsonRecord
     const connectors = Array.isArray(body.connectors) ? body.connectors.map(normalizeConnector) : []
 
@@ -555,11 +536,6 @@ function normalizeConnector(value: unknown): ServiceReadinessConnector {
     required: record.required === true,
     errorCode: typeof record.errorCode === 'string' ? record.errorCode : null,
   }
-}
-
-function connectorOk(connectors: ServiceReadinessConnector[], name: string): boolean {
-  const connector = connectors.find((candidate) => candidate.name === name)
-  return connector?.ok === true
 }
 
 function flattenTxtRecords(records: string[][]): string[] {
