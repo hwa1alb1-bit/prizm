@@ -50,6 +50,15 @@ describe('DocumentHistoryList', () => {
     expect(screen.getAllByText('Now').length).toBeGreaterThan(0)
   })
 
+  it('shows verified uploads as storage-complete work instead of failures', () => {
+    render(<DocumentHistoryList documents={[verifiedDocument()]} />)
+
+    expect(screen.getAllByText('Verified').length).toBeGreaterThan(0)
+    expect(screen.getByText('Storage verified')).toBeInTheDocument()
+    expect(screen.queryByText('Action needed')).not.toBeInTheDocument()
+    expect(screen.getByText('S3 object verified')).toBeInTheDocument()
+  })
+
   it('filters the queue by status and keeps counts visible', () => {
     render(
       <DocumentHistoryList
@@ -231,6 +240,7 @@ describe('DocumentStateBadge', () => {
     render(
       <div>
         <DocumentStateBadge state="pending" />
+        <DocumentStateBadge state="verified" />
         <DocumentStateBadge state="processing" />
         <DocumentStateBadge state="ready" />
         <DocumentStateBadge state="failed" />
@@ -239,6 +249,7 @@ describe('DocumentStateBadge', () => {
     )
 
     expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText('Verified')).toBeInTheDocument()
     expect(screen.getByText('Processing')).toBeInTheDocument()
     expect(screen.getByText('Ready')).toBeInTheDocument()
     expect(screen.getByText('Failed')).toBeInTheDocument()
@@ -326,6 +337,28 @@ function historyDocument(): HistoryDocumentView {
       receiptErrorCode: null,
       deletionAuditedAt: '2026-05-07T14:01:10.000Z',
     },
+  }
+}
+
+function verifiedDocument(): HistoryDocumentView {
+  return {
+    ...historyDocument(),
+    id: 'doc_verified',
+    filename: 'Verified Statement.pdf',
+    state: 'verified',
+    textractJobId: null,
+    statements: [],
+    auditEvents: [
+      {
+        id: 'audit_upload_completed',
+        eventType: 'document.upload_completed',
+        createdAt: '2026-05-06T14:04:00.000Z',
+        actorUserId: 'user_123',
+        requestId: 'req_complete',
+        traceId: '0123456789abcdef0123456789abcdef',
+      },
+    ],
+    deletionEvidence: null,
   }
 }
 

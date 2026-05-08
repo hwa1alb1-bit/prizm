@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { processTextractDocuments } from './document-processing'
 import type { RouteContext } from './http'
 import { getServiceRoleClient } from './supabase'
 
@@ -61,6 +62,10 @@ export type StatusDocument = {
 export type DocumentStatusDependencies = {
   getUserProfile: (userId: string) => Promise<StatusProfile | null>
   getDocument: (documentId: string) => Promise<StatusDocument | null>
+  finalizeProcessingDocument: (input: {
+    documentId: string
+    routeContext: RouteContext
+  }) => Promise<void>
   now: () => Date
 }
 
@@ -88,9 +93,19 @@ export async function getDocumentStatus(
     if (!profile) return statusProblem('workspace_required')
     if (!STATUS_ROLES.has(profile.role)) return statusProblem('forbidden')
 
-    const document = await deps.getDocument(input.documentId)
+    let document = await deps.getDocument(input.documentId)
     if (!document) return statusProblem('not_found')
     if (document.workspaceId !== profile.workspaceId) return statusProblem('forbidden')
+
+    if (document.status === 'processing') {
+      await deps.finalizeProcessingDocument({
+        documentId: document.id,
+        routeContext: input.routeContext,
+      })
+      document = await deps.getDocument(input.documentId)
+      if (!document) return statusProblem('not_found')
+      if (document.workspaceId !== profile.workspaceId) return statusProblem('forbidden')
+    }
 
     return {
       ok: true,
@@ -113,8 +128,21 @@ function createDocumentStatusDependencies(): DocumentStatusDependencies {
   return {
     getUserProfile: getUserProfileForStatus,
     getDocument: getDocumentForStatus,
+    finalizeProcessingDocument,
     now: () => new Date(),
   }
+}
+
+async function finalizeProcessingDocument(input: {
+  documentId: string
+  routeContext: RouteContext
+}): Promise<void> {
+  await processTextractDocuments({
+    trigger: 'status',
+    limit: 1,
+    documentId: input.documentId,
+    routeContext: input.routeContext,
+  })
 }
 
 async function getUserProfileForStatus(userId: string): Promise<StatusProfile | null> {

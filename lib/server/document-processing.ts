@@ -25,7 +25,8 @@ export type ProcessingDocument = {
 export type ProcessTextractDocumentsInput = {
   now?: Date
   limit?: number
-  trigger: 'cron' | 'manual' | 'test'
+  documentId?: string
+  trigger: 'cron' | 'manual' | 'status' | 'test'
   routeContext?: RouteContext
 }
 
@@ -38,7 +39,10 @@ export type ProcessTextractDocumentsResult = {
 }
 
 export type DocumentProcessingDependencies = {
-  listProcessingDocuments: (input: { limit: number }) => Promise<ProcessingDocument[]>
+  listProcessingDocuments: (input: {
+    limit: number
+    documentId?: string
+  }) => Promise<ProcessingDocument[]>
   getTextractAnalysis: (input: { jobId: string }) => Promise<TextractOutput>
   storeParsedStatement: (input: {
     documentId: string
@@ -103,7 +107,9 @@ export async function processTextractDocuments(
   const nowIso = now.toISOString()
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
   const limit = input.limit ?? 25
-  const documents = await deps.listProcessingDocuments({ limit })
+  const documents = await deps.listProcessingDocuments(
+    input.documentId ? { limit, documentId: input.documentId } : { limit },
+  )
   let ready = 0
   let failed = 0
   let skipped = 0
@@ -201,13 +207,19 @@ function createDocumentProcessingDependencies(): DocumentProcessingDependencies 
   }
 }
 
-async function listProcessingDocuments(input: { limit: number }): Promise<ProcessingDocument[]> {
-  const { data, error } = await getProcessingStoreClient()
+async function listProcessingDocuments(input: {
+  limit: number
+  documentId?: string
+}): Promise<ProcessingDocument[]> {
+  let query = getProcessingStoreClient()
     .from('document')
     .select<ProcessingDocumentRow>('id, workspace_id, textract_job_id')
     .eq('status', 'processing')
     .is('deleted_at', null)
-    .limit(input.limit)
+
+  if (input.documentId) query = query.eq('id', input.documentId)
+
+  const { data, error } = await query.limit(input.limit)
 
   if (error) throw new Error('processing_document_read_failed')
 

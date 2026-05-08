@@ -567,6 +567,7 @@ function evidenceTimelineFor(
     Boolean(uploadCompletedAudit) ||
     Boolean(processingStartedAudit) ||
     Boolean(document.textractJobId) ||
+    document.state === 'verified' ||
     document.state === 'ready' ||
     Boolean(statement)
   const hasOcrStarted = Boolean(processingStartedAudit) || Boolean(document.textractJobId)
@@ -1627,7 +1628,7 @@ function matchesQueueFilter(
     case 'all':
       return true
     case 'processing':
-      return document.state === 'processing'
+      return document.state === 'verified' || document.state === 'processing'
     case 'ready':
       return document.state === 'ready'
     case 'failed':
@@ -1661,6 +1662,7 @@ function findFirstAuditEvent(
 
 function historyRowClass(state: DocumentState): string {
   switch (state) {
+    case 'verified':
     case 'processing':
       return 'bg-[color-mix(in_oklch,var(--info)_5%,transparent)]'
     case 'ready':
@@ -1679,6 +1681,7 @@ function queueSignal(
   isExpiringSoon: boolean,
 ): string {
   if (document.state === 'failed') return 'Action needed'
+  if (document.state === 'verified') return 'Storage verified'
   if (document.state === 'processing') return 'OCR running'
   if (isExpiringSoon) return 'Retention deadline near'
   if (document.state === 'ready') {
@@ -1690,6 +1693,7 @@ function queueSignal(
 
 function queueSignalClass(state: DocumentState): string {
   switch (state) {
+    case 'verified':
     case 'processing':
       return 'text-[var(--info)]'
     case 'ready':
@@ -1707,6 +1711,7 @@ function stateClass(state: DocumentState): string {
   switch (state) {
     case 'pending':
       return 'bg-[var(--surface-strong)] text-foreground/70'
+    case 'verified':
     case 'processing':
       return 'bg-[color-mix(in_oklch,var(--info)_16%,transparent)] text-[var(--info)]'
     case 'ready':

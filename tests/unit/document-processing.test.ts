@@ -176,6 +176,48 @@ describe('processTextractDocuments', () => {
       },
     })
   })
+
+  it('targets one processing document when status polling drives finalization', async () => {
+    const now = new Date('2026-05-06T22:55:00.000Z')
+    const deps = createDependencies()
+    const routeContext = {
+      requestId: 'req_status',
+      traceId: '0123456789abcdef0123456789abcdef',
+      pathname: '/api/v1/documents/doc_123/status',
+    }
+
+    const result = await processTextractDocuments(
+      {
+        now,
+        limit: 1,
+        documentId: 'doc_123',
+        trigger: 'status',
+        routeContext,
+      },
+      deps,
+    )
+
+    expect(result).toEqual({
+      status: 'ok',
+      polled: 1,
+      ready: 1,
+      failed: 0,
+      skipped: 0,
+    })
+    expect(deps.listProcessingDocuments).toHaveBeenCalledWith({
+      limit: 1,
+      documentId: 'doc_123',
+    })
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          trigger: 'status',
+          request_id: 'req_status',
+          trace_id: '0123456789abcdef0123456789abcdef',
+        }),
+      }),
+    )
+  })
 })
 
 function createDependencies(): DocumentProcessingDependencies {

@@ -4,7 +4,14 @@ import { requireAuthenticatedUser } from './route-auth'
 import { getServiceRoleClient } from './supabase'
 import type { Json } from '../shared/db-types'
 
-export const DOCUMENT_STATES = ['pending', 'processing', 'ready', 'failed', 'expired'] as const
+export const DOCUMENT_STATES = [
+  'pending',
+  'verified',
+  'processing',
+  'ready',
+  'failed',
+  'expired',
+] as const
 
 export type DocumentState = (typeof DOCUMENT_STATES)[number]
 
@@ -400,6 +407,8 @@ export function documentStateLabel(state: DocumentState): string {
   switch (state) {
     case 'pending':
       return 'Pending'
+    case 'verified':
+      return 'Verified'
     case 'processing':
       return 'Processing'
     case 'ready':

@@ -61,7 +61,7 @@ describe('UploadPage', () => {
       .mockResolvedValueOnce(
         jsonResponse({
           documentId: 'doc_123',
-          status: 'ready',
+          state: 'ready',
           request_id: 'req_status',
           trace_id: '0123456789abcdef0123456789abcdef',
         }),
