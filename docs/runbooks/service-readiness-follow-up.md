@@ -6,24 +6,28 @@ This runbook proves the production stack is operable, not merely deployed. It is
 
 ## Evidence Collection
 
-Run the archive command from a clean checkout on the service-readiness branch:
+Run the archive command from a clean checkout on the service-readiness branch. Prefer
+`vercel env run` for production checks so production environment variables stay in
+Vercel and are not written to `.env.local`:
 
 ```bash
-pnpm verify:service-readiness
+vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 
-For a complete run, provide an authenticated owner/admin ops session cookie without committing it:
+For a complete run, provide an authenticated owner/admin ops session cookie without
+committing it. `/api/ops/health` accepts the Supabase browser session cookie; bearer
+tokens are not a supported readiness-auth path.
 
 ```bash
 $env:OPS_HEALTH_COOKIE='<redacted browser cookie>'
-pnpm verify:service-readiness
+vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 
 The command archives sanitized JSON in `docs/evidence/service-readiness/`. It fails unless the archive proves Vercel, Supabase, Stripe, Cloudflare/DNS, Sentry, AWS/S3/Textract, Resend, and Redis. If a dashboard-only item remains, run:
 
 ```bash
 $env:SERVICE_READINESS_ALLOW_INCOMPLETE='1'
-pnpm verify:service-readiness
+vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 
 Only use incomplete mode for a handoff archive. The JSON must name an owner and next proof step for every exception.
@@ -42,7 +46,7 @@ To prove the checkout-to-credit path, complete a test checkout, then rerun with:
 
 ```bash
 $env:SERVICE_READINESS_STRIPE_CHECKOUT_SESSION_ID='cs_test_or_live_...'
-pnpm verify:service-readiness
+vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 
 The command retrieves the Checkout Session, resolves the workspace, and checks Supabase for the credit grant. Use the Stripe dashboard only to capture supplemental screenshots; the JSON archive is the acceptance record.
@@ -59,7 +63,7 @@ If DS is missing, enable DNSSEC in Cloudflare, copy the DS values to the registr
 
 ```powershell
 Resolve-DnsName prizmview.app -Type DS
-pnpm verify:service-readiness
+vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 
 The Cloudflare template at `infra/cloudflare/prizmview-app.zone` remains the repo-owned desired state. Live Cloudflare dashboard changes are not accepted until public DNS agrees.

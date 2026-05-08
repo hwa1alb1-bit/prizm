@@ -80,6 +80,18 @@ export type ServiceReadinessArchive = {
   result: ServiceReadinessResult
 }
 
+export type OpsHealthAuth =
+  | {
+      ok: true
+      headers: Record<string, string>
+    }
+  | {
+      ok: false
+      status: 'missing_auth' | 'unsupported_bearer_auth'
+    }
+
+type OpsHealthAuthEnv = Record<string, string | undefined>
+
 const providerLabels: Record<keyof ServiceReadinessEvidence['providers'], string> = {
   vercel: 'Vercel',
   supabase: 'Supabase',
@@ -167,6 +179,54 @@ export function evaluateServiceReadinessEvidence(
   }
 }
 
+export function createServiceReadinessProviders(input: {
+  opsHealth: ServiceReadinessEvidence['opsHealth']
+  // Diagnostic-only. Local smoke must never satisfy production provider proof.
+  localConnectorSmoke?: NonNullable<ServiceReadinessEvidence['liveConnectorSmoke']>
+  vercel: boolean
+  stripeWebhookRegistered: boolean
+  cloudflareDnsReady: boolean
+}): ServiceReadinessEvidence['providers'] {
+  const productionConnectors = input.opsHealth.authenticated ? input.opsHealth.connectors : []
+
+  return {
+    vercel: input.vercel,
+    supabase: connectorOk(productionConnectors, 'supabase'),
+    stripe: connectorOk(productionConnectors, 'stripe') && input.stripeWebhookRegistered,
+    cloudflareDns: input.cloudflareDnsReady,
+    sentry: connectorOk(productionConnectors, 'sentry'),
+    awsS3Textract:
+      connectorOk(productionConnectors, 's3') && connectorOk(productionConnectors, 'textract'),
+    resend: connectorOk(productionConnectors, 'resend'),
+    redis: connectorOk(productionConnectors, 'redis'),
+  }
+}
+
+export function resolveOpsHealthAuth(env: OpsHealthAuthEnv): OpsHealthAuth {
+  const cookie = env.OPS_HEALTH_COOKIE ?? env.SERVICE_READINESS_OPS_COOKIE
+  if (cookie) {
+    return {
+      ok: true,
+      headers: {
+        'cache-control': 'no-store',
+        cookie,
+      },
+    }
+  }
+
+  if (env.OPS_HEALTH_BEARER_TOKEN || env.SERVICE_READINESS_OPS_BEARER) {
+    return {
+      ok: false,
+      status: 'unsupported_bearer_auth',
+    }
+  }
+
+  return {
+    ok: false,
+    status: 'missing_auth',
+  }
+}
+
 export function createServiceReadinessArchive(input: {
   generatedAt?: string
   evidence: ServiceReadinessEvidence
@@ -196,6 +256,11 @@ function missingProviderEvidence(evidence: ServiceReadinessEvidence): string[] {
   return Object.entries(evidence.providers).flatMap(([key, present]) =>
     present ? [] : [providerLabels[key as keyof ServiceReadinessEvidence['providers']]],
   )
+}
+
+function connectorOk(connectors: ServiceReadinessConnector[], name: string): boolean {
+  const connector = connectors.find((candidate) => candidate.name === name)
+  return connector?.ok === true
 }
 
 function stripeWebhookRegistered(evidence: ServiceReadinessEvidence): boolean {

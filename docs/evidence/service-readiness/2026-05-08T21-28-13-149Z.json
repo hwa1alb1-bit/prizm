@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "branch": "Branch 4: service readiness",
+  "generatedAt": "2026-05-08T21:28:13.149Z",
+  "evidence": {
+    "opsHealth": {
+      "authenticated": false,
+      "status": "missing_auth",
+      "archivedAt": null,
+      "connectors": []
+    },
+    "liveConnectorSmoke": {
+      "status": "degraded",
+      "collectedAt": "2026-05-08T21:28:13.149Z",
+      "connectors": [
+        {
+          "name": "supabase",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "stripe",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "s3",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "textract",
+          "ok": false,
+          "required": true,
+          "errorCode": "connector_failed"
+        },
+        {
+          "name": "resend",
+          "ok": true,
+          "required": false
+        },
+        {
+          "name": "redis",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "sentry",
+          "ok": true,
+          "required": false
+        }
+      ]
+    },
+    "providers": {
+      "vercel": true,
+      "supabase": false,
+      "stripe": false,
+      "cloudflareDns": false,
+      "sentry": false,
+      "awsS3Textract": false,
+      "resend": false,
+      "redis": false
+    },
+    "stripe": {
+      "webhookEndpoint": {
+        "registered": true,
+        "url": "https://prizmview.app/api/v1/webhooks/stripe",
+        "subscribedEvents": [
+          "checkout.session.completed",
+          "customer.subscription.created",
+          "customer.subscription.updated",
+          "customer.subscription.deleted"
+        ],
+        "deliverySuccess": false
+      },
+      "customerPortal": {
+        "configured": true
+      },
+      "checkoutSubscriptionCreditGrant": {
+        "proven": false
+      }
+    },
+    "dns": {
+      "dnssecDsDelegated": false,
+      "cloudflareTemplateReconciled": true,
+      "drift": []
+    },
+    "github": {
+      "repoPublic": true,
+      "rulesetsConfigured": true,
+      "requiredStatusChecks": ["Lint, types, unit tests", "Playwright E2E"],
+      "dependabotConfigured": false,
+      "vulnerabilityAlertsEnabled": false,
+      "secretScanningEnabled": false,
+      "environmentsProtected": true
+    },
+    "dashboardOnlyItems": [
+      {
+        "area": "Ops health",
+        "item": "Authenticated production /api/ops/health response",
+        "owner": "Ops",
+        "nextProofStep": "Run this script with OPS_HEALTH_COOKIE from an owner/admin session and archive the resulting JSON."
+      },
+      {
+        "area": "AWS/Textract",
+        "item": "Textract live connector smoke failed with connector_failed",
+        "owner": "AWS admin",
+        "nextProofStep": "Run authenticated /api/ops/health from Vercel production and, if Textract still fails, verify Textract service access in the AWS account and region."
+      },
+      {
+        "area": "Stripe",
+        "item": "Webhook delivery success for subscribed billing events",
+        "owner": "Ops",
+        "nextProofStep": "Complete or replay a required billing event in Stripe, confirm delivery_success=true, then rerun the service readiness archive."
+      },
+      {
+        "area": "Stripe",
+        "item": "Checkout-to-subscription-to-credit-grant path",
+        "owner": "Ops",
+        "nextProofStep": "Complete a test checkout, pass SERVICE_READINESS_STRIPE_CHECKOUT_SESSION_ID, and confirm a subscription_grant credit ledger row."
+      },
+      {
+        "area": "Cloudflare/DNS",
+        "item": "DNSSEC DS delegation",
+        "owner": "Domain admin",
+        "nextProofStep": "Copy Cloudflare DNSSEC DS values to the registrar, then rerun Resolve-DnsName prizmview.app -Type DS."
+      }
+    ]
+  },
+  "result": {
+    "ok": false,
+    "failures": [
+      "Authenticated /api/ops/health evidence has not been archived.",
+      "Production provider evidence is missing for Supabase, Stripe, Cloudflare/DNS, Sentry, AWS/S3/Textract, Resend, Redis.",
+      "Stripe webhook delivery success has not been proven.",
+      "Checkout-to-subscription-to-credit-grant evidence has not been proven.",
+      "DNSSEC DS delegation is not visible in public DNS.",
+      "Dependabot/security alert controls are incomplete."
+    ]
+  }
+}
