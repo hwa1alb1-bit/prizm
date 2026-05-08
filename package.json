@@ -24,6 +24,7 @@
     "test:connectors:live": "tsx --conditions react-server scripts/smoke-live-connectors.ts",
     "check:launch-gates": "tsx --conditions react-server scripts/check-launch-gates.ts",
     "verify:release": "tsx --conditions react-server scripts/verify-release.ts",
+    "verify:service-readiness": "tsx --conditions react-server scripts/archive-service-readiness.ts",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "verify:full": "pnpm verify && pnpm test:e2e && pnpm test:connectors:live",
     "seed:stripe": "node --env-file=.env.local --import tsx scripts/seed-stripe.ts"
