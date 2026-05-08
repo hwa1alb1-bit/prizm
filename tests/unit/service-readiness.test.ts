@@ -149,6 +149,41 @@ describe('service readiness evidence', () => {
     })
   })
 
+  it('archives authenticated degraded ops health while keeping failed connector evidence', () => {
+    const opsHealth: ServiceReadinessEvidence['opsHealth'] = {
+      authenticated: true,
+      status: 'degraded',
+      archivedAt: '2026-05-08T23:43:13.174Z',
+      connectors: [
+        { name: 'supabase', ok: true, required: true },
+        { name: 'stripe', ok: true, required: true },
+        { name: 's3', ok: true, required: true },
+        { name: 'textract', ok: false, required: true, errorCode: 'connector_failed' },
+        { name: 'resend', ok: true, required: false },
+        { name: 'redis', ok: true, required: true },
+        { name: 'sentry', ok: true, required: false },
+      ],
+    }
+    const evidence = readyEvidence({
+      opsHealth,
+      providers: createServiceReadinessProviders({
+        opsHealth,
+        vercel: true,
+        stripeWebhookRegistered: true,
+        cloudflareDnsReady: true,
+      }),
+    })
+
+    const result = evaluateServiceReadinessEvidence(evidence)
+
+    expect(result.failures).not.toContain(
+      'Authenticated /api/ops/health evidence has not been archived.',
+    )
+    expect(result.failures).toContain(
+      'Production provider evidence is missing for AWS/S3/Textract.',
+    )
+  })
+
   it('keeps ops health readiness auth cookie-only', () => {
     expect(
       resolveOpsHealthAuth({
