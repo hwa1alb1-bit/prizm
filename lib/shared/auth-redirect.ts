@@ -21,3 +21,9 @@ export function buildAuthCallbackUrl({
 
   return callbackUrl.toString()
 }
+
+export function normalizeAuthNextPath(next: string | null | undefined): string | undefined {
+  const trimmed = next?.trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) return undefined
+  return trimmed
+}

@@ -1,12 +1,11 @@
 import 'server-only'
 
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BillingPlan, BillingSummary, SubscriptionStatus } from '@/lib/shared/billing'
-import type { Database } from '@/lib/shared/db-types'
+import { serverEnv } from '@/lib/shared/env'
+import { getServiceRoleClient } from '@/lib/server/supabase'
 import { getPlanAllowance } from './plan'
 
 type BillingSummaryInput = {
-  supabase: SupabaseClient<Database>
   userId: string
 }
 
@@ -53,7 +52,7 @@ type SubscriptionRow = {
 export async function getBillingSummaryForUser(
   input: BillingSummaryInput,
 ): Promise<BillingSummary> {
-  const client = input.supabase as unknown as BillingSummaryClient
+  const client = getServiceRoleClient() as unknown as BillingSummaryClient
   const profile = await client
     .from('user_profile')
     .select('workspace_id')
@@ -94,6 +93,8 @@ export function buildBillingSummary(
 ): BillingSummary {
   const plan = normalizePlan(subscription?.plan)
   const allowance = getPlanAllowance(plan)
+  const creditBalance = latestCreditBalance ?? allowance.monthlyCredits
+  const usedCredits = Math.max(0, allowance.monthlyCredits - creditBalance)
 
   return {
     plan,
@@ -102,8 +103,13 @@ export function buildBillingSummary(
       subscription?.billing_cycle === 'annual' || subscription?.billing_cycle === 'monthly'
         ? subscription.billing_cycle
         : null,
-    creditBalance: latestCreditBalance ?? allowance.monthlyCredits,
+    creditBalance,
     monthlyCredits: allowance.monthlyCredits,
+    usedCredits,
+    overageAllowed: allowance.overageAllowed,
+    overageMeterConfigured: Boolean(
+      serverEnv.STRIPE_METER_OVERAGE && serverEnv.STRIPE_PRICE_OVERAGE_PAGE,
+    ),
     currentPeriodEnd: subscription?.current_period_end ?? null,
     cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
     hasStripeCustomer: Boolean(subscription?.stripe_customer_id),

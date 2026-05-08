@@ -4,12 +4,13 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { recordAuditEvent } from '@/lib/server/audit'
 import { applyRouteHeaders, createRouteContext, getClientIp } from '@/lib/server/http'
+import { normalizeAuthNextPath } from '@/lib/shared/auth-redirect'
 
 export async function GET(request: NextRequest) {
   const context = createRouteContext(request)
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/app'
+  const next = normalizeAuthNextPath(searchParams.get('next')) ?? '/app'
 
   if (code) {
     const cookieStore = await cookies()

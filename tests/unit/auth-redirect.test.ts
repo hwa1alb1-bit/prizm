@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildAuthCallbackUrl, normalizeSiteUrl } from '@/lib/shared/auth-redirect'
+import {
+  buildAuthCallbackUrl,
+  normalizeAuthNextPath,
+  normalizeSiteUrl,
+} from '@/lib/shared/auth-redirect'
 
 describe('auth redirect URLs', () => {
   it('uses the configured production site URL over the browser origin', () => {
@@ -25,5 +29,13 @@ describe('auth redirect URLs', () => {
         next: '/ops',
       }),
     ).toBe('https://prizmview.app/auth/callback?next=%2Fops')
+  })
+
+  it('accepts only local absolute paths as auth next targets', () => {
+    expect(normalizeAuthNextPath('/app/billing')).toBe('/app/billing')
+    expect(normalizeAuthNextPath(' /app/settings ')).toBe('/app/settings')
+    expect(normalizeAuthNextPath('https://evil.example')).toBeUndefined()
+    expect(normalizeAuthNextPath('//evil.example')).toBeUndefined()
+    expect(normalizeAuthNextPath(null)).toBeUndefined()
   })
 })

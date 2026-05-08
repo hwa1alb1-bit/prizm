@@ -8,6 +8,9 @@ export type BillingSummary = {
   billingCycle: 'monthly' | 'annual' | null
   creditBalance: number
   monthlyCredits: number
+  usedCredits: number
+  overageAllowed: boolean
+  overageMeterConfigured: boolean
   currentPeriodEnd: string | null
   cancelAtPeriodEnd: boolean
   hasStripeCustomer: boolean
