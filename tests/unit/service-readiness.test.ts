@@ -183,6 +183,27 @@ describe('service readiness evidence', () => {
     expect(result.failures).toContain(
       'Production provider evidence is missing for AWS/S3/Textract.',
     )
+
+    const dashboardOnlyItems = createServiceReadinessDashboardOnlyItems({
+      opsHealth,
+      liveConnectorSmoke: {
+        status: 'ok',
+        collectedAt: '2026-05-08T23:43:13.174Z',
+        connectors: [],
+      },
+      providers: evidence.providers,
+      stripe: evidence.stripe,
+      dnsEvidence: evidence.dns,
+      github: evidence.github,
+    })
+
+    expect(dashboardOnlyItems).toContainEqual({
+      area: 'AWS/Textract',
+      item: 'Textract provider proof failed with connector_failed',
+      owner: 'AWS admin',
+      nextProofStep:
+        'Run authenticated /api/ops/health from Vercel production and, if Textract still fails, verify Textract service access in the AWS account and region.',
+    })
   })
 
   it('keeps ops health readiness auth cookie-only', () => {

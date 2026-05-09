@@ -233,7 +233,7 @@ export function createServiceReadinessDashboardOnlyItems(input: {
       item: subscriptionRequired
         ? 'Textract service subscription is not enabled for the production AWS account/role'
         : textract?.errorCode
-          ? `Textract live connector smoke failed with ${textract.errorCode}`
+          ? `Textract provider proof failed with ${textract.errorCode}`
           : 'S3 and Textract deep provider proof',
       owner: 'AWS admin',
       nextProofStep: subscriptionRequired
