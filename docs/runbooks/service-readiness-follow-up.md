@@ -51,6 +51,29 @@ vercel env run -e production --scope plknokos-projects -- pnpm verify:service-re
 
 The command retrieves the Checkout Session, resolves the workspace, and checks Supabase for the credit grant. Use the Stripe dashboard only to capture supplemental screenshots; the JSON archive is the acceptance record.
 
+## AWS Textract Subscription
+
+Required proof:
+
+- Production `/api/ops/health` reports both `s3` and `textract` as healthy.
+- S3 bucket access, AWS credentials, and `AWS_REGION=us-east-1` are proven separately from Textract service entitlement.
+- A Textract failure with `connector_subscription_required` means the production AWS account/role has not been enabled or subscribed for Textract in `us-east-1`; do not treat this as a generic IAM or S3 failure.
+
+Use the local AWS CLI to prove the remaining Textract action after signing in with the production account or role:
+
+```powershell
+aws sts get-caller-identity --region us-east-1
+aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe
+```
+
+The expected healthy proof is an AWS Textract response that reaches the service, usually an invalid-job response for `prizm-health-probe`. If the CLI returns `The AWS Access Key Id needs a subscription for the service.`, enable or subscribe AWS Textract for the production AWS account/role in `us-east-1`, then rerun:
+
+```powershell
+aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe
+$env:OPS_HEALTH_COOKIE='<redacted browser cookie>'
+vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
+```
+
 ## DNSSEC And Cloudflare
 
 Required proof:

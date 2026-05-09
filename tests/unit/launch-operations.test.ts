@@ -112,12 +112,17 @@ describe('launch operations controls', () => {
     for (const section of [
       '## Evidence Collection',
       '## Stripe Proof',
+      '## AWS Textract Subscription',
       '## DNSSEC And Cloudflare',
       '## GitHub Governance',
       '## Dashboard-Only Exceptions',
     ]) {
       expect(runbook).toContain(section)
     }
+    expect(runbook).toContain('connector_subscription_required')
+    expect(runbook).toContain(
+      'aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe',
+    )
 
     const evidenceReadme = readFileSync(evidenceReadmePath, 'utf8')
     expect(evidenceReadme).toContain('Branch 4: service readiness')
