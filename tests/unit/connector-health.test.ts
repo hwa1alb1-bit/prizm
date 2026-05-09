@@ -75,4 +75,34 @@ describe('connector health module', () => {
       ],
     })
   })
+
+  it('classifies AWS service subscription failures separately from generic connector failures', async () => {
+    const snapshot = await collectConnectorHealthSnapshot(
+      [
+        {
+          name: 'textract',
+          required: true,
+          config: () => ({ ok: true }),
+          auth: () => ({
+            ok: false,
+            error: 'The AWS Access Key Id needs a subscription for the service.',
+          }),
+        },
+      ],
+      { deep: true, includeErrorCodes: true },
+    )
+
+    expect(snapshot).toMatchObject({
+      status: 'degraded',
+      httpStatus: 503,
+      connectors: [
+        {
+          name: 'textract',
+          ok: false,
+          required: true,
+          errorCode: 'connector_subscription_required',
+        },
+      ],
+    })
+  })
 })

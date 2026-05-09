@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import {
+  createServiceReadinessDashboardOnlyItems,
   createServiceReadinessArchive,
   createServiceReadinessProviders,
   resolveOpsHealthAuth,
@@ -101,7 +102,7 @@ async function collectServiceReadinessEvidence(
     stripe,
     dns: dnsEvidence,
     github,
-    dashboardOnlyItems: dashboardOnlyItemsFromEvidence({
+    dashboardOnlyItems: createServiceReadinessDashboardOnlyItems({
       opsHealth,
       liveConnectorSmoke,
       providers,
@@ -470,94 +471,6 @@ async function hydrateRulesets(
       return ghJson<JsonRecord>(`repos/${repo}/rulesets/${ruleset.id}`).catch(() => ruleset)
     }),
   )
-}
-
-function dashboardOnlyItemsFromEvidence(input: {
-  opsHealth: ServiceReadinessEvidence['opsHealth']
-  liveConnectorSmoke: NonNullable<ServiceReadinessEvidence['liveConnectorSmoke']>
-  providers: ServiceReadinessEvidence['providers']
-  stripe: ServiceReadinessEvidence['stripe']
-  dnsEvidence: ServiceReadinessEvidence['dns']
-  github: ServiceReadinessEvidence['github']
-}): ServiceReadinessEvidence['dashboardOnlyItems'] {
-  const items: ServiceReadinessEvidence['dashboardOnlyItems'] = []
-
-  if (!input.opsHealth.authenticated) {
-    items.push({
-      area: 'Ops health',
-      item: 'Authenticated production /api/ops/health response',
-      owner: 'Ops',
-      nextProofStep:
-        'Run this script with OPS_HEALTH_COOKIE from an owner/admin session and archive the resulting JSON.',
-    })
-  }
-
-  if (!input.providers.awsS3Textract) {
-    const textract = input.liveConnectorSmoke.connectors.find(
-      (connector) => connector.name === 'textract',
-    )
-    items.push({
-      area: 'AWS/Textract',
-      item: textract?.errorCode
-        ? `Textract live connector smoke failed with ${textract.errorCode}`
-        : 'S3 and Textract deep provider proof',
-      owner: 'AWS admin',
-      nextProofStep:
-        'Run authenticated /api/ops/health from Vercel production and, if Textract still fails, verify Textract service access in the AWS account and region.',
-    })
-  }
-
-  if (!input.stripe.webhookEndpoint.deliverySuccess) {
-    items.push({
-      area: 'Stripe',
-      item: 'Webhook delivery success for subscribed billing events',
-      owner: 'Ops',
-      nextProofStep:
-        'Complete or replay a required billing event in Stripe, confirm delivery_success=true, then rerun the service readiness archive.',
-    })
-  }
-
-  if (!input.stripe.checkoutSubscriptionCreditGrant.proven) {
-    items.push({
-      area: 'Stripe',
-      item: 'Checkout-to-subscription-to-credit-grant path',
-      owner: 'Ops',
-      nextProofStep:
-        'Complete a test checkout, pass SERVICE_READINESS_STRIPE_CHECKOUT_SESSION_ID, and confirm a subscription_grant credit ledger row.',
-    })
-  }
-
-  if (!input.dnsEvidence.cloudflareTemplateReconciled) {
-    items.push({
-      area: 'Cloudflare/DNS',
-      item: `Zone template drift: ${input.dnsEvidence.drift.join('; ') || 'unresolved drift'}`,
-      owner: 'Domain admin',
-      nextProofStep:
-        'Replace placeholder DKIM values from Resend, import or update Cloudflare DNS, and rerun the reconciliation.',
-    })
-  }
-
-  if (!input.dnsEvidence.dnssecDsDelegated) {
-    items.push({
-      area: 'Cloudflare/DNS',
-      item: 'DNSSEC DS delegation',
-      owner: 'Domain admin',
-      nextProofStep:
-        'Copy Cloudflare DNSSEC DS values to the registrar, then rerun Resolve-DnsName prizmview.app -Type DS.',
-    })
-  }
-
-  if (!input.github.environmentsProtected) {
-    items.push({
-      area: 'GitHub',
-      item: 'Production environment protection',
-      owner: 'Repo admin',
-      nextProofStep:
-        'Verify the production environment requires protected branches or reviewers, then rerun the governance check.',
-    })
-  }
-
-  return items
 }
 
 function normalizeConnector(value: unknown): ServiceReadinessConnector {

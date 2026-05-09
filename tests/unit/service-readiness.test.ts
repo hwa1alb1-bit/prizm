@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createServiceReadinessDashboardOnlyItems,
   createServiceReadinessArchive,
   createServiceReadinessProviders,
   evaluateServiceReadinessEvidence,
@@ -205,6 +206,54 @@ describe('service readiness evidence', () => {
         'cache-control': 'no-store',
         cookie: 'session=abc',
       },
+    })
+  })
+
+  it('records the AWS Textract subscription action when the production role is not subscribed', () => {
+    const opsHealth: ServiceReadinessEvidence['opsHealth'] = {
+      authenticated: true,
+      status: 'degraded',
+      archivedAt: '2026-05-08T23:43:13.174Z',
+      connectors: [
+        { name: 'supabase', ok: true, required: true },
+        { name: 'stripe', ok: true, required: true },
+        { name: 's3', ok: true, required: true },
+        {
+          name: 'textract',
+          ok: false,
+          required: true,
+          errorCode: 'connector_subscription_required',
+        },
+        { name: 'resend', ok: true, required: false },
+        { name: 'redis', ok: true, required: true },
+        { name: 'sentry', ok: true, required: false },
+      ],
+    }
+
+    const items = createServiceReadinessDashboardOnlyItems({
+      opsHealth,
+      liveConnectorSmoke: {
+        status: 'degraded',
+        collectedAt: '2026-05-08T23:43:13.174Z',
+        connectors: [],
+      },
+      providers: createServiceReadinessProviders({
+        opsHealth,
+        vercel: true,
+        stripeWebhookRegistered: true,
+        cloudflareDnsReady: true,
+      }),
+      stripe: readyEvidence().stripe,
+      dnsEvidence: readyEvidence().dns,
+      github: readyEvidence().github,
+    })
+
+    expect(items).toContainEqual({
+      area: 'AWS/Textract',
+      item: 'Textract service subscription is not enabled for the production AWS account/role',
+      owner: 'AWS admin',
+      nextProofStep:
+        'Enable or subscribe AWS Textract for the production AWS account/role in us-east-1, then run `aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe` and rerun authenticated /api/ops/health from Vercel production.',
     })
   })
 })

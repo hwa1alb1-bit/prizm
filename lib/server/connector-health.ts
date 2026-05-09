@@ -93,5 +93,8 @@ function classifyHealthError(error: string | undefined): string {
   ) {
     return 'connector_auth_failed'
   }
+  if (normalized.includes('needs a subscription for the service')) {
+    return 'connector_subscription_required'
+  }
   return 'connector_failed'
 }
