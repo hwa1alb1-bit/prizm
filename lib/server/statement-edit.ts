@@ -360,7 +360,7 @@ export async function applyStatementEdit(
 }
 
 function applyOperations(transactions: Json[], operations: StatementEditOperation[]): Json[] {
-  let next = [...transactions]
+  let next = transactions.map((row, index) => normalizePersistedTransaction(row, index))
 
   for (const operation of operations) {
     if (operation.type === 'add') {
@@ -381,6 +381,11 @@ function applyOperations(transactions: Json[], operations: StatementEditOperatio
   }
 
   return next
+}
+
+function normalizePersistedTransaction(row: Json, index: number): Json {
+  const object = objectRow(row)
+  return normalizeTransaction((object ?? {}) as EditableTransactionRow, index)
 }
 
 function applyStatementPatch(
