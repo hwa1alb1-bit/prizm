@@ -4,11 +4,13 @@ import { GetDocumentAnalysisCommand, StartDocumentAnalysisCommand } from '@aws-s
 import {
   parseTextractStatement,
   type ParsedStatement,
+  type ParsedStatementTransaction,
   type TextractOutput,
 } from './statement-parser'
 import { getTextractClient } from './textract'
 
 export const DEFAULT_EXTRACTION_ENGINE = 'textract'
+export const KOTLIN_WORKER_EXTRACTION_ENGINE = 'kotlin_worker'
 
 export type ExtractionStartInput = {
   documentId: string
@@ -50,8 +52,67 @@ export type ExtractionEngine = {
   poll: (input: ExtractionPollInput) => Promise<ExtractionPollResult>
 }
 
-export function createDefaultExtractionEngine(): ExtractionEngine {
+export type KotlinWorkerClient = {
+  start: (input: ExtractionStartInput) => Promise<{ jobId: string }>
+  poll: (input: ExtractionPollInput) => Promise<unknown>
+}
+
+export type ExtractionEngineEnv = {
+  NODE_ENV?: string
+  VERCEL_ENV?: string
+  PRIZM_EXTRACTION_ENGINE?: string
+  KOTLIN_WORKER_URL?: string
+  KOTLIN_WORKER_API_KEY?: string
+}
+
+export type CreateDefaultExtractionEngineInput = {
+  env?: ExtractionEngineEnv
+  kotlinWorker?: KotlinWorkerClient
+}
+
+export type CreateExtractionEngineByNameInput = {
+  kotlinWorker?: KotlinWorkerClient
+}
+
+export function createDefaultExtractionEngine(
+  input: CreateDefaultExtractionEngineInput = {},
+): ExtractionEngine {
+  if (resolveDefaultExtractionEngineName(input.env) === KOTLIN_WORKER_EXTRACTION_ENGINE) {
+    return createKotlinWorkerExtractionEngine({
+      worker: input.kotlinWorker ?? createHttpKotlinWorkerClient(input.env),
+    })
+  }
+
   return createTextractExtractionEngine()
+}
+
+export function resolveDefaultExtractionEngineName(
+  env: ExtractionEngineEnv = process.env,
+): typeof DEFAULT_EXTRACTION_ENGINE | typeof KOTLIN_WORKER_EXTRACTION_ENGINE {
+  if (
+    env.PRIZM_EXTRACTION_ENGINE === KOTLIN_WORKER_EXTRACTION_ENGINE &&
+    !isProductionExtractionTarget(env)
+  ) {
+    return KOTLIN_WORKER_EXTRACTION_ENGINE
+  }
+
+  return DEFAULT_EXTRACTION_ENGINE
+}
+
+function isProductionExtractionTarget(env: ExtractionEngineEnv): boolean {
+  if (env.VERCEL_ENV) return env.VERCEL_ENV === 'production'
+  return env.NODE_ENV === 'production'
+}
+
+export function createExtractionEngineByName(
+  name: string,
+  input: CreateExtractionEngineByNameInput = {},
+): ExtractionEngine | null {
+  if (name === DEFAULT_EXTRACTION_ENGINE) return createTextractExtractionEngine()
+  if (name === KOTLIN_WORKER_EXTRACTION_ENGINE) {
+    return createKotlinWorkerExtractionEngine({ worker: input.kotlinWorker })
+  }
+  return null
 }
 
 export function createTextractExtractionEngine(): ExtractionEngine {
@@ -59,6 +120,27 @@ export function createTextractExtractionEngine(): ExtractionEngine {
     name: DEFAULT_EXTRACTION_ENGINE,
     start: startTextractExtraction,
     poll: pollTextractExtraction,
+  }
+}
+
+export function createKotlinWorkerExtractionEngine(
+  input: { worker?: KotlinWorkerClient } = {},
+): ExtractionEngine {
+  const worker = input.worker ?? createHttpKotlinWorkerClient()
+
+  return {
+    name: KOTLIN_WORKER_EXTRACTION_ENGINE,
+    start: async (startInput) => {
+      const result = await worker.start(startInput)
+      return {
+        engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+        jobId: result.jobId,
+      }
+    },
+    poll: async (pollInput) => {
+      const result = await worker.poll(pollInput)
+      return normalizeKotlinWorkerPollResult(pollInput, result)
+    },
   }
 }
 
@@ -143,4 +225,254 @@ async function getTextractAnalysis(input: { jobId: string }): Promise<TextractOu
 
 function textractClientToken(documentId: string): string {
   return documentId.replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 64)
+}
+
+function createHttpKotlinWorkerClient(
+  env: ExtractionEngineEnv = process.env,
+  fetchImpl: typeof fetch = fetch,
+): KotlinWorkerClient {
+  return {
+    start: async (input) => {
+      const output = await requestKotlinWorker(env, fetchImpl, '/v1/extractions', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+
+      if (!isRecord(output) || typeof output.jobId !== 'string') {
+        throw new Error('kotlin_worker_job_id_missing')
+      }
+
+      return { jobId: output.jobId }
+    },
+    poll: async (input) =>
+      requestKotlinWorker(env, fetchImpl, `/v1/extractions/${encodeURIComponent(input.jobId)}`, {
+        method: 'GET',
+      }),
+  }
+}
+
+async function requestKotlinWorker(
+  env: ExtractionEngineEnv,
+  fetchImpl: typeof fetch,
+  path: string,
+  init: RequestInit,
+): Promise<unknown> {
+  if (!env.KOTLIN_WORKER_URL) throw new Error('kotlin_worker_url_missing')
+
+  const response = await fetchImpl(new URL(path, withTrailingSlash(env.KOTLIN_WORKER_URL)), {
+    ...init,
+    headers: {
+      'content-type': 'application/json',
+      ...(env.KOTLIN_WORKER_API_KEY
+        ? { authorization: `Bearer ${env.KOTLIN_WORKER_API_KEY}` }
+        : {}),
+      ...init.headers,
+    },
+  })
+
+  if (!response.ok) throw new Error(`kotlin_worker_http_${response.status}`)
+  return response.json()
+}
+
+function withTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value : `${value}/`
+}
+
+function normalizeKotlinWorkerPollResult(
+  input: ExtractionPollInput,
+  output: unknown,
+): ExtractionPollResult {
+  if (!isRecord(output)) return invalidKotlinWorkerOutput(input)
+
+  if (output.status === 'in_progress') {
+    return {
+      status: 'in_progress',
+      engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+      jobId: input.jobId,
+    }
+  }
+
+  if (output.status === 'failed') {
+    return {
+      status: 'failed',
+      engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+      jobId: input.jobId,
+      failureReason:
+        typeof output.failureReason === 'string'
+          ? output.failureReason
+          : 'Kotlin worker extraction failed.',
+    }
+  }
+
+  if (output.status !== 'succeeded' || !Array.isArray(output.statements)) {
+    return invalidKotlinWorkerOutput(input)
+  }
+
+  const statements = output.statements.map((statement) => normalizeParsedStatement(statement))
+  if (statements.some((statement) => statement === null)) return invalidKotlinWorkerOutput(input)
+
+  return {
+    status: 'succeeded',
+    engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+    jobId: typeof output.jobId === 'string' ? output.jobId : input.jobId,
+    statements: statements.filter(isParsedStatement),
+  }
+}
+
+function invalidKotlinWorkerOutput(input: ExtractionPollInput): ExtractionPollResult {
+  return {
+    status: 'failed',
+    engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+    jobId: input.jobId,
+    failureReason: 'Kotlin worker returned invalid normalized statement data.',
+  }
+}
+
+function normalizeParsedStatement(input: unknown): ParsedStatement | null {
+  if (!isRecord(input)) return null
+  if (input.statementType !== 'bank' && input.statementType !== 'credit_card') return null
+  if (!isNullableString(input.bankName)) return null
+  if (!isNullableString(input.accountLast4)) return null
+  if (!isNullableString(input.periodStart)) return null
+  if (!isNullableString(input.periodEnd)) return null
+  if (!isNullableNumber(input.openingBalance)) return null
+  if (!isNullableNumber(input.closingBalance)) return null
+  if (!isNullableNumber(input.reportedTotal)) return null
+  if (!isFiniteNumber(input.computedTotal)) return null
+  if (typeof input.reconciles !== 'boolean') return null
+  if (typeof input.ready !== 'boolean') return null
+  if (!isConfidence(input.confidence)) return null
+  if (!isStringArray(input.reviewFlags)) return null
+  if (!isMetadata(input.metadata)) return null
+  if (!Array.isArray(input.transactions)) return null
+
+  const transactions = input.transactions.map((transaction) => normalizeTransaction(transaction))
+  if (transactions.some((transaction) => transaction === null)) return null
+
+  return {
+    statementType: input.statementType,
+    bankName: input.bankName,
+    accountLast4: input.accountLast4,
+    periodStart: input.periodStart,
+    periodEnd: input.periodEnd,
+    openingBalance: input.openingBalance,
+    closingBalance: input.closingBalance,
+    reportedTotal: input.reportedTotal,
+    computedTotal: input.computedTotal,
+    reconciles: input.reconciles,
+    ready: input.ready,
+    confidence: input.confidence,
+    reviewFlags: input.reviewFlags,
+    metadata: input.metadata,
+    transactions: transactions.filter(isParsedStatementTransaction),
+  }
+}
+
+function normalizeTransaction(input: unknown): ParsedStatementTransaction | null {
+  if (!isRecord(input)) return null
+  if (typeof input.date !== 'string') return null
+  if (typeof input.description !== 'string') return null
+  if (!isFiniteNumber(input.amount)) return null
+  if (!isFiniteNumber(input.confidence)) return null
+
+  const transaction: ParsedStatementTransaction & Record<string, unknown> = {
+    date: input.date,
+    description: input.description,
+    amount: input.amount,
+    confidence: input.confidence,
+  }
+
+  copyOptionalNumber(transaction, input, 'debit')
+  copyOptionalNumber(transaction, input, 'credit')
+  copyOptionalNumber(transaction, input, 'balance')
+  copyOptionalString(transaction, input, 'source')
+  copyOptionalString(transaction, input, 'transaction_date')
+  copyOptionalString(transaction, input, 'merchant')
+  copyOptionalString(transaction, input, 'category')
+  copyOptionalString(transaction, input, 'statement_section')
+  copyOptionalString(transaction, input, 'reference')
+  copyOptionalBoolean(transaction, input, 'needs_review')
+  copyOptionalString(transaction, input, 'review_reason')
+
+  return transaction
+}
+
+function copyOptionalNumber(
+  target: Record<string, unknown>,
+  input: Record<string, unknown>,
+  key: string,
+): void {
+  const value = input[key]
+  if (typeof value === 'undefined') return
+  if (isFiniteNumber(value)) target[key] = value
+}
+
+function copyOptionalString(
+  target: Record<string, unknown>,
+  input: Record<string, unknown>,
+  key: string,
+): void {
+  const value = input[key]
+  if (typeof value === 'undefined') return
+  if (typeof value === 'string') target[key] = value
+}
+
+function copyOptionalBoolean(
+  target: Record<string, unknown>,
+  input: Record<string, unknown>,
+  key: string,
+): void {
+  const value = input[key]
+  if (typeof value === 'undefined') return
+  if (typeof value === 'boolean') target[key] = value
+}
+
+function isConfidence(value: unknown): value is ParsedStatement['confidence'] {
+  if (!isRecord(value)) return false
+  return (
+    isFiniteNumber(value.overall) &&
+    isFiniteNumber(value.fields) &&
+    isFiniteNumber(value.transactions)
+  )
+}
+
+function isMetadata(value: unknown): value is ParsedStatement['metadata'] {
+  if (!isRecord(value)) return false
+  return Object.values(value).every(
+    (entry) =>
+      entry === null ||
+      typeof entry === 'string' ||
+      typeof entry === 'number' ||
+      typeof entry === 'boolean',
+  )
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+}
+
+function isParsedStatement(value: ParsedStatement | null): value is ParsedStatement {
+  return value !== null
+}
+
+function isParsedStatementTransaction(
+  value: ParsedStatementTransaction | null,
+): value is ParsedStatementTransaction {
+  return value !== null
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string'
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || isFiniteNumber(value)
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }

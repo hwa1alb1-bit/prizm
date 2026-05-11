@@ -1,0 +1,56 @@
+{
+  "status": "succeeded",
+  "jobId": "worker_card_123",
+  "statements": [
+    {
+      "statementType": "credit_card",
+      "bankName": "PRIZM Rewards Visa",
+      "accountLast4": "9876",
+      "periodStart": "2026-04-01",
+      "periodEnd": "2026-04-30",
+      "openingBalance": 125.5,
+      "closingBalance": 490.25,
+      "reportedTotal": 364.75,
+      "computedTotal": 364.75,
+      "reconciles": true,
+      "ready": true,
+      "confidence": {
+        "overall": 0.97,
+        "fields": 0.98,
+        "transactions": 0.95
+      },
+      "reviewFlags": [],
+      "metadata": {
+        "issuer": "PRIZM Rewards Visa",
+        "paymentDueDate": "2026-05-25",
+        "minimumPaymentDue": 35,
+        "previousBalance": 125.5,
+        "newBalance": 490.25
+      },
+      "transactions": [
+        {
+          "date": "2026-04-05",
+          "transaction_date": "2026-04-05",
+          "description": "Grocery Market",
+          "merchant": "Grocery Market",
+          "amount": -414.75,
+          "debit": 414.75,
+          "statement_section": "Purchases",
+          "confidence": 0.95,
+          "source": "kotlin_worker"
+        },
+        {
+          "date": "2026-04-20",
+          "transaction_date": "2026-04-20",
+          "description": "Payment Thank You",
+          "merchant": "Payment Thank You",
+          "amount": 50,
+          "credit": 50,
+          "statement_section": "Payments and Credits",
+          "confidence": 0.96,
+          "source": "kotlin_worker"
+        }
+      ]
+    }
+  ]
+}
