@@ -35,6 +35,7 @@ describe('documents status route', () => {
       state: 'processing',
       extractionEngine: 'textract',
       extractionJobId: 'textract_job_123',
+      textractJobId: 'textract_job_123',
       chargeStatus: 'reserved',
       duplicate: { isDuplicate: false },
       retention: {
@@ -68,6 +69,7 @@ describe('documents status route', () => {
       state: 'processing',
       extractionEngine: 'textract',
       extractionJobId: 'textract_job_123',
+      textractJobId: 'textract_job_123',
       chargeStatus: 'reserved',
       duplicate: { isDuplicate: false },
       retention: {

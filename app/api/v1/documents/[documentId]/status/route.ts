@@ -45,6 +45,7 @@ export async function GET(
       state: result.state,
       extractionEngine: result.extractionEngine,
       extractionJobId: result.extractionJobId,
+      textractJobId: result.textractJobId,
       chargeStatus: result.chargeStatus,
       duplicate: result.duplicate,
       retention: result.retention,
