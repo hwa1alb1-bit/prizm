@@ -43,19 +43,71 @@ describe('getDocumentStatus', () => {
       state: 'ready',
       extractionEngine: 'textract',
       extractionJobId: 'textract_job_123',
+      textractJobId: 'textract_job_123',
       requestId: 'req_status',
       traceId: '0123456789abcdef0123456789abcdef',
     })
   })
+
+  it('keeps the v1 textractJobId alias for worker-backed documents', async () => {
+    const routeContext = {
+      requestId: 'req_status',
+      traceId: '0123456789abcdef0123456789abcdef',
+      pathname: '/api/v1/documents/doc_123/status',
+    }
+    const deps: DocumentStatusDependencies = {
+      getUserProfile: vi.fn().mockResolvedValue({
+        workspaceId: 'workspace_123',
+        role: 'member',
+      }),
+      getDocument: vi.fn().mockResolvedValue(
+        documentStatusRow({
+          status: 'processing',
+          extractionEngine: 'kotlin_worker',
+          extractionJobId: 'worker_job_123',
+          textractJobId: null,
+        }),
+      ),
+      finalizeProcessingDocument: vi.fn().mockResolvedValue(undefined),
+      now: vi.fn(() => new Date('2026-05-06T22:15:00.000Z')),
+    }
+
+    const result = await getDocumentStatus(
+      {
+        documentId: 'doc_123',
+        actorUserId: 'user_123',
+        routeContext,
+      },
+      deps,
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      extractionEngine: 'kotlin_worker',
+      extractionJobId: 'worker_job_123',
+      textractJobId: 'worker_job_123',
+    })
+  })
 })
 
-function documentStatusRow({ status }: { status: string }) {
+function documentStatusRow({
+  status,
+  extractionEngine = 'textract',
+  extractionJobId = 'textract_job_123',
+  textractJobId = 'textract_job_123',
+}: {
+  status: string
+  extractionEngine?: string
+  extractionJobId?: string
+  textractJobId?: string | null
+}) {
   return {
     id: 'doc_123',
     workspaceId: 'workspace_123',
     status,
-    extractionEngine: 'textract',
-    extractionJobId: 'textract_job_123',
+    extractionEngine,
+    extractionJobId,
+    textractJobId,
     chargeStatus: 'reserved',
     duplicateOfDocumentId: null,
     expiresAt: '2026-05-07T22:15:00.000Z',

@@ -28,6 +28,7 @@ export type DocumentStatusSuccess = {
   state: string
   extractionEngine: string | null
   extractionJobId: string | null
+  textractJobId: string | null
   chargeStatus: string | null
   duplicate: DocumentStatusDuplicate
   retention: DocumentRetentionStatus
@@ -57,6 +58,7 @@ export type StatusDocument = {
   status: string
   extractionEngine: string | null
   extractionJobId: string | null
+  textractJobId: string | null
   chargeStatus: string | null
   duplicateOfDocumentId: string | null
   expiresAt: string
@@ -84,6 +86,7 @@ type DocumentRow = {
   status: string
   extraction_engine: string | null
   extraction_job_id: string | null
+  textract_job_id: string | null
   charge_status: string | null
   duplicate_of_document_id: string | null
   expires_at: string
@@ -119,6 +122,7 @@ export async function getDocumentStatus(
       state: document.status,
       extractionEngine: document.extractionEngine,
       extractionJobId: document.extractionJobId,
+      textractJobId: document.textractJobId ?? document.extractionJobId,
       chargeStatus: document.chargeStatus,
       duplicate: document.duplicateOfDocumentId
         ? { isDuplicate: true, existingDocumentId: document.duplicateOfDocumentId }
@@ -178,6 +182,7 @@ async function getDocumentForStatus(documentId: string): Promise<StatusDocument 
         'status',
         'extraction_engine',
         'extraction_job_id',
+        'textract_job_id',
         'charge_status',
         'duplicate_of_document_id',
         'expires_at',
@@ -195,6 +200,7 @@ async function getDocumentForStatus(documentId: string): Promise<StatusDocument 
         status: data.status,
         extractionEngine: data.extraction_engine,
         extractionJobId: data.extraction_job_id,
+        textractJobId: data.textract_job_id,
         chargeStatus: data.charge_status,
         duplicateOfDocumentId: data.duplicate_of_document_id,
         expiresAt: data.expires_at,
