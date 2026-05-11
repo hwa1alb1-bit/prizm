@@ -19,7 +19,6 @@ describe('completeDocumentUpload', () => {
       status: 403,
     })
     expect(deps.headObject).not.toHaveBeenCalled()
-    expect(deps.startTextractAnalysis).not.toHaveBeenCalled()
   })
 
   it('fails closed and marks the document failed when the S3 object is missing', async () => {
@@ -40,7 +39,6 @@ describe('completeDocumentUpload', () => {
         eventType: 'document.processing_failed',
       }),
     )
-    expect(deps.startTextractAnalysis).not.toHaveBeenCalled()
   })
 
   it('fails closed and records a failed state when S3 metadata does not match the document row', async () => {
@@ -67,7 +65,7 @@ describe('completeDocumentUpload', () => {
     expect(deps.markUploadCompleted).not.toHaveBeenCalled()
   })
 
-  it('transitions pending uploads to verified and writes upload evidence without starting Textract', async () => {
+  it('transitions pending uploads to verified and writes upload evidence without starting extraction', async () => {
     const deps = createDependencies()
 
     const result = await completeDocumentUpload(completionInput(), deps)
@@ -95,8 +93,6 @@ describe('completeDocumentUpload', () => {
         }),
       }),
     )
-    expect(deps.startTextractAnalysis).not.toHaveBeenCalled()
-    expect(deps.markProcessingStarted).not.toHaveBeenCalled()
   })
 
   it('returns an idempotent result when completion is repeated for a processing document with a job id', async () => {
@@ -119,7 +115,6 @@ describe('completeDocumentUpload', () => {
     })
     expect(deps.headObject).not.toHaveBeenCalled()
     expect(deps.markUploadCompleted).not.toHaveBeenCalled()
-    expect(deps.startTextractAnalysis).not.toHaveBeenCalled()
   })
 })
 
@@ -153,8 +148,6 @@ function createDependencies(overrides: { document?: CompletionDocument | null } 
       sseKmsKeyId: 'kms-test-key',
     }),
     markUploadCompleted: vi.fn().mockResolvedValue(undefined),
-    startTextractAnalysis: vi.fn().mockResolvedValue('textract_job_123'),
-    markProcessingStarted: vi.fn().mockResolvedValue(undefined),
     markProcessingFailed: vi.fn().mockResolvedValue(undefined),
   } satisfies DocumentCompletionDependencies
   return deps

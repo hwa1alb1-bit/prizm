@@ -85,7 +85,7 @@ const openApiDocument = {
     '/api/v1/documents/{documentId}/convert': {
       post: {
         tags: ['Documents'],
-        summary: 'Start document OCR and conversion',
+        summary: 'Start document extraction and conversion',
         security: authenticated,
         parameters: [documentId],
         responses: {
@@ -99,7 +99,7 @@ const openApiDocument = {
     '/api/v1/documents/{documentId}/status': {
       get: {
         tags: ['Documents'],
-        summary: 'Read document processing status',
+        summary: 'Read document processing and extraction status',
         security: authenticated,
         parameters: [documentId],
         responses: {

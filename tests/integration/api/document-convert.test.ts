@@ -33,6 +33,8 @@ describe('documents convert route', () => {
       ok: true,
       documentId: 'doc_123',
       status: 'processing',
+      extractionEngine: 'textract',
+      extractionJobId: 'textract_job_123',
       textractJobId: 'textract_job_123',
       chargeStatus: 'reserved',
       alreadyStarted: false,
@@ -60,6 +62,8 @@ describe('documents convert route', () => {
     await expect(response.json()).resolves.toEqual({
       documentId: 'doc_123',
       status: 'processing',
+      extractionEngine: 'textract',
+      extractionJobId: 'textract_job_123',
       textractJobId: 'textract_job_123',
       chargeStatus: 'reserved',
       alreadyStarted: false,

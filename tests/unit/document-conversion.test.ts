@@ -6,7 +6,7 @@ import {
 } from '@/lib/server/document-conversion'
 
 describe('convertDocument', () => {
-  it('reserves one credit and starts Textract once for a verified document', async () => {
+  it('reserves one credit and starts extraction once for a verified document', async () => {
     const deps = createDependencies()
 
     const result = await convertDocument(conversionInput(), deps)
@@ -15,6 +15,8 @@ describe('convertDocument', () => {
       ok: true,
       documentId: 'doc_123',
       status: 'processing',
+      extractionEngine: 'textract',
+      extractionJobId: 'textract_job_123',
       textractJobId: 'textract_job_123',
       chargeStatus: 'reserved',
       alreadyStarted: false,
@@ -28,7 +30,7 @@ describe('convertDocument', () => {
         costCredits: 1,
       }),
     )
-    expect(deps.startTextractAnalysis).toHaveBeenCalledWith({
+    expect(deps.startExtraction).toHaveBeenCalledWith({
       documentId: 'doc_123',
       s3Bucket: 'prizm-uploads-test',
       s3Key: 'user_123/doc_123/statement.pdf',
@@ -36,6 +38,8 @@ describe('convertDocument', () => {
     expect(deps.markProcessingStarted).toHaveBeenCalledWith(
       expect.objectContaining({
         documentId: 'doc_123',
+        extractionEngine: 'textract',
+        extractionJobId: 'textract_job_123',
         textractJobId: 'textract_job_123',
         chargeStatus: 'reserved',
       }),
@@ -54,13 +58,13 @@ describe('convertDocument', () => {
       status: 402,
       code: 'PRZM_CREDITS_INSUFFICIENT',
     })
-    expect(deps.startTextractAnalysis).not.toHaveBeenCalled()
+    expect(deps.startExtraction).not.toHaveBeenCalled()
     expect(deps.markProcessingStarted).not.toHaveBeenCalled()
   })
 
-  it('releases a reserved credit when Textract cannot be started', async () => {
+  it('releases a reserved credit when extraction cannot be started', async () => {
     const deps = createDependencies()
-    deps.startTextractAnalysis.mockRejectedValueOnce(new Error('textract_down'))
+    deps.startExtraction.mockRejectedValueOnce(new Error('engine_down'))
 
     const result = await convertDocument(conversionInput(), deps)
 
@@ -76,15 +80,17 @@ describe('convertDocument', () => {
     expect(deps.markProcessingFailed).toHaveBeenCalledWith(
       expect.objectContaining({
         documentId: 'doc_123',
-        failureReason: 'Textract analysis could not be started for the verified upload.',
+        failureReason: 'Extraction could not be started for the verified upload.',
       }),
     )
   })
 
-  it('returns the existing Textract job without reserving another credit', async () => {
+  it('returns the existing extraction job without reserving another credit', async () => {
     const deps = createDependencies({
       document: documentRow({
         status: 'processing',
+        extractionEngine: 'textract',
+        extractionJobId: 'textract_existing',
         textractJobId: 'textract_existing',
         chargeStatus: 'reserved',
       }),
@@ -96,6 +102,8 @@ describe('convertDocument', () => {
       ok: true,
       documentId: 'doc_123',
       status: 'processing',
+      extractionEngine: 'textract',
+      extractionJobId: 'textract_existing',
       textractJobId: 'textract_existing',
       chargeStatus: 'reserved',
       alreadyStarted: true,
@@ -103,7 +111,7 @@ describe('convertDocument', () => {
       traceId: '0123456789abcdef0123456789abcdef',
     })
     expect(deps.reserveCredit).not.toHaveBeenCalled()
-    expect(deps.startTextractAnalysis).not.toHaveBeenCalled()
+    expect(deps.startExtraction).not.toHaveBeenCalled()
   })
 })
 
@@ -130,7 +138,10 @@ function createDependencies(overrides: { document?: ConversionDocument | null } 
     getDocument: vi.fn().mockResolvedValue(overrides.document ?? documentRow()),
     reserveCredit: vi.fn().mockResolvedValue({ ok: true, chargeStatus: 'reserved' }),
     releaseCreditReservation: vi.fn().mockResolvedValue(undefined),
-    startTextractAnalysis: vi.fn().mockResolvedValue('textract_job_123'),
+    startExtraction: vi.fn().mockResolvedValue({
+      engine: 'textract',
+      jobId: 'textract_job_123',
+    }),
     markProcessingStarted: vi.fn().mockResolvedValue(undefined),
     markProcessingFailed: vi.fn().mockResolvedValue(undefined),
   } satisfies DocumentConversionDependencies
@@ -144,6 +155,8 @@ function documentRow(overrides: Partial<ConversionDocument> = {}): ConversionDoc
     status: 'verified',
     s3Bucket: 'prizm-uploads-test',
     s3Key: 'user_123/doc_123/statement.pdf',
+    extractionEngine: null,
+    extractionJobId: null,
     textractJobId: null,
     chargeStatus: 'quoted',
     conversionCostCredits: 1,

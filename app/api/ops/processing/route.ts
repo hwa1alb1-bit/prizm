@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { isAuthorizedCronRequest } from '@/lib/server/cron-auth'
-import { processTextractDocuments } from '@/lib/server/document-processing'
+import { processExtractionDocuments } from '@/lib/server/document-processing'
 import { createRouteContext, jsonResponse, problemResponse } from '@/lib/server/http'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +27,7 @@ async function processingFromAuthorizedRequest(request: NextRequest): Promise<Re
   }
 
   try {
-    const result = await processTextractDocuments({
+    const result = await processExtractionDocuments({
       trigger: 'cron',
       routeContext: context,
     })
