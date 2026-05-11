@@ -82,6 +82,39 @@ describe('documents convert route', () => {
     )
   })
 
+  it('keeps the v1 textractJobId response alias when the selected engine is the Kotlin worker', async () => {
+    convertDocumentMock.mockResolvedValueOnce({
+      ok: true,
+      documentId: 'doc_123',
+      status: 'processing',
+      extractionEngine: 'kotlin_worker',
+      extractionJobId: 'worker_job_123',
+      textractJobId: 'worker_job_123',
+      chargeStatus: 'reserved',
+      alreadyStarted: false,
+      requestId: 'req_convert',
+      traceId: '0123456789abcdef0123456789abcdef',
+    })
+
+    const response = await POST(
+      request({ 'x-request-id': 'req_convert', 'x-forwarded-for': '203.0.113.10' }) as never,
+      routeParams('doc_123'),
+    )
+
+    await expect(response.json()).resolves.toEqual({
+      documentId: 'doc_123',
+      status: 'processing',
+      extractionEngine: 'kotlin_worker',
+      extractionJobId: 'worker_job_123',
+      textractJobId: 'worker_job_123',
+      chargeStatus: 'reserved',
+      alreadyStarted: false,
+      request_id: 'req_convert',
+      trace_id: '0123456789abcdef0123456789abcdef',
+    })
+    expect(response.status).toBe(200)
+  })
+
   it('rate-limits conversion starts before reserving credits or starting Textract', async () => {
     rateLimitMock.mockResolvedValueOnce({
       success: false,

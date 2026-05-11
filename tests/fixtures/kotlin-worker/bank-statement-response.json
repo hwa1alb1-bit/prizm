@@ -1,0 +1,44 @@
+{
+  "status": "succeeded",
+  "jobId": "worker_bank_123",
+  "statements": [
+    {
+      "statementType": "bank",
+      "bankName": "PRIZM Credit Union",
+      "accountLast4": "4242",
+      "periodStart": "2026-04-01",
+      "periodEnd": "2026-04-30",
+      "openingBalance": 1000,
+      "closingBalance": 1250.5,
+      "reportedTotal": 250.5,
+      "computedTotal": 250.5,
+      "reconciles": true,
+      "ready": true,
+      "confidence": {
+        "overall": 0.98,
+        "fields": 0.99,
+        "transactions": 0.96
+      },
+      "reviewFlags": [],
+      "metadata": {},
+      "transactions": [
+        {
+          "date": "2026-04-03",
+          "description": "Coffee Shop",
+          "amount": -12.25,
+          "debit": 12.25,
+          "confidence": 0.97,
+          "source": "kotlin_worker"
+        },
+        {
+          "date": "2026-04-18",
+          "description": "Payroll Deposit",
+          "amount": 262.75,
+          "credit": 262.75,
+          "confidence": 0.95,
+          "source": "kotlin_worker"
+        }
+      ]
+    }
+  ]
+}

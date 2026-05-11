@@ -3,6 +3,7 @@ import {
   processExtractionDocuments,
   storeParsedStatement,
   type DocumentProcessingDependencies,
+  type ProcessingDocument,
 } from '@/lib/server/document-processing'
 import { getServiceRoleClient } from '@/lib/server/supabase'
 import type { ParsedStatement } from '@/lib/server/statement-parser'
@@ -130,6 +131,66 @@ describe('processExtractionDocuments', () => {
     expect(deps.releaseCreditReservation).not.toHaveBeenCalled()
   })
 
+  it('stores unreconciled Kotlin worker output for review without a Textract audit alias', async () => {
+    const now = new Date('2026-05-06T22:35:00.000Z')
+    const deps = createDependencies({
+      document: processingDocument({
+        extractionEngine: 'kotlin_worker',
+        extractionJobId: 'worker_job_123',
+        textractJobId: null,
+      }),
+      pollResult: {
+        status: 'succeeded',
+        engine: 'kotlin_worker',
+        jobId: 'worker_job_123',
+        statements: [
+          parsedStatement({
+            reportedTotal: 500,
+            computedTotal: 250.5,
+            reconciles: false,
+            ready: false,
+            reviewFlags: ['reconciliation_mismatch'],
+          }),
+        ],
+      },
+    })
+
+    const result = await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(result).toEqual({
+      status: 'ok',
+      polled: 1,
+      ready: 1,
+      failed: 0,
+      skipped: 0,
+    })
+    expect(deps.pollExtraction).toHaveBeenCalledWith({
+      engine: 'kotlin_worker',
+      jobId: 'worker_job_123',
+    })
+    expect(deps.storeParsedStatement).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      workspaceId: 'workspace_123',
+      expiresAt: '2026-05-07T22:35:00.000Z',
+      statement: expect.objectContaining({
+        reconciles: false,
+        ready: false,
+        reviewFlags: ['reconciliation_mismatch'],
+      }),
+    })
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'document.processing_ready',
+        metadata: expect.objectContaining({
+          extraction_engine: 'kotlin_worker',
+          extraction_job_id: 'worker_job_123',
+          textract_job_id: null,
+          statement_count: 1,
+        }),
+      }),
+    )
+  })
+
   it('persists credit-card statement type and metadata with parsed statement evidence', async () => {
     const insert = vi.fn().mockResolvedValue({ data: null, error: null })
     vi.mocked(getServiceRoleClient).mockReturnValue({
@@ -237,6 +298,52 @@ describe('processExtractionDocuments', () => {
     })
   })
 
+  it('marks timed-out Kotlin worker output failed, releases the reservation, and audits the failure', async () => {
+    const now = new Date('2026-05-06T22:50:00.000Z')
+    const deps = createDependencies({
+      document: processingDocument({
+        extractionEngine: 'kotlin_worker',
+        extractionJobId: 'worker_job_timeout',
+        textractJobId: null,
+      }),
+      pollResult: {
+        status: 'failed',
+        engine: 'kotlin_worker',
+        jobId: 'worker_job_timeout',
+        failureReason: 'Kotlin worker timed out before producing normalized output.',
+      },
+    })
+
+    const result = await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(result).toEqual({
+      status: 'failed',
+      polled: 1,
+      ready: 0,
+      failed: 1,
+      skipped: 0,
+    })
+    expect(deps.markDocumentFailed).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      failureReason: 'Kotlin worker timed out before producing normalized output.',
+    })
+    expect(deps.releaseCreditReservation).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      releasedAt: now.toISOString(),
+    })
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'document.processing_failed',
+        metadata: expect.objectContaining({
+          extraction_engine: 'kotlin_worker',
+          extraction_job_id: 'worker_job_timeout',
+          textract_job_id: null,
+          failure_reason: 'Kotlin worker timed out before producing normalized output.',
+        }),
+      }),
+    )
+  })
+
   it('targets one processing document when status polling drives finalization', async () => {
     const now = new Date('2026-05-06T22:55:00.000Z')
     const deps = createDependencies()
@@ -280,29 +387,41 @@ describe('processExtractionDocuments', () => {
   })
 })
 
-function createDependencies(): DocumentProcessingDependencies {
+function createDependencies(
+  overrides: {
+    document?: ProcessingDocument
+    pollResult?: Awaited<ReturnType<DocumentProcessingDependencies['pollExtraction']>>
+  } = {},
+): DocumentProcessingDependencies {
   return {
-    listProcessingDocuments: vi.fn().mockResolvedValue([
-      {
-        id: 'doc_123',
-        workspaceId: 'workspace_123',
-        extractionEngine: 'textract',
-        extractionJobId: 'textract_job_123',
-        textractJobId: 'textract_job_123',
+    listProcessingDocuments: vi
+      .fn()
+      .mockResolvedValue([overrides.document ?? processingDocument()]),
+    pollExtraction: vi.fn().mockResolvedValue(
+      overrides.pollResult ?? {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement()],
       },
-    ]),
-    pollExtraction: vi.fn().mockResolvedValue({
-      status: 'succeeded',
-      engine: 'textract',
-      jobId: 'textract_job_123',
-      statements: [parsedStatement()],
-    }),
+    ),
     storeParsedStatement: vi.fn().mockResolvedValue(undefined),
     markDocumentReady: vi.fn().mockResolvedValue(undefined),
     markDocumentFailed: vi.fn().mockResolvedValue(undefined),
     consumeCreditReservation: vi.fn().mockResolvedValue(undefined),
     releaseCreditReservation: vi.fn().mockResolvedValue(undefined),
     recordAuditEvent: vi.fn().mockResolvedValue(undefined),
+  }
+}
+
+function processingDocument(overrides: Partial<ProcessingDocument> = {}): ProcessingDocument {
+  return {
+    id: 'doc_123',
+    workspaceId: 'workspace_123',
+    extractionEngine: 'textract',
+    extractionJobId: 'textract_job_123',
+    textractJobId: 'textract_job_123',
+    ...overrides,
   }
 }
 

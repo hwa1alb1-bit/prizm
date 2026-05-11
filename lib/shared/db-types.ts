@@ -394,6 +394,8 @@ export type Database = {
           duplicate_fingerprint: Json | null
           duplicate_of_document_id: string | null
           expires_at: string
+          extraction_engine: string | null
+          extraction_job_id: string | null
           failure_reason: string | null
           file_sha256: string | null
           filename: string
@@ -420,6 +422,8 @@ export type Database = {
           duplicate_fingerprint?: Json | null
           duplicate_of_document_id?: string | null
           expires_at?: string
+          extraction_engine?: string | null
+          extraction_job_id?: string | null
           failure_reason?: string | null
           file_sha256?: string | null
           filename: string
@@ -446,6 +450,8 @@ export type Database = {
           duplicate_fingerprint?: Json | null
           duplicate_of_document_id?: string | null
           expires_at?: string
+          extraction_engine?: string | null
+          extraction_job_id?: string | null
           failure_reason?: string | null
           file_sha256?: string | null
           filename?: string

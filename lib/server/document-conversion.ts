@@ -6,7 +6,11 @@ import {
   reserveDocumentConversionCredit,
   type ReserveDocumentConversionCreditResult,
 } from './credit-reservation'
-import { createDefaultExtractionEngine, type ExtractionStartResult } from './extraction-engine'
+import {
+  DEFAULT_EXTRACTION_ENGINE,
+  createDefaultExtractionEngine,
+  type ExtractionStartResult,
+} from './extraction-engine'
 import type { RouteContext } from './http'
 import { getServiceRoleClient } from './supabase'
 
@@ -95,7 +99,7 @@ export type ReserveCreditInput = ConversionAuditInput & {
 export type ProcessingStartedInput = ConversionAuditInput & {
   extractionEngine: string
   extractionJobId: string
-  textractJobId: string
+  textractJobId: string | null
   chargeStatus: string
 }
 
@@ -203,12 +207,14 @@ export async function convertDocument(
     return conversionProblem('textract_start_failed')
   }
 
+  const textractJobId = extraction.engine === DEFAULT_EXTRACTION_ENGINE ? extraction.jobId : null
+
   try {
     await deps.markProcessingStarted({
       ...audit,
       extractionEngine: extraction.engine,
       extractionJobId: extraction.jobId,
-      textractJobId: extraction.jobId,
+      textractJobId,
       chargeStatus: reservation.chargeStatus,
     })
   } catch {

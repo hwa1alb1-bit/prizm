@@ -113,6 +113,37 @@ describe('convertDocument', () => {
     expect(deps.reserveCredit).not.toHaveBeenCalled()
     expect(deps.startExtraction).not.toHaveBeenCalled()
   })
+
+  it('returns the v1 textractJobId alias for worker jobs without persisting it as a Textract job', async () => {
+    const deps = createDependencies()
+    deps.startExtraction.mockResolvedValueOnce({
+      engine: 'kotlin_worker',
+      jobId: 'worker_job_123',
+    })
+
+    const result = await convertDocument(conversionInput(), deps)
+
+    expect(result).toEqual({
+      ok: true,
+      documentId: 'doc_123',
+      status: 'processing',
+      extractionEngine: 'kotlin_worker',
+      extractionJobId: 'worker_job_123',
+      textractJobId: 'worker_job_123',
+      chargeStatus: 'reserved',
+      alreadyStarted: false,
+      requestId: 'req_convert',
+      traceId: '0123456789abcdef0123456789abcdef',
+    })
+    expect(deps.markProcessingStarted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc_123',
+        extractionEngine: 'kotlin_worker',
+        extractionJobId: 'worker_job_123',
+        textractJobId: null,
+      }),
+    )
+  })
 })
 
 function conversionInput() {

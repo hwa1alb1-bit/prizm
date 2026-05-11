@@ -6,7 +6,7 @@ import {
   consumeDocumentConversionCredit,
   releaseDocumentConversionCredit,
 } from './credit-reservation'
-import { createDefaultExtractionEngine, type ExtractionPollResult } from './extraction-engine'
+import { createExtractionEngineByName, type ExtractionPollResult } from './extraction-engine'
 import type { RouteContext } from './http'
 import { type ParsedStatement } from './statement-parser'
 import { getServiceRoleClient } from './supabase'
@@ -249,7 +249,9 @@ async function pollExtraction(input: {
   engine: string
   jobId: string
 }): Promise<ExtractionPollResult> {
-  if (input.engine !== 'textract') {
+  const engine = createExtractionEngineByName(input.engine)
+
+  if (!engine) {
     return {
       status: 'failed',
       engine: input.engine,
@@ -258,7 +260,20 @@ async function pollExtraction(input: {
     }
   }
 
-  return createDefaultExtractionEngine().poll({ jobId: input.jobId })
+  try {
+    return await engine.poll({ jobId: input.jobId })
+  } catch (err) {
+    if (input.engine === 'kotlin_worker') {
+      return {
+        status: 'failed',
+        engine: input.engine,
+        jobId: input.jobId,
+        failureReason: 'Kotlin worker could not be polled by this deployment.',
+      }
+    }
+
+    throw err
+  }
 }
 
 function extractionIdentity(document: ProcessingDocument): {

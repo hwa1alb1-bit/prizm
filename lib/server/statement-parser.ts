@@ -16,6 +16,8 @@ export type ParsedStatementTransaction = {
   confidence: number
   debit?: number
   credit?: number
+  balance?: number
+  source?: string
   transaction_date?: string
   merchant?: string
   category?: string
