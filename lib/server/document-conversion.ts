@@ -1,15 +1,14 @@
 import 'server-only'
 
-import { StartDocumentAnalysisCommand } from '@aws-sdk/client-textract'
 import { recordAuditEventOrThrow } from './audit'
 import {
   releaseDocumentConversionCredit,
   reserveDocumentConversionCredit,
   type ReserveDocumentConversionCreditResult,
 } from './credit-reservation'
+import { createDefaultExtractionEngine, type ExtractionStartResult } from './extraction-engine'
 import type { RouteContext } from './http'
 import { getServiceRoleClient } from './supabase'
-import { getTextractClient } from './textract'
 
 const CONVERSION_ROLES = new Set(['owner', 'admin', 'member'])
 const CONVERSION_COST_CREDITS = 1
@@ -25,6 +24,8 @@ export type ConversionDocument = {
   status: string
   s3Bucket: string
   s3Key: string
+  extractionEngine: string | null
+  extractionJobId: string | null
   textractJobId: string | null
   chargeStatus: string | null
   conversionCostCredits: number | null
@@ -43,6 +44,8 @@ export type ConvertDocumentSuccess = {
   ok: true
   documentId: string
   status: 'processing' | 'ready'
+  extractionEngine: string
+  extractionJobId: string
   textractJobId: string
   chargeStatus: string
   alreadyStarted: boolean
@@ -76,11 +79,11 @@ export type DocumentConversionDependencies = {
   getDocument: (documentId: string) => Promise<ConversionDocument | null>
   reserveCredit: (input: ReserveCreditInput) => Promise<ReserveCreditResult>
   releaseCreditReservation: (input: { documentId: string; releasedAt: string }) => Promise<void>
-  startTextractAnalysis: (input: {
+  startExtraction: (input: {
     documentId: string
     s3Bucket: string
     s3Key: string
-  }) => Promise<string>
+  }) => Promise<ExtractionStartResult>
   markProcessingStarted: (input: ProcessingStartedInput) => Promise<void>
   markProcessingFailed: (input: ProcessingFailedInput) => Promise<void>
 }
@@ -90,6 +93,8 @@ export type ReserveCreditInput = ConversionAuditInput & {
 }
 
 export type ProcessingStartedInput = ConversionAuditInput & {
+  extractionEngine: string
+  extractionJobId: string
   textractJobId: string
   chargeStatus: string
 }
@@ -119,6 +124,8 @@ type DocumentRow = {
   status: string
   s3_bucket: string
   s3_key: string
+  extraction_engine: string | null
+  extraction_job_id: string | null
   textract_job_id: string | null
   charge_status: string | null
   conversion_cost_credits: number | null
@@ -143,12 +150,21 @@ export async function convertDocument(
   if (!document) return conversionProblem('not_found')
   if (document.workspaceId !== profile.workspaceId) return conversionProblem('forbidden')
 
-  if (document.textractJobId && (document.status === 'processing' || document.status === 'ready')) {
+  const activeJobId = document.extractionJobId ?? document.textractJobId
+  const activeEngine = document.extractionEngine ?? (activeJobId ? 'textract' : null)
+
+  if (
+    activeJobId &&
+    activeEngine &&
+    (document.status === 'processing' || document.status === 'ready')
+  ) {
     return {
       ok: true,
       documentId: document.id,
       status: document.status === 'ready' ? 'ready' : 'processing',
-      textractJobId: document.textractJobId,
+      extractionEngine: activeEngine,
+      extractionJobId: activeJobId,
+      textractJobId: document.textractJobId ?? activeJobId,
       chargeStatus: document.chargeStatus ?? 'reserved',
       alreadyStarted: true,
       requestId: input.routeContext.requestId,
@@ -166,15 +182,15 @@ export async function convertDocument(
 
   if (!reservation.ok) return conversionProblem(reservation.reason)
 
-  let textractJobId: string
+  let extraction: ExtractionStartResult
   try {
-    textractJobId = await deps.startTextractAnalysis({
+    extraction = await deps.startExtraction({
       documentId: document.id,
       s3Bucket: document.s3Bucket,
       s3Key: document.s3Key,
     })
   } catch {
-    const failureReason = 'Textract analysis could not be started for the verified upload.'
+    const failureReason = 'Extraction could not be started for the verified upload.'
     try {
       await deps.releaseCreditReservation({
         documentId: document.id,
@@ -190,7 +206,9 @@ export async function convertDocument(
   try {
     await deps.markProcessingStarted({
       ...audit,
-      textractJobId,
+      extractionEngine: extraction.engine,
+      extractionJobId: extraction.jobId,
+      textractJobId: extraction.jobId,
       chargeStatus: reservation.chargeStatus,
     })
   } catch {
@@ -201,7 +219,9 @@ export async function convertDocument(
     ok: true,
     documentId: document.id,
     status: 'processing',
-    textractJobId,
+    extractionEngine: extraction.engine,
+    extractionJobId: extraction.jobId,
+    textractJobId: extraction.jobId,
     chargeStatus: reservation.chargeStatus,
     alreadyStarted: false,
     requestId: input.routeContext.requestId,
@@ -215,7 +235,7 @@ function createDocumentConversionDependencies(): DocumentConversionDependencies 
     getDocument: getDocumentForConversion,
     reserveCredit,
     releaseCreditReservation,
-    startTextractAnalysis,
+    startExtraction,
     markProcessingStarted,
     markProcessingFailed,
   }
@@ -246,6 +266,8 @@ async function getDocumentForConversion(documentId: string): Promise<ConversionD
         'status',
         's3_bucket',
         's3_key',
+        'extraction_engine',
+        'extraction_job_id',
         'textract_job_id',
         'charge_status',
         'conversion_cost_credits',
@@ -279,26 +301,12 @@ async function releaseCreditReservation(input: {
   if (!result.ok) throw new Error('credit_reservation_release_failed')
 }
 
-async function startTextractAnalysis(input: {
+async function startExtraction(input: {
   documentId: string
   s3Bucket: string
   s3Key: string
-}): Promise<string> {
-  const result = await getTextractClient().send(
-    new StartDocumentAnalysisCommand({
-      ClientRequestToken: textractClientToken(input.documentId),
-      DocumentLocation: {
-        S3Object: {
-          Bucket: input.s3Bucket,
-          Name: input.s3Key,
-        },
-      },
-      FeatureTypes: ['TABLES', 'FORMS'],
-    }),
-  )
-
-  if (!result.JobId) throw new Error('textract_job_id_missing')
-  return result.JobId
+}): Promise<ExtractionStartResult> {
+  return createDefaultExtractionEngine().start(input)
 }
 
 async function markProcessingStarted(input: ProcessingStartedInput): Promise<void> {
@@ -312,6 +320,8 @@ async function markProcessingStarted(input: ProcessingStartedInput): Promise<voi
     .from('document')
     .update({
       status: 'processing',
+      extraction_engine: input.extractionEngine,
+      extraction_job_id: input.extractionJobId,
       textract_job_id: input.textractJobId,
       charge_status: input.chargeStatus,
       failure_reason: null,
@@ -332,6 +342,8 @@ async function markProcessingStarted(input: ProcessingStartedInput): Promise<voi
     actorIp: input.actorIp,
     actorUserAgent: input.actorUserAgent,
     metadata: {
+      extraction_engine: input.extractionEngine,
+      extraction_job_id: input.extractionJobId,
       textract_job_id: input.textractJobId,
       charge_status: input.chargeStatus,
       request_id: input.requestId,
@@ -398,6 +410,8 @@ function documentFromRow(row: DocumentRow): ConversionDocument {
     status: row.status,
     s3Bucket: row.s3_bucket,
     s3Key: row.s3_key,
+    extractionEngine: row.extraction_engine,
+    extractionJobId: row.extraction_job_id,
     textractJobId: row.textract_job_id,
     chargeStatus: row.charge_status,
     conversionCostCredits: row.conversion_cost_credits,
@@ -468,7 +482,7 @@ function conversionProblem(reason: ConvertDocumentFailure['reason']): ConvertDoc
         status: 502,
         code: 'PRZM_TEXTRACT_START_FAILED',
         title: 'OCR could not be started',
-        detail: 'The document was marked failed because Textract could not start analysis.',
+        detail: 'The document was marked failed because extraction could not start.',
       }
     case 'transition_failed':
       return {
@@ -480,8 +494,4 @@ function conversionProblem(reason: ConvertDocumentFailure['reason']): ConvertDoc
         detail: 'The conversion state could not be recorded safely.',
       }
   }
-}
-
-function textractClientToken(documentId: string): string {
-  return documentId.replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 64)
 }

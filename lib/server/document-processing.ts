@@ -1,28 +1,25 @@
 import 'server-only'
 
-import { GetDocumentAnalysisCommand } from '@aws-sdk/client-textract'
 import type { Json } from '../shared/db-types'
 import { recordAuditEventOrThrow, type AuditEventInput } from './audit'
 import {
   consumeDocumentConversionCredit,
   releaseDocumentConversionCredit,
 } from './credit-reservation'
+import { createDefaultExtractionEngine, type ExtractionPollResult } from './extraction-engine'
 import type { RouteContext } from './http'
-import {
-  parseTextractStatement,
-  type ParsedStatement,
-  type TextractOutput,
-} from './statement-parser'
+import { type ParsedStatement } from './statement-parser'
 import { getServiceRoleClient } from './supabase'
-import { getTextractClient } from './textract'
 
 export type ProcessingDocument = {
   id: string
   workspaceId: string
+  extractionEngine: string | null
+  extractionJobId: string | null
   textractJobId: string | null
 }
 
-export type ProcessTextractDocumentsInput = {
+export type ProcessExtractionDocumentsInput = {
   now?: Date
   limit?: number
   documentId?: string
@@ -30,7 +27,9 @@ export type ProcessTextractDocumentsInput = {
   routeContext?: RouteContext
 }
 
-export type ProcessTextractDocumentsResult = {
+export type ProcessTextractDocumentsInput = ProcessExtractionDocumentsInput
+
+export type ProcessExtractionDocumentsResult = {
   status: 'ok' | 'partial' | 'failed'
   polled: number
   ready: number
@@ -38,12 +37,14 @@ export type ProcessTextractDocumentsResult = {
   skipped: number
 }
 
+export type ProcessTextractDocumentsResult = ProcessExtractionDocumentsResult
+
 export type DocumentProcessingDependencies = {
   listProcessingDocuments: (input: {
     limit: number
     documentId?: string
   }) => Promise<ProcessingDocument[]>
-  getTextractAnalysis: (input: { jobId: string }) => Promise<TextractOutput>
+  pollExtraction: (input: { engine: string; jobId: string }) => Promise<ExtractionPollResult>
   storeParsedStatement: (input: {
     documentId: string
     workspaceId: string
@@ -60,6 +61,8 @@ export type DocumentProcessingDependencies = {
 type ProcessingDocumentRow = {
   id: string
   workspace_id: string
+  extraction_engine: string | null
+  extraction_job_id: string | null
   textract_job_id: string | null
 }
 
@@ -99,10 +102,10 @@ type StatementPersistenceFields = {
   metadata: StatementMetadata
 }
 
-export async function processTextractDocuments(
-  input: ProcessTextractDocumentsInput,
+export async function processExtractionDocuments(
+  input: ProcessExtractionDocumentsInput,
   deps: DocumentProcessingDependencies = createDocumentProcessingDependencies(),
-): Promise<ProcessTextractDocumentsResult> {
+): Promise<ProcessExtractionDocumentsResult> {
   const now = input.now ?? new Date()
   const nowIso = now.toISOString()
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
@@ -115,11 +118,13 @@ export async function processTextractDocuments(
   let skipped = 0
 
   for (const document of documents) {
-    if (!document.textractJobId) {
+    const identity = extractionIdentity(document)
+
+    if (!identity) {
       await failProcessingDocument({
         deps,
         document,
-        failureReason: 'Processing document is missing a Textract job id.',
+        failureReason: 'Processing document is missing an extraction job id.',
         releasedAt: nowIso,
         input,
       })
@@ -127,18 +132,18 @@ export async function processTextractDocuments(
       continue
     }
 
-    const textract = await deps.getTextractAnalysis({ jobId: document.textractJobId })
+    const extraction = await deps.pollExtraction(identity)
 
-    if (textract.JobStatus === 'IN_PROGRESS') {
+    if (extraction.status === 'in_progress') {
       skipped += 1
       continue
     }
 
-    if (textract.JobStatus !== 'SUCCEEDED') {
+    if (extraction.status === 'failed') {
       await failProcessingDocument({
         deps,
         document,
-        failureReason: `Textract analysis finished with status ${textract.JobStatus ?? 'UNKNOWN'}.`,
+        failureReason: extraction.failureReason,
         releasedAt: nowIso,
         input,
       })
@@ -146,12 +151,11 @@ export async function processTextractDocuments(
       continue
     }
 
-    const parsed = parseTextractStatement(textract)
-    if (parsed.documentState !== 'ready' || parsed.statements.length === 0) {
+    if (!hasUsableStatements(extraction.statements)) {
       await failProcessingDocument({
         deps,
         document,
-        failureReason: 'Textract output could not be reconciled into a ready statement.',
+        failureReason: 'Extraction output did not include a usable statement.',
         releasedAt: nowIso,
         input,
       })
@@ -159,7 +163,7 @@ export async function processTextractDocuments(
       continue
     }
 
-    for (const statement of parsed.statements) {
+    for (const statement of extraction.statements) {
       await deps.storeParsedStatement({
         documentId: document.id,
         workspaceId: document.workspaceId,
@@ -177,7 +181,7 @@ export async function processTextractDocuments(
       targetType: 'document',
       targetId: document.id,
       metadata: auditMetadata(input, document, {
-        statement_count: parsed.statements.length,
+        statement_count: extraction.statements.length,
       }),
     })
     ready += 1
@@ -192,10 +196,17 @@ export async function processTextractDocuments(
   }
 }
 
+export async function processTextractDocuments(
+  input: ProcessTextractDocumentsInput,
+  deps: DocumentProcessingDependencies = createDocumentProcessingDependencies(),
+): Promise<ProcessTextractDocumentsResult> {
+  return processExtractionDocuments(input, deps)
+}
+
 function createDocumentProcessingDependencies(): DocumentProcessingDependencies {
   return {
     listProcessingDocuments,
-    getTextractAnalysis,
+    pollExtraction,
     storeParsedStatement,
     markDocumentReady,
     markDocumentFailed,
@@ -213,7 +224,9 @@ async function listProcessingDocuments(input: {
 }): Promise<ProcessingDocument[]> {
   let query = getProcessingStoreClient()
     .from('document')
-    .select<ProcessingDocumentRow>('id, workspace_id, textract_job_id')
+    .select<ProcessingDocumentRow>(
+      'id, workspace_id, extraction_engine, extraction_job_id, textract_job_id',
+    )
     .eq('status', 'processing')
     .is('deleted_at', null)
 
@@ -226,35 +239,41 @@ async function listProcessingDocuments(input: {
   return (data ?? []).map((row) => ({
     id: row.id,
     workspaceId: row.workspace_id,
+    extractionEngine: row.extraction_engine,
+    extractionJobId: row.extraction_job_id,
     textractJobId: row.textract_job_id,
   }))
 }
 
-async function getTextractAnalysis(input: { jobId: string }): Promise<TextractOutput> {
-  const blocks: NonNullable<TextractOutput['Blocks']> = []
-  let nextToken: string | undefined
-  let jobStatus: TextractOutput['JobStatus']
-
-  do {
-    const result = await getTextractClient().send(
-      new GetDocumentAnalysisCommand({
-        JobId: input.jobId,
-        NextToken: nextToken,
-      }),
-    )
-    jobStatus = result.JobStatus
-    blocks.push(...(result.Blocks ?? []))
-    nextToken = result.NextToken
-  } while (nextToken)
-
-  return {
-    JobStatus: jobStatus,
-    Blocks: blocks.map((block) => ({
-      BlockType: block.BlockType,
-      Text: block.Text,
-      Confidence: block.Confidence,
-    })),
+async function pollExtraction(input: {
+  engine: string
+  jobId: string
+}): Promise<ExtractionPollResult> {
+  if (input.engine !== 'textract') {
+    return {
+      status: 'failed',
+      engine: input.engine,
+      jobId: input.jobId,
+      failureReason: `Extraction engine ${input.engine} is not supported by this deployment.`,
+    }
   }
+
+  return createDefaultExtractionEngine().poll({ jobId: input.jobId })
+}
+
+function extractionIdentity(document: ProcessingDocument): {
+  engine: string
+  jobId: string
+} | null {
+  const jobId = document.extractionJobId ?? document.textractJobId
+  const engine = document.extractionEngine ?? (jobId ? 'textract' : null)
+
+  if (!engine || !jobId) return null
+  return { engine, jobId }
+}
+
+function hasUsableStatements(statements: ParsedStatement[]): boolean {
+  return statements.some((statement) => statement.transactions.length > 0)
 }
 
 export async function storeParsedStatement(input: {
@@ -390,9 +409,14 @@ function auditMetadata(
   document: ProcessingDocument,
   extra: Record<string, Json>,
 ): Json {
+  const identity = extractionIdentity(document)
+
   return {
     trigger: input.trigger,
-    textract_job_id: document.textractJobId,
+    extraction_engine: identity?.engine ?? null,
+    extraction_job_id: identity?.jobId ?? null,
+    textract_job_id:
+      document.textractJobId ?? (identity?.engine === 'textract' ? identity.jobId : null),
     ...extra,
     request_id: input.routeContext?.requestId ?? null,
     trace_id: input.routeContext?.traceId ?? null,

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GET, POST } from '@/app/api/ops/processing/route'
-import { processTextractDocuments } from '@/lib/server/document-processing'
+import { processExtractionDocuments } from '@/lib/server/document-processing'
 
 vi.mock('@/lib/server/document-processing', () => ({
-  processTextractDocuments: vi.fn(),
+  processExtractionDocuments: vi.fn(),
 }))
 
 vi.mock('@/lib/shared/env', async () => {
@@ -17,7 +17,7 @@ vi.mock('@/lib/shared/env', async () => {
   }
 })
 
-const processTextractDocumentsMock = vi.mocked(processTextractDocuments)
+const processExtractionDocumentsMock = vi.mocked(processExtractionDocuments)
 
 describe('processing ops route', () => {
   afterEach(() => {
@@ -38,11 +38,11 @@ describe('processing ops route', () => {
       request_id: 'req_processing_denied',
     })
     expect(response.headers.get('content-type')).toBe('application/problem+json')
-    expect(processTextractDocumentsMock).not.toHaveBeenCalled()
+    expect(processExtractionDocumentsMock).not.toHaveBeenCalled()
   })
 
-  it('polls Textract processing for valid cron requests', async () => {
-    processTextractDocumentsMock.mockResolvedValue({
+  it('polls extraction processing for valid cron requests', async () => {
+    processExtractionDocumentsMock.mockResolvedValue({
       status: 'ok',
       polled: 1,
       ready: 1,
@@ -66,7 +66,7 @@ describe('processing ops route', () => {
       request_id: 'req_processing_poll',
     })
     expect(response.status).toBe(200)
-    expect(processTextractDocumentsMock).toHaveBeenCalledWith({
+    expect(processExtractionDocumentsMock).toHaveBeenCalledWith({
       trigger: 'cron',
       routeContext: expect.objectContaining({ requestId: 'req_processing_poll' }),
     })

@@ -43,6 +43,8 @@ export async function GET(
     jsonResponse(context, {
       documentId: result.documentId,
       state: result.state,
+      extractionEngine: result.extractionEngine,
+      extractionJobId: result.extractionJobId,
       chargeStatus: result.chargeStatus,
       duplicate: result.duplicate,
       retention: result.retention,

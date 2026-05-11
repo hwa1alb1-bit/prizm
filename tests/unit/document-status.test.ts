@@ -41,6 +41,8 @@ describe('getDocumentStatus', () => {
       ok: true,
       documentId: 'doc_123',
       state: 'ready',
+      extractionEngine: 'textract',
+      extractionJobId: 'textract_job_123',
       requestId: 'req_status',
       traceId: '0123456789abcdef0123456789abcdef',
     })
@@ -52,6 +54,8 @@ function documentStatusRow({ status }: { status: string }) {
     id: 'doc_123',
     workspaceId: 'workspace_123',
     status,
+    extractionEngine: 'textract',
+    extractionJobId: 'textract_job_123',
     chargeStatus: 'reserved',
     duplicateOfDocumentId: null,
     expiresAt: '2026-05-07T22:15:00.000Z',

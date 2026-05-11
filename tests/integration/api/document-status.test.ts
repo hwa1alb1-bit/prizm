@@ -33,6 +33,8 @@ describe('documents status route', () => {
       ok: true,
       documentId: 'doc_123',
       state: 'processing',
+      extractionEngine: 'textract',
+      extractionJobId: 'textract_job_123',
       chargeStatus: 'reserved',
       duplicate: { isDuplicate: false },
       retention: {
@@ -64,6 +66,8 @@ describe('documents status route', () => {
     await expect(response.json()).resolves.toEqual({
       documentId: 'doc_123',
       state: 'processing',
+      extractionEngine: 'textract',
+      extractionJobId: 'textract_job_123',
       chargeStatus: 'reserved',
       duplicate: { isDuplicate: false },
       retention: {

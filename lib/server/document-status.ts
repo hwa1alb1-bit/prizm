@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { processTextractDocuments } from './document-processing'
+import { processExtractionDocuments } from './document-processing'
 import type { RouteContext } from './http'
 import { getServiceRoleClient } from './supabase'
 
@@ -26,6 +26,8 @@ export type DocumentStatusSuccess = {
   ok: true
   documentId: string
   state: string
+  extractionEngine: string | null
+  extractionJobId: string | null
   chargeStatus: string | null
   duplicate: DocumentStatusDuplicate
   retention: DocumentRetentionStatus
@@ -53,6 +55,8 @@ export type StatusDocument = {
   id: string
   workspaceId: string
   status: string
+  extractionEngine: string | null
+  extractionJobId: string | null
   chargeStatus: string | null
   duplicateOfDocumentId: string | null
   expiresAt: string
@@ -78,6 +82,8 @@ type DocumentRow = {
   id: string
   workspace_id: string
   status: string
+  extraction_engine: string | null
+  extraction_job_id: string | null
   charge_status: string | null
   duplicate_of_document_id: string | null
   expires_at: string
@@ -111,6 +117,8 @@ export async function getDocumentStatus(
       ok: true,
       documentId: document.id,
       state: document.status,
+      extractionEngine: document.extractionEngine,
+      extractionJobId: document.extractionJobId,
       chargeStatus: document.chargeStatus,
       duplicate: document.duplicateOfDocumentId
         ? { isDuplicate: true, existingDocumentId: document.duplicateOfDocumentId }
@@ -137,7 +145,7 @@ async function finalizeProcessingDocument(input: {
   documentId: string
   routeContext: RouteContext
 }): Promise<void> {
-  await processTextractDocuments({
+  await processExtractionDocuments({
     trigger: 'status',
     limit: 1,
     documentId: input.documentId,
@@ -168,6 +176,8 @@ async function getDocumentForStatus(documentId: string): Promise<StatusDocument 
         'id',
         'workspace_id',
         'status',
+        'extraction_engine',
+        'extraction_job_id',
         'charge_status',
         'duplicate_of_document_id',
         'expires_at',
@@ -183,6 +193,8 @@ async function getDocumentForStatus(documentId: string): Promise<StatusDocument 
         id: data.id,
         workspaceId: data.workspace_id,
         status: data.status,
+        extractionEngine: data.extraction_engine,
+        extractionJobId: data.extraction_job_id,
         chargeStatus: data.charge_status,
         duplicateOfDocumentId: data.duplicate_of_document_id,
         expiresAt: data.expires_at,

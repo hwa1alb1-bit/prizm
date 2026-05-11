@@ -45,6 +45,8 @@ export async function POST(
     jsonResponse(context, {
       documentId: result.documentId,
       status: result.status,
+      extractionEngine: result.extractionEngine,
+      extractionJobId: result.extractionJobId,
       textractJobId: result.textractJobId,
       chargeStatus: result.chargeStatus,
       alreadyStarted: result.alreadyStarted,

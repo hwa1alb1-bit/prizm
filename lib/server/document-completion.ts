@@ -1,13 +1,11 @@
 import 'server-only'
 
 import { HeadObjectCommand } from '@aws-sdk/client-s3'
-import { StartDocumentAnalysisCommand } from '@aws-sdk/client-textract'
 import type { Json } from '../shared/db-types'
 import { recordAuditEventOrThrow } from './audit'
 import type { RouteContext } from './http'
 import { getS3Client, getKmsKeyId, getUploadBucket } from './s3'
 import { getServiceRoleClient } from './supabase'
-import { getTextractClient } from './textract'
 
 export type CompletionDocument = {
   id: string
@@ -72,7 +70,6 @@ export type CompleteDocumentUploadFailure = {
     | 's3_metadata_mismatch'
     | 's3_verification_failed'
     | 'transition_failed'
-    | 'textract_start_failed'
   status: number
   code: string
   title: string
@@ -90,23 +87,11 @@ export type DocumentCompletionDependencies = {
   getDocument: (documentId: string) => Promise<CompletionDocument | null>
   headObject: (input: { s3Bucket: string; s3Key: string }) => Promise<S3ObjectEvidence>
   markUploadCompleted: (input: UploadCompletedInput) => Promise<void>
-  startTextractAnalysis: (input: {
-    documentId: string
-    s3Bucket: string
-    s3Key: string
-  }) => Promise<string>
-  markProcessingStarted: (input: ProcessingStartedInput) => Promise<void>
   markProcessingFailed: (input: ProcessingFailedInput) => Promise<void>
 }
 
 export type UploadCompletedInput = CompletionAuditInput & {
   eventType: 'document.upload_completed'
-  verification: VerifiedUploadEvidence
-}
-
-export type ProcessingStartedInput = CompletionAuditInput & {
-  eventType: 'document.processing_started'
-  textractJobId: string
   verification: VerifiedUploadEvidence
 }
 
@@ -224,8 +209,6 @@ function createDocumentCompletionDependencies(): DocumentCompletionDependencies 
     getDocument: getDocumentForCompletion,
     headObject: headUploadedObject,
     markUploadCompleted,
-    startTextractAnalysis,
-    markProcessingStarted,
     markProcessingFailed,
   }
 }
@@ -318,59 +301,6 @@ async function markUploadCompleted(input: UploadCompletedInput): Promise<void> {
       content_type: input.verification.contentType,
       server_side_encryption: input.verification.serverSideEncryption,
       sse_kms_key_id: input.verification.sseKmsKeyId,
-    }),
-  })
-}
-
-async function startTextractAnalysis(input: {
-  documentId: string
-  s3Bucket: string
-  s3Key: string
-}): Promise<string> {
-  const result = await getTextractClient().send(
-    new StartDocumentAnalysisCommand({
-      ClientRequestToken: textractClientToken(input.documentId),
-      DocumentLocation: {
-        S3Object: {
-          Bucket: input.s3Bucket,
-          Name: input.s3Key,
-        },
-      },
-      FeatureTypes: ['TABLES', 'FORMS'],
-    }),
-  )
-
-  if (!result.JobId) throw new Error('textract_job_id_missing')
-  return result.JobId
-}
-
-async function markProcessingStarted(input: ProcessingStartedInput): Promise<void> {
-  const { data, error } = await getServiceRoleClient()
-    .from('document')
-    .update({
-      status: 'processing',
-      textract_job_id: input.textractJobId,
-      failure_reason: null,
-    })
-    .eq('id', input.documentId)
-    .eq('status', 'processing')
-    .select('id')
-    .maybeSingle()
-
-  if (error || !data) throw new Error('document_processing_started_update_failed')
-
-  await recordAuditEventOrThrow({
-    eventType: input.eventType,
-    workspaceId: input.workspaceId,
-    actorUserId: input.actorUserId,
-    targetType: 'document',
-    targetId: input.documentId,
-    actorIp: input.actorIp,
-    actorUserAgent: input.actorUserAgent,
-    metadata: auditMetadata(input, {
-      textract_job_id: input.textractJobId,
-      s3_bucket: input.verification.s3Bucket,
-      s3_key: input.verification.s3Key,
     }),
   })
 }
@@ -574,15 +504,6 @@ function completionProblem(
         title: 'Document state could not be recorded',
         detail: 'The verified upload could not be recorded safely.',
       }
-    case 'textract_start_failed':
-      return {
-        ok: false,
-        reason,
-        status: 502,
-        code: 'PRZM_TEXTRACT_START_FAILED',
-        title: 'OCR could not be started',
-        detail: 'The document was marked failed because Textract could not start analysis.',
-      }
   }
 }
 
@@ -626,10 +547,6 @@ function normalizeContentType(value: string | undefined): string | undefined {
 
 function kmsKeyMatches(actual: string, expected: string): boolean {
   return actual === expected || actual.endsWith(`/${expected}`) || expected.endsWith(`/${actual}`)
-}
-
-function textractClientToken(documentId: string): string {
-  return documentId.replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 64)
 }
 
 function isS3NotFound(err: unknown): boolean {
