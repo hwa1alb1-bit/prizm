@@ -12,6 +12,9 @@ type CreatePendingDocumentUploadRpcArgs = {
   p_conversion_cost_credits: number
   p_s3_bucket: string
   p_s3_key: string
+  p_storage_provider: string
+  p_storage_bucket: string
+  p_storage_key: string
   p_expires_at: string
   p_request_id: string
   p_trace_id: string
@@ -43,6 +46,9 @@ export type CreatePendingDocumentUploadInput = {
   conversionCostCredits: number
   s3Bucket: string
   s3Key: string
+  storageProvider?: 's3' | 'r2'
+  storageBucket?: string
+  storageKey?: string
   expiresAt: string
   actorIp: string | null
   actorUserAgent: string | null
@@ -77,6 +83,9 @@ export async function createPendingDocumentUpload(
     p_conversion_cost_credits: input.conversionCostCredits,
     p_s3_bucket: input.s3Bucket,
     p_s3_key: input.s3Key,
+    p_storage_provider: input.storageProvider ?? 's3',
+    p_storage_bucket: input.storageBucket ?? input.s3Bucket,
+    p_storage_key: input.storageKey ?? input.s3Key,
     p_expires_at: input.expiresAt,
     p_request_id: input.routeContext.requestId,
     p_trace_id: input.routeContext.traceId,

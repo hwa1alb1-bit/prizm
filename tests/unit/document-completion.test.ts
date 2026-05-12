@@ -95,6 +95,51 @@ describe('completeDocumentUpload', () => {
     )
   })
 
+  it('accepts R2 upload evidence without requiring AWS KMS metadata', async () => {
+    const deps = createDependencies({
+      document: documentRow({
+        storageProvider: 'r2',
+        storageBucket: 'prizm-r2-uploads',
+        storageKey: 'user_123/doc_123/statement.pdf',
+        s3Bucket: 'prizm-r2-uploads',
+      }),
+    })
+    deps.getUploadBucket.mockImplementation((provider?: 's3' | 'r2') =>
+      provider === 'r2' ? 'prizm-r2-uploads' : 'prizm-uploads-test',
+    )
+    deps.headObject.mockResolvedValueOnce({
+      contentLength: 4096,
+      contentType: 'application/pdf',
+      serverSideEncryption: undefined,
+    })
+
+    const result = await completeDocumentUpload(completionInput(), deps)
+
+    expect(result).toEqual({
+      ok: true,
+      documentId: 'doc_123',
+      state: 'verified',
+      alreadyCompleted: false,
+      requestId: 'req_complete',
+      traceId: '0123456789abcdef0123456789abcdef',
+    })
+    expect(deps.headObject).toHaveBeenCalledWith({
+      storageProvider: 'r2',
+      bucket: 'prizm-r2-uploads',
+      key: 'user_123/doc_123/statement.pdf',
+    })
+    expect(deps.markUploadCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        verification: expect.objectContaining({
+          storageProvider: 'r2',
+          storageBucket: 'prizm-r2-uploads',
+          storageKey: 'user_123/doc_123/statement.pdf',
+          serverSideEncryption: null,
+        }),
+      }),
+    )
+  })
+
   it('returns an idempotent result when completion is repeated for a processing document with a job id', async () => {
     const deps = createDependencies({
       document: documentRow({
@@ -164,6 +209,9 @@ function documentRow(overrides: Partial<CompletionDocument> = {}): CompletionDoc
     sizeBytes: 4096,
     s3Bucket: 'prizm-uploads-test',
     s3Key: 'user_123/doc_123/statement.pdf',
+    storageProvider: 's3',
+    storageBucket: 'prizm-uploads-test',
+    storageKey: 'user_123/doc_123/statement.pdf',
     textractJobId: null,
     failureReason: null,
     ...overrides,

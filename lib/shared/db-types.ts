@@ -405,6 +405,9 @@ export type Database = {
           s3_key: string
           size_bytes: number
           status: string
+          storage_bucket: string
+          storage_key: string
+          storage_provider: string
           textract_job_id: string | null
           uploaded_by: string
           verified_at: string | null
@@ -433,6 +436,9 @@ export type Database = {
           s3_key: string
           size_bytes: number
           status: string
+          storage_bucket?: string
+          storage_key?: string
+          storage_provider?: string
           textract_job_id?: string | null
           uploaded_by: string
           verified_at?: string | null
@@ -461,6 +467,9 @@ export type Database = {
           s3_key?: string
           size_bytes?: number
           status?: string
+          storage_bucket?: string
+          storage_key?: string
+          storage_provider?: string
           textract_job_id?: string | null
           uploaded_by?: string
           verified_at?: string | null
@@ -1094,6 +1103,7 @@ export type Database = {
           edited_at: string | null
           edited_by: string | null
           expires_at: string
+          extraction_ordinal: number
           id: string
           opening_balance: number | null
           period_end: string | null
@@ -1118,6 +1128,7 @@ export type Database = {
           edited_at?: string | null
           edited_by?: string | null
           expires_at?: string
+          extraction_ordinal?: number
           id?: string
           opening_balance?: number | null
           period_end?: string | null
@@ -1142,6 +1153,7 @@ export type Database = {
           edited_at?: string | null
           edited_by?: string | null
           expires_at?: string
+          extraction_ordinal?: number
           id?: string
           opening_balance?: number | null
           period_end?: string | null
@@ -1406,6 +1418,9 @@ export type Database = {
           p_s3_bucket: string
           p_s3_key: string
           p_size_bytes: number
+          p_storage_bucket?: string | null
+          p_storage_key?: string | null
+          p_storage_provider?: string
           p_trace_id: string
         }
         Returns: {
@@ -1427,6 +1442,9 @@ export type Database = {
           p_s3_bucket: string
           p_s3_key: string
           p_size_bytes: number
+          p_storage_bucket?: string | null
+          p_storage_key?: string | null
+          p_storage_provider?: string
           p_trace_id: string
         }
         Returns: {

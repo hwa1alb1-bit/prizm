@@ -11,11 +11,15 @@ import { getTextractClient } from './textract'
 
 export const DEFAULT_EXTRACTION_ENGINE = 'textract'
 export const KOTLIN_WORKER_EXTRACTION_ENGINE = 'kotlin_worker'
+export const CLOUDFLARE_R2_EXTRACTION_ENGINE = 'cloudflare-r2'
 
 export type ExtractionStartInput = {
   documentId: string
   s3Bucket: string
   s3Key: string
+  storageProvider?: 's3' | 'r2'
+  storageBucket?: string
+  storageKey?: string
 }
 
 export type ExtractionStartResult = {
@@ -60,7 +64,10 @@ export type KotlinWorkerClient = {
 export type ExtractionEngineEnv = {
   NODE_ENV?: string
   VERCEL_ENV?: string
+  DOCUMENT_EXTRACTION_PROVIDER?: string
   PRIZM_EXTRACTION_ENGINE?: string
+  CLOUDFLARE_EXTRACTOR_URL?: string
+  CLOUDFLARE_EXTRACTOR_TOKEN?: string
   KOTLIN_WORKER_URL?: string
   KOTLIN_WORKER_API_KEY?: string
 }
@@ -82,13 +89,25 @@ export function createDefaultExtractionEngine(
       worker: input.kotlinWorker ?? createHttpKotlinWorkerClient(input.env),
     })
   }
+  if (resolveDefaultExtractionEngineName(input.env) === CLOUDFLARE_R2_EXTRACTION_ENGINE) {
+    return createCloudflareR2ExtractionEngine({
+      worker: input.kotlinWorker ?? createHttpKotlinWorkerClient(input.env),
+    })
+  }
 
   return createTextractExtractionEngine()
 }
 
 export function resolveDefaultExtractionEngineName(
   env: ExtractionEngineEnv = process.env,
-): typeof DEFAULT_EXTRACTION_ENGINE | typeof KOTLIN_WORKER_EXTRACTION_ENGINE {
+):
+  | typeof DEFAULT_EXTRACTION_ENGINE
+  | typeof KOTLIN_WORKER_EXTRACTION_ENGINE
+  | typeof CLOUDFLARE_R2_EXTRACTION_ENGINE {
+  if (env.DOCUMENT_EXTRACTION_PROVIDER === CLOUDFLARE_R2_EXTRACTION_ENGINE) {
+    return CLOUDFLARE_R2_EXTRACTION_ENGINE
+  }
+
   if (
     env.PRIZM_EXTRACTION_ENGINE === KOTLIN_WORKER_EXTRACTION_ENGINE &&
     !isProductionExtractionTarget(env)
@@ -109,6 +128,9 @@ export function createExtractionEngineByName(
   input: CreateExtractionEngineByNameInput = {},
 ): ExtractionEngine | null {
   if (name === DEFAULT_EXTRACTION_ENGINE) return createTextractExtractionEngine()
+  if (name === CLOUDFLARE_R2_EXTRACTION_ENGINE) {
+    return createCloudflareR2ExtractionEngine({ worker: input.kotlinWorker })
+  }
   if (name === KOTLIN_WORKER_EXTRACTION_ENGINE) {
     return createKotlinWorkerExtractionEngine({ worker: input.kotlinWorker })
   }
@@ -126,20 +148,33 @@ export function createTextractExtractionEngine(): ExtractionEngine {
 export function createKotlinWorkerExtractionEngine(
   input: { worker?: KotlinWorkerClient } = {},
 ): ExtractionEngine {
+  return createWorkerExtractionEngine(KOTLIN_WORKER_EXTRACTION_ENGINE, input)
+}
+
+export function createCloudflareR2ExtractionEngine(
+  input: { worker?: KotlinWorkerClient } = {},
+): ExtractionEngine {
+  return createWorkerExtractionEngine(CLOUDFLARE_R2_EXTRACTION_ENGINE, input)
+}
+
+function createWorkerExtractionEngine(
+  engineName: typeof KOTLIN_WORKER_EXTRACTION_ENGINE | typeof CLOUDFLARE_R2_EXTRACTION_ENGINE,
+  input: { worker?: KotlinWorkerClient } = {},
+): ExtractionEngine {
   const worker = input.worker ?? createHttpKotlinWorkerClient()
 
   return {
-    name: KOTLIN_WORKER_EXTRACTION_ENGINE,
+    name: engineName,
     start: async (startInput) => {
       const result = await worker.start(startInput)
       return {
-        engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+        engine: engineName,
         jobId: result.jobId,
       }
     },
     poll: async (pollInput) => {
       const result = await worker.poll(pollInput)
-      return normalizeKotlinWorkerPollResult(pollInput, result)
+      return normalizeKotlinWorkerPollResult(pollInput, result, engineName)
     },
   }
 }
@@ -257,15 +292,15 @@ async function requestKotlinWorker(
   path: string,
   init: RequestInit,
 ): Promise<unknown> {
-  if (!env.KOTLIN_WORKER_URL) throw new Error('kotlin_worker_url_missing')
+  const workerUrl = env.CLOUDFLARE_EXTRACTOR_URL ?? env.KOTLIN_WORKER_URL
+  const workerToken = env.CLOUDFLARE_EXTRACTOR_TOKEN ?? env.KOTLIN_WORKER_API_KEY
+  if (!workerUrl) throw new Error('kotlin_worker_url_missing')
 
-  const response = await fetchImpl(new URL(path, withTrailingSlash(env.KOTLIN_WORKER_URL)), {
+  const response = await fetchImpl(new URL(path, withTrailingSlash(workerUrl)), {
     ...init,
     headers: {
       'content-type': 'application/json',
-      ...(env.KOTLIN_WORKER_API_KEY
-        ? { authorization: `Bearer ${env.KOTLIN_WORKER_API_KEY}` }
-        : {}),
+      ...(workerToken ? { authorization: `Bearer ${workerToken}` } : {}),
       ...init.headers,
     },
   })
@@ -281,13 +316,16 @@ function withTrailingSlash(value: string): string {
 function normalizeKotlinWorkerPollResult(
   input: ExtractionPollInput,
   output: unknown,
+  engineName:
+    | typeof KOTLIN_WORKER_EXTRACTION_ENGINE
+    | typeof CLOUDFLARE_R2_EXTRACTION_ENGINE = KOTLIN_WORKER_EXTRACTION_ENGINE,
 ): ExtractionPollResult {
   if (!isRecord(output)) return invalidKotlinWorkerOutput(input)
 
   if (output.status === 'in_progress') {
     return {
       status: 'in_progress',
-      engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+      engine: engineName,
       jobId: input.jobId,
     }
   }
@@ -295,7 +333,7 @@ function normalizeKotlinWorkerPollResult(
   if (output.status === 'failed') {
     return {
       status: 'failed',
-      engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+      engine: engineName,
       jobId: input.jobId,
       failureReason:
         typeof output.failureReason === 'string'
@@ -313,7 +351,7 @@ function normalizeKotlinWorkerPollResult(
 
   return {
     status: 'succeeded',
-    engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+    engine: engineName,
     jobId: typeof output.jobId === 'string' ? output.jobId : input.jobId,
     statements: statements.filter(isParsedStatement),
   }

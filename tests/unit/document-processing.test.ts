@@ -35,6 +35,7 @@ describe('processExtractionDocuments', () => {
       documentId: 'doc_123',
       workspaceId: 'workspace_123',
       expiresAt: '2026-05-07T22:15:00.000Z',
+      ordinal: 0,
       statement: expect.objectContaining({
         statementType: 'bank',
         metadata: {},
@@ -113,6 +114,7 @@ describe('processExtractionDocuments', () => {
       documentId: 'doc_123',
       workspaceId: 'workspace_123',
       expiresAt: '2026-05-07T22:25:00.000Z',
+      ordinal: 0,
       statement: expect.objectContaining({
         reconciles: false,
         ready: false,
@@ -172,6 +174,7 @@ describe('processExtractionDocuments', () => {
       documentId: 'doc_123',
       workspaceId: 'workspace_123',
       expiresAt: '2026-05-07T22:35:00.000Z',
+      ordinal: 0,
       statement: expect.objectContaining({
         reconciles: false,
         ready: false,
@@ -192,9 +195,9 @@ describe('processExtractionDocuments', () => {
   })
 
   it('persists credit-card statement type and metadata with parsed statement evidence', async () => {
-    const insert = vi.fn().mockResolvedValue({ data: null, error: null })
+    const upsert = vi.fn().mockResolvedValue({ data: null, error: null })
     vi.mocked(getServiceRoleClient).mockReturnValue({
-      from: vi.fn().mockReturnValue({ insert }),
+      from: vi.fn().mockReturnValue({ upsert }),
     } as unknown as ReturnType<typeof getServiceRoleClient>)
     const statement = {
       statementType: 'credit_card',
@@ -231,19 +234,22 @@ describe('processExtractionDocuments', () => {
       documentId: 'doc_card_123',
       workspaceId: 'workspace_123',
       expiresAt: '2026-05-07T22:15:00.000Z',
+      ordinal: 2,
       statement,
     })
 
-    expect(insert).toHaveBeenCalledWith(
+    expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         document_id: 'doc_card_123',
         workspace_id: 'workspace_123',
+        extraction_ordinal: 2,
         statement_type: 'credit_card',
         statement_metadata: {
           issuer: 'PRIZM Card Services',
           paymentDueDate: '2026-05-25',
         },
       }),
+      { onConflict: 'document_id, extraction_ordinal' },
     )
   })
 
@@ -342,6 +348,45 @@ describe('processExtractionDocuments', () => {
         }),
       }),
     )
+  })
+
+  it('fails closed and releases credits for unsupported scanned or image-only PDFs', async () => {
+    const now = new Date('2026-05-06T22:52:00.000Z')
+    const deps = createDependencies({
+      document: processingDocument({
+        extractionEngine: 'cloudflare-r2',
+        extractionJobId: 'cf_job_scanned',
+        textractJobId: null,
+      }),
+      pollResult: {
+        status: 'failed',
+        engine: 'cloudflare-r2',
+        jobId: 'cf_job_scanned',
+        failureReason:
+          'Unsupported scanned or image-only PDF: launch extraction requires selectable text.',
+      },
+    })
+
+    const result = await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(result).toEqual({
+      status: 'failed',
+      polled: 1,
+      ready: 0,
+      failed: 1,
+      skipped: 0,
+    })
+    expect(deps.storeParsedStatement).not.toHaveBeenCalled()
+    expect(deps.consumeCreditReservation).not.toHaveBeenCalled()
+    expect(deps.releaseCreditReservation).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      releasedAt: now.toISOString(),
+    })
+    expect(deps.markDocumentFailed).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      failureReason:
+        'Unsupported scanned or image-only PDF: launch extraction requires selectable text.',
+    })
   })
 
   it('targets one processing document when status polling drives finalization', async () => {

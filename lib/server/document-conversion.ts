@@ -11,6 +11,7 @@ import {
   createDefaultExtractionEngine,
   type ExtractionStartResult,
 } from './extraction-engine'
+import type { DocumentStorageProvider } from './document-storage'
 import type { RouteContext } from './http'
 import { getServiceRoleClient } from './supabase'
 
@@ -28,6 +29,9 @@ export type ConversionDocument = {
   status: string
   s3Bucket: string
   s3Key: string
+  storageProvider: DocumentStorageProvider | null
+  storageBucket: string | null
+  storageKey: string | null
   extractionEngine: string | null
   extractionJobId: string | null
   textractJobId: string | null
@@ -50,7 +54,7 @@ export type ConvertDocumentSuccess = {
   status: 'processing' | 'ready'
   extractionEngine: string
   extractionJobId: string
-  textractJobId: string
+  textractJobId: string | null
   chargeStatus: string
   alreadyStarted: boolean
   requestId: string
@@ -87,6 +91,9 @@ export type DocumentConversionDependencies = {
     documentId: string
     s3Bucket: string
     s3Key: string
+    storageProvider: DocumentStorageProvider
+    storageBucket: string
+    storageKey: string
   }) => Promise<ExtractionStartResult>
   markProcessingStarted: (input: ProcessingStartedInput) => Promise<void>
   markProcessingFailed: (input: ProcessingFailedInput) => Promise<void>
@@ -128,6 +135,9 @@ type DocumentRow = {
   status: string
   s3_bucket: string
   s3_key: string
+  storage_provider: DocumentStorageProvider | null
+  storage_bucket: string | null
+  storage_key: string | null
   extraction_engine: string | null
   extraction_job_id: string | null
   textract_job_id: string | null
@@ -192,6 +202,9 @@ export async function convertDocument(
       documentId: document.id,
       s3Bucket: document.s3Bucket,
       s3Key: document.s3Key,
+      storageProvider: document.storageProvider ?? 's3',
+      storageBucket: document.storageBucket ?? document.s3Bucket,
+      storageKey: document.storageKey ?? document.s3Key,
     })
   } catch {
     const failureReason = 'Extraction could not be started for the verified upload.'
@@ -218,6 +231,18 @@ export async function convertDocument(
       chargeStatus: reservation.chargeStatus,
     })
   } catch {
+    try {
+      await deps.releaseCreditReservation({
+        documentId: document.id,
+        releasedAt: new Date().toISOString(),
+      })
+      await deps.markProcessingFailed({
+        ...audit,
+        failureReason: 'Extraction started but the processing state could not be recorded safely.',
+      })
+    } catch {
+      return conversionProblem('transition_failed')
+    }
     return conversionProblem('transition_failed')
   }
 
@@ -227,7 +252,7 @@ export async function convertDocument(
     status: 'processing',
     extractionEngine: extraction.engine,
     extractionJobId: extraction.jobId,
-    textractJobId: extraction.jobId,
+    textractJobId,
     chargeStatus: reservation.chargeStatus,
     alreadyStarted: false,
     requestId: input.routeContext.requestId,
@@ -272,6 +297,9 @@ async function getDocumentForConversion(documentId: string): Promise<ConversionD
         'status',
         's3_bucket',
         's3_key',
+        'storage_provider',
+        'storage_bucket',
+        'storage_key',
         'extraction_engine',
         'extraction_job_id',
         'textract_job_id',
@@ -311,6 +339,9 @@ async function startExtraction(input: {
   documentId: string
   s3Bucket: string
   s3Key: string
+  storageProvider: DocumentStorageProvider
+  storageBucket: string
+  storageKey: string
 }): Promise<ExtractionStartResult> {
   return createDefaultExtractionEngine().start(input)
 }
@@ -416,6 +447,9 @@ function documentFromRow(row: DocumentRow): ConversionDocument {
     status: row.status,
     s3Bucket: row.s3_bucket,
     s3Key: row.s3_key,
+    storageProvider: row.storage_provider,
+    storageBucket: row.storage_bucket,
+    storageKey: row.storage_key,
     extractionEngine: row.extraction_engine,
     extractionJobId: row.extraction_job_id,
     textractJobId: row.textract_job_id,

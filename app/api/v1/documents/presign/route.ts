@@ -7,7 +7,12 @@ import { preflightDocumentUpload } from '@/lib/server/document-preflight'
 import { createPendingDocumentUpload } from '@/lib/server/document-upload'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
 import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
-import { getS3Client, getUploadBucket, getKmsKeyId } from '@/lib/server/s3'
+import {
+  createUploadObjectCommandInput,
+  resolveDocumentStorageProvider,
+  storageConfigForProvider,
+} from '@/lib/server/document-storage'
+import { getS3Client } from '@/lib/server/s3'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024
@@ -141,16 +146,20 @@ export async function POST(request: NextRequest) {
   const s3Key = `${auth.context.user.id}/${crypto.randomUUID()}/${filename}`
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
-  const kmsKeyId = getKmsKeyId()
-  const bucket = getUploadBucket()
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: s3Key,
-    ContentType: contentType,
-    ContentLength: sizeBytes,
-    ServerSideEncryption: 'aws:kms',
-    ...(kmsKeyId ? { SSEKMSKeyId: kmsKeyId } : {}),
-  })
+  const storageProvider = resolveDocumentStorageProvider()
+  const storageConfig = storageConfigForProvider(storageProvider)
+  const bucket = storageConfig.bucket
+  const command = new PutObjectCommand(
+    createUploadObjectCommandInput(
+      {
+        bucket,
+        key: s3Key,
+        contentType,
+        sizeBytes,
+      },
+      storageConfig,
+    ),
+  )
 
   let uploadUrl: string
   try {
@@ -173,6 +182,9 @@ export async function POST(request: NextRequest) {
     conversionCostCredits: acceptedQuote.costCredits,
     s3Bucket: bucket,
     s3Key,
+    storageProvider,
+    storageBucket: bucket,
+    storageKey: s3Key,
     expiresAt,
     actorIp: getClientIp(request),
     actorUserAgent: request.headers.get('user-agent'),
