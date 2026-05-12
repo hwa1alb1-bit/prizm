@@ -1,3 +1,7 @@
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+ignoredOptionalDependencies:
+  - '@tanstack/setup'
+minimumReleaseAge: 4320
+blockExoticSubdeps: true

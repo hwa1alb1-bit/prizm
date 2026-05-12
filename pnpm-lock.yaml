@@ -7500,6 +7500,9 @@ packages:
         integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==,
       }
 
+ignoredOptionalDependencies:
+  - '@tanstack/setup'
+
 snapshots:
   '@adobe/css-tools@4.4.4': {}
 
