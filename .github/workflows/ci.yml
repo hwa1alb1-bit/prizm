@@ -18,6 +18,9 @@ on:
 env:
   NODE_VERSION: '24'
 
+permissions:
+  contents: read
+
 jobs:
   lint-types-test:
     name: Lint, types, unit tests
@@ -34,7 +37,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Release gate
         run: pnpm verify
@@ -68,7 +71,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
@@ -107,7 +110,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Staging launch readiness
         run: pnpm check:launch-gates
@@ -155,7 +158,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Production launch readiness
         run: pnpm check:launch-gates
