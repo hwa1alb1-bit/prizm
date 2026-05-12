@@ -122,7 +122,9 @@ export async function getDocumentStatus(
       state: document.status,
       extractionEngine: document.extractionEngine,
       extractionJobId: document.extractionJobId,
-      textractJobId: document.textractJobId ?? document.extractionJobId,
+      textractJobId:
+        document.textractJobId ??
+        (document.extractionEngine === 'textract' ? document.extractionJobId : null),
       chargeStatus: document.chargeStatus,
       duplicate: document.duplicateOfDocumentId
         ? { isDuplicate: true, existingDocumentId: document.duplicateOfDocumentId }

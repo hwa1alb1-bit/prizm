@@ -90,6 +90,22 @@ describe('Textract extraction engine', () => {
 })
 
 describe('Kotlin worker extraction engine', () => {
+  it('selects the Cloudflare R2 extractor from the launch provider flag', () => {
+    const worker = workerReturning(kotlinBankFixture)
+
+    expect(
+      createDefaultExtractionEngine({
+        env: {
+          NODE_ENV: 'production',
+          DOCUMENT_EXTRACTION_PROVIDER: 'cloudflare-r2',
+          CLOUDFLARE_EXTRACTOR_URL: 'https://extractor.example.com',
+          CLOUDFLARE_EXTRACTOR_TOKEN: 'token',
+        },
+        kotlinWorker: worker,
+      }).name,
+    ).toBe('cloudflare-r2')
+  })
+
   it('can be selected only by an explicit non-production worker flag', () => {
     const worker = workerReturning(kotlinBankFixture)
 
@@ -104,6 +120,9 @@ describe('Kotlin worker extraction engine', () => {
   it('can be created by persisted engine name for polling worker jobs', () => {
     const worker = workerReturning(kotlinBankFixture)
 
+    expect(createExtractionEngineByName('cloudflare-r2', { kotlinWorker: worker })?.name).toBe(
+      'cloudflare-r2',
+    )
     expect(createExtractionEngineByName('kotlin_worker', { kotlinWorker: worker })?.name).toBe(
       'kotlin_worker',
     )
@@ -122,16 +141,10 @@ describe('Kotlin worker extraction engine', () => {
       status: 'succeeded',
       engine: 'kotlin_worker',
       jobId: 'worker_bank_123',
-      statements: [
-        {
-          statementType: 'bank',
-          bankName: 'PRIZM Credit Union',
-          accountLast4: '4242',
-          reconciles: true,
-          ready: true,
-        },
-      ],
     })
+    expect(result.status === 'succeeded' ? result.statements[0] : null).toEqual(
+      kotlinBankFixture.statements[0],
+    )
   })
 
   it('returns normalized credit-card statement data from worker output', async () => {
@@ -146,19 +159,10 @@ describe('Kotlin worker extraction engine', () => {
       status: 'succeeded',
       engine: 'kotlin_worker',
       jobId: 'worker_card_123',
-      statements: [
-        {
-          statementType: 'credit_card',
-          bankName: 'PRIZM Rewards Visa',
-          accountLast4: '9876',
-          reconciles: true,
-          ready: true,
-          metadata: {
-            paymentDueDate: '2026-05-25',
-          },
-        },
-      ],
     })
+    expect(result.status === 'succeeded' ? result.statements[0] : null).toEqual(
+      kotlinCreditCardFixture.statements[0],
+    )
   })
 })
 

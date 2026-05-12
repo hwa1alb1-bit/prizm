@@ -49,7 +49,7 @@ describe('getDocumentStatus', () => {
     })
   })
 
-  it('keeps the v1 textractJobId alias for worker-backed documents', async () => {
+  it('does not expose worker job ids through the Textract compatibility field', async () => {
     const routeContext = {
       requestId: 'req_status',
       traceId: '0123456789abcdef0123456789abcdef',
@@ -85,7 +85,7 @@ describe('getDocumentStatus', () => {
       ok: true,
       extractionEngine: 'kotlin_worker',
       extractionJobId: 'worker_job_123',
-      textractJobId: 'worker_job_123',
+      textractJobId: null,
     })
   })
 })

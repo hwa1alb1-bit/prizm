@@ -34,6 +34,9 @@ describe('convertDocument', () => {
       documentId: 'doc_123',
       s3Bucket: 'prizm-uploads-test',
       s3Key: 'user_123/doc_123/statement.pdf',
+      storageProvider: 's3',
+      storageBucket: 'prizm-uploads-test',
+      storageKey: 'user_123/doc_123/statement.pdf',
     })
     expect(deps.markProcessingStarted).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -85,6 +88,30 @@ describe('convertDocument', () => {
     )
   })
 
+  it('releases the reserved credit and marks failed when processing-state persistence fails after extraction starts', async () => {
+    const deps = createDependencies()
+    deps.markProcessingStarted.mockRejectedValueOnce(new Error('db_transition_failed'))
+
+    const result = await convertDocument(conversionInput(), deps)
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'transition_failed',
+      status: 500,
+    })
+    expect(deps.startExtraction).toHaveBeenCalled()
+    expect(deps.releaseCreditReservation).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      releasedAt: expect.any(String),
+    })
+    expect(deps.markProcessingFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc_123',
+        failureReason: 'Extraction started but the processing state could not be recorded safely.',
+      }),
+    )
+  })
+
   it('returns the existing extraction job without reserving another credit', async () => {
     const deps = createDependencies({
       document: documentRow({
@@ -114,7 +141,7 @@ describe('convertDocument', () => {
     expect(deps.startExtraction).not.toHaveBeenCalled()
   })
 
-  it('returns the v1 textractJobId alias for worker jobs without persisting it as a Textract job', async () => {
+  it('does not expose worker job ids through the Textract compatibility field', async () => {
     const deps = createDependencies()
     deps.startExtraction.mockResolvedValueOnce({
       engine: 'kotlin_worker',
@@ -129,7 +156,7 @@ describe('convertDocument', () => {
       status: 'processing',
       extractionEngine: 'kotlin_worker',
       extractionJobId: 'worker_job_123',
-      textractJobId: 'worker_job_123',
+      textractJobId: null,
       chargeStatus: 'reserved',
       alreadyStarted: false,
       requestId: 'req_convert',
@@ -143,6 +170,39 @@ describe('convertDocument', () => {
         textractJobId: null,
       }),
     )
+  })
+
+  it('starts Cloudflare extraction with provider-neutral R2 storage identity', async () => {
+    const deps = createDependencies({
+      document: documentRow({
+        storageProvider: 'r2',
+        storageBucket: 'prizm-r2-uploads',
+        storageKey: 'user_123/doc_123/statement.pdf',
+        s3Bucket: 'prizm-r2-uploads',
+        s3Key: 'user_123/doc_123/statement.pdf',
+      }),
+    })
+    deps.startExtraction.mockResolvedValueOnce({
+      engine: 'cloudflare-r2',
+      jobId: 'cf_job_123',
+    })
+
+    const result = await convertDocument(conversionInput(), deps)
+
+    expect(result).toMatchObject({
+      ok: true,
+      extractionEngine: 'cloudflare-r2',
+      extractionJobId: 'cf_job_123',
+      textractJobId: null,
+    })
+    expect(deps.startExtraction).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      storageProvider: 'r2',
+      storageBucket: 'prizm-r2-uploads',
+      storageKey: 'user_123/doc_123/statement.pdf',
+      s3Bucket: 'prizm-r2-uploads',
+      s3Key: 'user_123/doc_123/statement.pdf',
+    })
   })
 })
 
@@ -186,6 +246,9 @@ function documentRow(overrides: Partial<ConversionDocument> = {}): ConversionDoc
     status: 'verified',
     s3Bucket: 'prizm-uploads-test',
     s3Key: 'user_123/doc_123/statement.pdf',
+    storageProvider: 's3',
+    storageBucket: 'prizm-uploads-test',
+    storageKey: 'user_123/doc_123/statement.pdf',
     extractionEngine: null,
     extractionJobId: null,
     textractJobId: null,

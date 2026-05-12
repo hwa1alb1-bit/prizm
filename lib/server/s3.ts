@@ -4,27 +4,29 @@
 
 import 'server-only'
 
-import { S3Client, HeadBucketCommand } from '@aws-sdk/client-s3'
-import { serverEnv } from '../shared/env'
-import { getAwsCredentials } from './aws'
+import { HeadBucketCommand } from '@aws-sdk/client-s3'
+import {
+  createDocumentStorageClient,
+  resolveDocumentStorageConfig,
+  resolveDocumentStorageProvider,
+  type DocumentStorageProvider,
+} from './document-storage'
 
-let cached: S3Client | null = null
-
-export function getS3Client(): S3Client {
-  if (cached) return cached
-  cached = new S3Client({
-    region: serverEnv.AWS_REGION,
-    credentials: getAwsCredentials(),
-  })
-  return cached
+export function getS3Client() {
+  return createDocumentStorageClient()
 }
 
-export function getUploadBucket(): string {
-  return serverEnv.S3_UPLOAD_BUCKET
+export function getUploadBucket(provider?: DocumentStorageProvider): string {
+  return resolveDocumentStorageConfig(undefined, provider ?? resolveDocumentStorageProvider())
+    .bucket
 }
 
-export function getKmsKeyId(): string | undefined {
-  return serverEnv.S3_KMS_KEY_ID
+export function getKmsKeyId(provider?: DocumentStorageProvider): string | undefined {
+  const config = resolveDocumentStorageConfig(
+    undefined,
+    provider ?? resolveDocumentStorageProvider(),
+  )
+  return config.provider === 's3' ? config.kmsKeyId : undefined
 }
 
 export async function pingS3(): Promise<{ ok: boolean; error?: string }> {

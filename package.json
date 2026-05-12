@@ -23,6 +23,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:connectors:live": "tsx --conditions react-server scripts/smoke-live-connectors.ts",
+    "benchmark:extraction": "tsx --conditions react-server scripts/benchmark-extraction.ts",
     "check:launch-gates": "tsx --conditions react-server scripts/check-launch-gates.ts",
     "verify:release": "tsx --conditions react-server scripts/verify-release.ts",
     "verify:service-readiness": "tsx --conditions react-server scripts/archive-service-readiness.ts",

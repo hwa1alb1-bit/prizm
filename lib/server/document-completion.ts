@@ -3,6 +3,7 @@ import 'server-only'
 import { HeadObjectCommand } from '@aws-sdk/client-s3'
 import type { Json } from '../shared/db-types'
 import { recordAuditEventOrThrow } from './audit'
+import type { DocumentStorageProvider } from './document-storage'
 import type { RouteContext } from './http'
 import { getS3Client, getKmsKeyId, getUploadBucket } from './s3'
 import { getServiceRoleClient } from './supabase'
@@ -17,6 +18,9 @@ export type CompletionDocument = {
   sizeBytes: number
   s3Bucket: string
   s3Key: string
+  storageProvider: DocumentStorageProvider | null
+  storageBucket: string | null
+  storageKey: string | null
   textractJobId: string | null
   failureReason: string | null
 }
@@ -34,11 +38,14 @@ export type S3ObjectEvidence = {
 }
 
 export type VerifiedUploadEvidence = {
+  storageProvider: DocumentStorageProvider
+  storageBucket: string
+  storageKey: string
   s3Bucket: string
   s3Key: string
   sizeBytes: number
   contentType: string
-  serverSideEncryption: string
+  serverSideEncryption: string | null
   sseKmsKeyId: string | null
 }
 
@@ -81,11 +88,15 @@ export type CompleteDocumentUploadResult =
   | CompleteDocumentUploadFailure
 
 export type DocumentCompletionDependencies = {
-  getUploadBucket: () => string
-  getKmsKeyId: () => string | undefined
+  getUploadBucket: (provider?: DocumentStorageProvider) => string
+  getKmsKeyId: (provider?: DocumentStorageProvider) => string | undefined
   getUserProfile: (userId: string) => Promise<CompletionProfile | null>
   getDocument: (documentId: string) => Promise<CompletionDocument | null>
-  headObject: (input: { s3Bucket: string; s3Key: string }) => Promise<S3ObjectEvidence>
+  headObject: (input: {
+    storageProvider: DocumentStorageProvider
+    bucket: string
+    key: string
+  }) => Promise<S3ObjectEvidence>
   markUploadCompleted: (input: UploadCompletedInput) => Promise<void>
   markProcessingFailed: (input: ProcessingFailedInput) => Promise<void>
 }
@@ -125,6 +136,9 @@ type DocumentRow = {
   size_bytes: number
   s3_bucket: string
   s3_key: string
+  storage_provider: DocumentStorageProvider | null
+  storage_bucket: string | null
+  storage_key: string | null
   textract_job_id: string | null
   failure_reason: string | null
 }
@@ -158,7 +172,12 @@ export async function completeDocumentUpload(
     return completionProblem('conflict')
   }
 
-  const staticMismatch = staticDocumentMismatches(document, deps.getUploadBucket())
+  const storage = storageLocation(document)
+  const staticMismatch = staticDocumentMismatches(
+    document,
+    storage,
+    deps.getUploadBucket(storage.provider),
+  )
   if (staticMismatch.length > 0) {
     return failClosed(input, deps, document, metadataMismatchReason(staticMismatch))
   }
@@ -166,8 +185,9 @@ export async function completeDocumentUpload(
   let head: S3ObjectEvidence
   try {
     head = await deps.headObject({
-      s3Bucket: document.s3Bucket,
-      s3Key: document.s3Key,
+      storageProvider: storage.provider,
+      bucket: storage.bucket,
+      key: storage.key,
     })
   } catch (err) {
     if (isS3NotFound(err)) {
@@ -176,7 +196,7 @@ export async function completeDocumentUpload(
     return completionProblem('s3_verification_failed')
   }
 
-  const evidence = verifyS3Object(document, head, deps.getKmsKeyId())
+  const evidence = verifyStoredObject(document, storage, head, deps.getKmsKeyId(storage.provider))
   if (!evidence.ok) {
     return failClosed(input, deps, document, metadataMismatchReason(evidence.mismatches))
   }
@@ -242,6 +262,9 @@ async function getDocumentForCompletion(documentId: string): Promise<CompletionD
         'size_bytes',
         's3_bucket',
         's3_key',
+        'storage_provider',
+        'storage_bucket',
+        'storage_key',
         'textract_job_id',
         'failure_reason',
       ].join(', '),
@@ -254,13 +277,14 @@ async function getDocumentForCompletion(documentId: string): Promise<CompletionD
 }
 
 async function headUploadedObject(input: {
-  s3Bucket: string
-  s3Key: string
+  storageProvider: DocumentStorageProvider
+  bucket: string
+  key: string
 }): Promise<S3ObjectEvidence> {
   const result = await getS3Client().send(
     new HeadObjectCommand({
-      Bucket: input.s3Bucket,
-      Key: input.s3Key,
+      Bucket: input.bucket,
+      Key: input.key,
     }),
   )
 
@@ -297,6 +321,9 @@ async function markUploadCompleted(input: UploadCompletedInput): Promise<void> {
     metadata: auditMetadata(input, {
       s3_bucket: input.verification.s3Bucket,
       s3_key: input.verification.s3Key,
+      storage_provider: input.verification.storageProvider,
+      storage_bucket: input.verification.storageBucket,
+      storage_key: input.verification.storageKey,
       size_bytes: input.verification.sizeBytes,
       content_type: input.verification.contentType,
       server_side_encryption: input.verification.serverSideEncryption,
@@ -333,8 +360,9 @@ async function markProcessingFailed(input: ProcessingFailedInput): Promise<void>
   })
 }
 
-function verifyS3Object(
+function verifyStoredObject(
   document: CompletionDocument,
+  storage: ResolvedStorageLocation,
   head: S3ObjectEvidence,
   kmsKeyId: string | undefined,
 ): { ok: true; verification: VerifiedUploadEvidence } | { ok: false; mismatches: string[] } {
@@ -343,10 +371,15 @@ function verifyS3Object(
   if (normalizeContentType(head.contentType) !== document.contentType) {
     mismatches.push('content_type')
   }
-  if (head.serverSideEncryption !== 'aws:kms') {
+  if (storage.provider === 's3' && head.serverSideEncryption !== 'aws:kms') {
     mismatches.push('server_side_encryption')
   }
-  if (kmsKeyId && head.sseKmsKeyId && !kmsKeyMatches(head.sseKmsKeyId, kmsKeyId)) {
+  if (
+    storage.provider === 's3' &&
+    kmsKeyId &&
+    head.sseKmsKeyId &&
+    !kmsKeyMatches(head.sseKmsKeyId, kmsKeyId)
+  ) {
     mismatches.push('sse_kms_key_id')
   }
 
@@ -355,11 +388,14 @@ function verifyS3Object(
   return {
     ok: true,
     verification: {
+      storageProvider: storage.provider,
+      storageBucket: storage.bucket,
+      storageKey: storage.key,
       s3Bucket: document.s3Bucket,
       s3Key: document.s3Key,
       sizeBytes: document.sizeBytes,
       contentType: document.contentType,
-      serverSideEncryption: head.serverSideEncryption ?? 'aws:kms',
+      serverSideEncryption: head.serverSideEncryption ?? null,
       sseKmsKeyId: head.sseKmsKeyId ?? null,
     },
   }
@@ -367,14 +403,29 @@ function verifyS3Object(
 
 function staticDocumentMismatches(
   document: CompletionDocument,
+  storage: ResolvedStorageLocation,
   configuredBucket: string,
 ): string[] {
   const mismatches: string[] = []
-  if (document.s3Bucket !== configuredBucket) mismatches.push('s3_bucket')
-  if (!document.s3Key || !document.s3Key.startsWith(`${document.uploadedBy}/`)) {
-    mismatches.push('s3_key')
+  if (storage.bucket !== configuredBucket) mismatches.push('storage_bucket')
+  if (!storage.key || !storage.key.startsWith(`${document.uploadedBy}/`)) {
+    mismatches.push('storage_key')
   }
   return mismatches
+}
+
+type ResolvedStorageLocation = {
+  provider: DocumentStorageProvider
+  bucket: string
+  key: string
+}
+
+function storageLocation(document: CompletionDocument): ResolvedStorageLocation {
+  return {
+    provider: document.storageProvider ?? 's3',
+    bucket: document.storageBucket ?? document.s3Bucket,
+    key: document.storageKey ?? document.s3Key,
+  }
 }
 
 async function failClosed(
@@ -518,6 +569,9 @@ function documentFromRow(row: DocumentRow): CompletionDocument {
     sizeBytes: row.size_bytes,
     s3Bucket: row.s3_bucket,
     s3Key: row.s3_key,
+    storageProvider: row.storage_provider,
+    storageBucket: row.storage_bucket,
+    storageKey: row.storage_key,
     textractJobId: row.textract_job_id,
     failureReason: row.failure_reason,
   }

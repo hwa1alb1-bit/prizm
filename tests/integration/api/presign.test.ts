@@ -29,8 +29,29 @@ vi.mock('@/lib/server/ratelimit', () => ({
 
 vi.mock('@/lib/server/s3', () => ({
   getS3Client: vi.fn(() => ({})),
-  getUploadBucket: vi.fn(() => 'prizm-test-uploads'),
-  getKmsKeyId: vi.fn(() => 'kms-test-key'),
+}))
+
+vi.mock('@/lib/server/document-storage', () => ({
+  resolveDocumentStorageProvider: vi.fn(() => 's3'),
+  storageConfigForProvider: vi.fn(() => ({
+    provider: 's3',
+    bucket: 'prizm-test-uploads',
+    awsRegion: 'us-east-1',
+    requiresAwsKms: true,
+    kmsKeyId: 'kms-test-key',
+  })),
+  createUploadObjectCommandInput: vi.fn((input, config) => ({
+    Bucket: input.bucket,
+    Key: input.key,
+    ContentType: input.contentType,
+    ContentLength: input.sizeBytes,
+    ...(config.requiresAwsKms
+      ? {
+          ServerSideEncryption: 'aws:kms',
+          ...(config.kmsKeyId ? { SSEKMSKeyId: config.kmsKeyId } : {}),
+        }
+      : {}),
+  })),
 }))
 
 vi.mock('@aws-sdk/s3-request-presigner', () => ({

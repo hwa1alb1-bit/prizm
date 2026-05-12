@@ -50,12 +50,47 @@ describe('createPendingDocumentUpload', () => {
       p_conversion_cost_credits: 1,
       p_s3_bucket: 'uploads',
       p_s3_key: 'workspace/doc/statement.pdf',
+      p_storage_provider: 's3',
+      p_storage_bucket: 'uploads',
+      p_storage_key: 'workspace/doc/statement.pdf',
       p_expires_at: '2026-05-06T00:00:00.000Z',
       p_request_id: 'req_upload',
       p_trace_id: '0123456789abcdef0123456789abcdef',
       p_actor_ip: '127.0.0.1',
       p_actor_user_agent: 'vitest',
     })
+  })
+
+  it('writes neutral R2 storage metadata while preserving S3 compatibility fields', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ document_id: 'doc_123', s3_key: 'workspace/doc/statement.pdf' }],
+      error: null,
+    })
+    vi.mocked(getServiceRoleClient).mockReturnValue({ rpc } as never)
+
+    const result = await createPendingDocumentUpload({
+      ...baseInput,
+      storageProvider: 'r2',
+      storageBucket: 'prizm-r2-uploads',
+      storageKey: 'workspace/doc/statement.pdf',
+      s3Bucket: 'prizm-r2-uploads',
+      s3Key: 'workspace/doc/statement.pdf',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      document: { id: 'doc_123', s3Key: 'workspace/doc/statement.pdf' },
+    })
+    expect(rpc).toHaveBeenCalledWith(
+      'create_pending_document_upload_for_actor',
+      expect.objectContaining({
+        p_storage_provider: 'r2',
+        p_storage_bucket: 'prizm-r2-uploads',
+        p_storage_key: 'workspace/doc/statement.pdf',
+        p_s3_bucket: 'prizm-r2-uploads',
+        p_s3_key: 'workspace/doc/statement.pdf',
+      }),
+    )
   })
 
   it('maps workspace failures without leaking database details', async () => {

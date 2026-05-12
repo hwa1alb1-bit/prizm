@@ -49,6 +49,7 @@ export type DocumentProcessingDependencies = {
     documentId: string
     workspaceId: string
     expiresAt: string
+    ordinal: number
     statement: ParsedStatement
   }) => Promise<void>
   markDocumentReady: (input: { documentId: string; convertedAt: string }) => Promise<void>
@@ -89,6 +90,10 @@ type TableBuilder = {
   select: <T>(columns: string) => SelectBuilder<T>
   update: (payload: Record<string, unknown>) => UpdateBuilder
   insert: (payload: Record<string, unknown>) => Promise<QueryResult<unknown>>
+  upsert: (
+    payload: Record<string, unknown>,
+    options: { onConflict: string },
+  ) => Promise<QueryResult<unknown>>
 }
 
 type ProcessingStoreClient = {
@@ -163,11 +168,12 @@ export async function processExtractionDocuments(
       continue
     }
 
-    for (const statement of extraction.statements) {
+    for (const [ordinal, statement] of extraction.statements.entries()) {
       await deps.storeParsedStatement({
         documentId: document.id,
         workspaceId: document.workspaceId,
         expiresAt,
+        ordinal,
         statement: statementWithPersistenceDefaults(statement),
       })
     }
@@ -295,28 +301,33 @@ export async function storeParsedStatement(input: {
   documentId: string
   workspaceId: string
   expiresAt: string
+  ordinal: number
   statement: ParsedStatement
 }): Promise<void> {
   const persisted = statementPersistenceFields(input.statement)
   const { error } = await getProcessingStoreClient()
     .from('statement')
-    .insert({
-      document_id: input.documentId,
-      workspace_id: input.workspaceId,
-      statement_type: persisted.statementType,
-      statement_metadata: persisted.metadata,
-      bank_name: input.statement.bankName,
-      account_last4: input.statement.accountLast4,
-      period_start: input.statement.periodStart,
-      period_end: input.statement.periodEnd,
-      opening_balance: input.statement.openingBalance,
-      closing_balance: input.statement.closingBalance,
-      reported_total: input.statement.reportedTotal,
-      computed_total: input.statement.computedTotal,
-      reconciles: input.statement.reconciles,
-      transactions: input.statement.transactions as unknown as Json,
-      expires_at: input.expiresAt,
-    })
+    .upsert(
+      {
+        document_id: input.documentId,
+        workspace_id: input.workspaceId,
+        extraction_ordinal: input.ordinal,
+        statement_type: persisted.statementType,
+        statement_metadata: persisted.metadata,
+        bank_name: input.statement.bankName,
+        account_last4: input.statement.accountLast4,
+        period_start: input.statement.periodStart,
+        period_end: input.statement.periodEnd,
+        opening_balance: input.statement.openingBalance,
+        closing_balance: input.statement.closingBalance,
+        reported_total: input.statement.reportedTotal,
+        computed_total: input.statement.computedTotal,
+        reconciles: input.statement.reconciles,
+        transactions: input.statement.transactions as unknown as Json,
+        expires_at: input.expiresAt,
+      },
+      { onConflict: 'document_id, extraction_ordinal' },
+    )
 
   if (error) throw new Error('parsed_statement_write_failed')
 }
