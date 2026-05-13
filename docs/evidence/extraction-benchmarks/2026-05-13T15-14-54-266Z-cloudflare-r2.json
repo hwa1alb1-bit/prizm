@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-13T15:14:54.266Z",
+  "gitSha": "local",
+  "mode": "fixture",
+  "targetUrl": null,
+  "provider": {
+    "storage": "r2",
+    "extraction": "cloudflare-r2",
+    "launchScope": "selectable-text-pdfs-only"
+  },
+  "invariants": {
+    "lostJobs": 0,
+    "duplicateCreditCharges": 0,
+    "duplicateStatementRows": 0,
+    "goldenFixtureMatches": true
+  },
+  "runs": [
+    {
+      "concurrency": 100,
+      "submitted": 100,
+      "accepted": 100,
+      "ready": 100,
+      "failed": 0,
+      "lostJobs": 0,
+      "duplicateCreditCharges": 0,
+      "duplicateStatementRows": 0,
+      "convertAcceptanceP95Ms": 0.093,
+      "convertAcceptanceP95ThresholdMs": 2000,
+      "timeToReadyP95Ms": 0.225,
+      "timeToReadyP95ThresholdMs": 60000,
+      "goldenFixtureMatches": true
+    },
+    {
+      "concurrency": 250,
+      "submitted": 250,
+      "accepted": 250,
+      "ready": 250,
+      "failed": 0,
+      "lostJobs": 0,
+      "duplicateCreditCharges": 0,
+      "duplicateStatementRows": 0,
+      "convertAcceptanceP95Ms": 0.117,
+      "convertAcceptanceP95ThresholdMs": 2000,
+      "timeToReadyP95Ms": 0.195,
+      "timeToReadyP95ThresholdMs": 120000,
+      "goldenFixtureMatches": true
+    },
+    {
+      "concurrency": 500,
+      "submitted": 500,
+      "accepted": 500,
+      "ready": 500,
+      "failed": 0,
+      "lostJobs": 0,
+      "duplicateCreditCharges": 0,
+      "duplicateStatementRows": 0,
+      "convertAcceptanceP95Ms": 0.507,
+      "convertAcceptanceP95ThresholdMs": 2000,
+      "timeToReadyP95Ms": 0.627,
+      "timeToReadyP95ThresholdMs": 180000,
+      "goldenFixtureMatches": true
+    }
+  ],
+  "costReport": {
+    "assumptions": {
+      "pagesPerPdf": 5,
+      "awsTextractTablesFormsPerPageUsd": 0.065,
+      "cloudflareWorkersPaidMonthlyFloorUsd": 5,
+      "cloudflareBurstNote": "The 100/250/500 submission launch burst fits within included Workers Paid, R2, Queues, and Containers monthly allotments when no prior monthly usage has consumed those allotments."
+    },
+    "comparisons": [
+      {
+        "pdfCount": 100,
+        "pageCount": 500,
+        "awsTextractTablesFormsUsd": 32.5,
+        "cloudflareIncrementalBurstUsd": 0,
+        "cloudflareMonthlyFloorUsd": 5
+      },
+      {
+        "pdfCount": 250,
+        "pageCount": 1250,
+        "awsTextractTablesFormsUsd": 81.25,
+        "cloudflareIncrementalBurstUsd": 0,
+        "cloudflareMonthlyFloorUsd": 5
+      },
+      {
+        "pdfCount": 500,
+        "pageCount": 2500,
+        "awsTextractTablesFormsUsd": 162.5,
+        "cloudflareIncrementalBurstUsd": 0,
+        "cloudflareMonthlyFloorUsd": 5
+      }
+    ],
+    "sources": {
+      "workers": "https://developers.cloudflare.com/workers/platform/pricing/",
+      "r2": "https://developers.cloudflare.com/r2/pricing/",
+      "queues": "https://developers.cloudflare.com/queues/platform/pricing/",
+      "containers": "https://developers.cloudflare.com/containers/pricing/",
+      "textract": "https://aws.amazon.com/textract/pricing/"
+    }
+  }
+}

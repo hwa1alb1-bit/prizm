@@ -55,11 +55,42 @@ jobs:
           name: coverage
           path: coverage/
 
+  extraction-gate:
+    name: Cloudflare extraction gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Extraction readiness
+        run: pnpm verify:extraction
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: extraction-benchmark-evidence
+          path: docs/evidence/extraction-benchmarks/
+
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: lint-types-test
+    needs: [lint-types-test, extraction-gate]
     steps:
       - uses: actions/checkout@v6
 

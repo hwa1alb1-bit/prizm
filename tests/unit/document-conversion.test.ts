@@ -141,6 +141,35 @@ describe('convertDocument', () => {
     expect(deps.startExtraction).not.toHaveBeenCalled()
   })
 
+  it('does not expose an existing Cloudflare job through the Textract compatibility field', async () => {
+    const deps = createDependencies({
+      document: documentRow({
+        status: 'processing',
+        extractionEngine: 'cloudflare-r2',
+        extractionJobId: 'cf_job_existing',
+        textractJobId: null,
+        chargeStatus: 'reserved',
+      }),
+    })
+
+    const result = await convertDocument(conversionInput(), deps)
+
+    expect(result).toEqual({
+      ok: true,
+      documentId: 'doc_123',
+      status: 'processing',
+      extractionEngine: 'cloudflare-r2',
+      extractionJobId: 'cf_job_existing',
+      textractJobId: null,
+      chargeStatus: 'reserved',
+      alreadyStarted: true,
+      requestId: 'req_convert',
+      traceId: '0123456789abcdef0123456789abcdef',
+    })
+    expect(deps.reserveCredit).not.toHaveBeenCalled()
+    expect(deps.startExtraction).not.toHaveBeenCalled()
+  })
+
   it('does not expose worker job ids through the Textract compatibility field', async () => {
     const deps = createDependencies()
     deps.startExtraction.mockResolvedValueOnce({

@@ -25,6 +25,7 @@
     "test:connectors:live": "tsx --conditions react-server scripts/smoke-live-connectors.ts",
     "benchmark:extraction": "tsx --conditions react-server scripts/benchmark-extraction.ts",
     "check:launch-gates": "tsx --conditions react-server scripts/check-launch-gates.ts",
+    "verify:extraction": "pnpm exec vitest run tests/unit/cloudflare-extractor-worker.test.ts tests/unit/extraction-engine.test.ts tests/unit/extraction-benchmark-script.test.ts && pnpm test:kotlin-extractor && pnpm benchmark:extraction",
     "verify:release": "tsx --conditions react-server scripts/verify-release.ts",
     "verify:service-readiness": "tsx --conditions react-server scripts/archive-service-readiness.ts",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
@@ -52,6 +53,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@cloudflare/containers": "^0.3.3",
     "@playwright/test": "^1.59.1",
     "@sentry/cli": "^3.4.1",
     "@tailwindcss/postcss": "^4",
@@ -71,7 +73,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "wrangler": "^4.90.0"
   },
   "pnpm": {
     "overrides": {

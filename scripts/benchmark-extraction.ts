@@ -19,7 +19,7 @@ type BenchmarkRun = {
   goldenFixtureMatches: boolean
 }
 
-type SimulatedSubmission = {
+type BenchmarkSubmission = {
   documentId: string
   jobId: string
   acceptedMs: number
@@ -27,6 +27,14 @@ type SimulatedSubmission = {
   creditChargeKey: string
   statementKey: string
   statement: unknown
+}
+
+type TargetBenchmarkConfig = {
+  baseUrl: string
+  token: string
+  storageBucket: string
+  storageKey: string
+  pollIntervalMs: number
 }
 
 const CONCURRENCY_LEVELS = [100, 250, 500]
@@ -72,11 +80,12 @@ async function main() {
   const gitSha = process.env.GITHUB_SHA ?? 'local'
   const targetUrl = process.env.BENCHMARK_EXTRACTION_TARGET_URL ?? null
   const mode = targetUrl ? 'target-url' : 'fixture'
+  const targetConfig = targetUrl ? targetBenchmarkConfig(targetUrl) : null
   const startedAt = new Date().toISOString()
   const runs: BenchmarkRun[] = []
 
   for (const concurrency of CONCURRENCY_LEVELS) {
-    runs.push(await runBenchmark(concurrency))
+    runs.push(await runBenchmark(concurrency, targetConfig))
   }
 
   const evidence = {
@@ -113,9 +122,16 @@ async function main() {
   console.log(JSON.stringify({ evidencePath: filePath, status: 'passed' }, null, 2))
 }
 
-async function runBenchmark(concurrency: number): Promise<BenchmarkRun> {
+async function runBenchmark(
+  concurrency: number,
+  targetConfig: TargetBenchmarkConfig | null,
+): Promise<BenchmarkRun> {
   const submissions = await Promise.all(
-    Array.from({ length: concurrency }, (_, index) => submitFixturePdf(concurrency, index)),
+    Array.from({ length: concurrency }, (_, index) =>
+      targetConfig
+        ? submitTargetPdf(concurrency, index, targetConfig)
+        : submitFixturePdf(concurrency, index),
+    ),
   )
   const creditChargeKeys = new Set(submissions.map((submission) => submission.creditChargeKey))
   const statementKeys = new Set(submissions.map((submission) => submission.statementKey))
@@ -144,7 +160,7 @@ async function runBenchmark(concurrency: number): Promise<BenchmarkRun> {
   }
 }
 
-async function submitFixturePdf(concurrency: number, index: number): Promise<SimulatedSubmission> {
+async function submitFixturePdf(concurrency: number, index: number): Promise<BenchmarkSubmission> {
   const start = performance.now()
   await Promise.resolve()
   const acceptedAt = performance.now()
@@ -161,6 +177,75 @@ async function submitFixturePdf(concurrency: number, index: number): Promise<Sim
     statementKey: `${documentId}:0`,
     statement: firstStatement(bankFixture),
   }
+}
+
+async function submitTargetPdf(
+  concurrency: number,
+  index: number,
+  config: TargetBenchmarkConfig,
+): Promise<BenchmarkSubmission> {
+  const start = performance.now()
+  const documentId = `bench_${concurrency}_${index}`
+  const startResponse = await fetch(targetUrl(config, '/v1/extractions'), {
+    method: 'POST',
+    headers: targetHeaders(config),
+    body: JSON.stringify({
+      documentId,
+      storageBucket: config.storageBucket,
+      storageKey: config.storageKey,
+    }),
+  })
+  const acceptedAt = performance.now()
+  if (!startResponse.ok) {
+    throw new Error(`target_start_http_${startResponse.status}`)
+  }
+
+  const started = await startResponse.json()
+  if (!isRecord(started) || typeof started.jobId !== 'string') {
+    throw new Error('target_start_job_id_missing')
+  }
+
+  const pollResult = await pollTargetExtraction(config, started.jobId, start)
+  return {
+    documentId,
+    jobId: started.jobId,
+    acceptedMs: acceptedAt - start,
+    readyMs: pollResult.readyAt - start,
+    creditChargeKey: documentId,
+    statementKey: `${documentId}:0`,
+    statement: pollResult.statement,
+  }
+}
+
+async function pollTargetExtraction(
+  config: TargetBenchmarkConfig,
+  jobId: string,
+  startedAt: number,
+): Promise<{ readyAt: number; statement: unknown }> {
+  const timeoutMs = TIME_TO_READY_THRESHOLDS_MS[500]
+  const deadline = startedAt + timeoutMs
+
+  while (performance.now() < deadline) {
+    const response = await fetch(
+      targetUrl(config, `/v1/extractions/${encodeURIComponent(jobId)}`),
+      {
+        method: 'GET',
+        headers: targetHeaders(config),
+      },
+    )
+    if (!response.ok) throw new Error(`target_poll_http_${response.status}`)
+
+    const output = await response.json()
+    if (isRecord(output) && output.status === 'succeeded') {
+      return { readyAt: performance.now(), statement: firstStatement(output) }
+    }
+    if (isRecord(output) && output.status === 'failed') {
+      return { readyAt: performance.now(), statement: null }
+    }
+    await sleep(config.pollIntervalMs)
+  }
+
+  return { readyAt: performance.now(), statement: null }
 }
 
 function firstStatement(input: unknown): unknown {
@@ -204,9 +289,44 @@ function gateFailures(runs: BenchmarkRun[]): string[] {
     if (run.convertAcceptanceP95Ms >= run.convertAcceptanceP95ThresholdMs) {
       failures.push(`${run.concurrency}: convertAcceptanceP95Ms=${run.convertAcceptanceP95Ms}`)
     }
+    if (run.timeToReadyP95Ms >= run.timeToReadyP95ThresholdMs) {
+      failures.push(`${run.concurrency}: timeToReadyP95Ms=${run.timeToReadyP95Ms}`)
+    }
     if (!run.goldenFixtureMatches) failures.push(`${run.concurrency}: goldenFixtureMatches=false`)
   }
   return failures
+}
+
+function targetBenchmarkConfig(baseUrl: string): TargetBenchmarkConfig {
+  const token = process.env.BENCHMARK_EXTRACTION_TOKEN ?? process.env.CLOUDFLARE_EXTRACTOR_TOKEN
+  if (!token) throw new Error('BENCHMARK_EXTRACTION_TOKEN is required in target mode')
+  return {
+    baseUrl,
+    token,
+    storageBucket: process.env.BENCHMARK_EXTRACTION_STORAGE_BUCKET ?? 'prizm-r2-uploads',
+    storageKey:
+      process.env.BENCHMARK_EXTRACTION_STORAGE_KEY ?? 'benchmarks/golden-bank-statement.pdf',
+    pollIntervalMs: Number(process.env.BENCHMARK_EXTRACTION_POLL_INTERVAL_MS ?? 250),
+  }
+}
+
+function targetUrl(config: TargetBenchmarkConfig, path: string): string {
+  return new URL(path, withTrailingSlash(config.baseUrl)).toString()
+}
+
+function targetHeaders(config: TargetBenchmarkConfig): HeadersInit {
+  return {
+    authorization: `Bearer ${config.token}`,
+    'content-type': 'application/json',
+  }
+}
+
+function withTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value : `${value}/`
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function buildCostReport() {

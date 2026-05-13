@@ -4,6 +4,14 @@ import { describe, expect, it } from 'vitest'
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
 
 describe('launch operations controls', () => {
+  it('runs the extraction verification gate in CI with Java 21 available', () => {
+    expect(workflow).toContain('extraction-gate:')
+    expect(workflow).toContain('distribution: temurin')
+    expect(workflow).toContain('java-version: 21')
+    expect(workflow).toContain('pnpm verify:extraction')
+    expect(workflow).toContain('docs/evidence/extraction-benchmarks/')
+  })
+
   it('runs launch gates in CI for staging and production contexts', () => {
     const requiredLaunchEnvKeys = [
       'NEXT_PUBLIC_SITE_URL',

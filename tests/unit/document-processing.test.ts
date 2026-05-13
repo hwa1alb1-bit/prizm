@@ -389,6 +389,38 @@ describe('processExtractionDocuments', () => {
     })
   })
 
+  it('fails closed and releases credits when Cloudflare R2 polling throws', async () => {
+    const now = new Date('2026-05-06T22:53:00.000Z')
+    const deps = createDependencies({
+      document: processingDocument({
+        extractionEngine: 'cloudflare-r2',
+        extractionJobId: 'cf_job_poll_error',
+        textractJobId: null,
+      }),
+    })
+    vi.mocked(deps.pollExtraction).mockRejectedValueOnce(new Error('cloudflare_worker_down'))
+
+    const result = await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(result).toEqual({
+      status: 'failed',
+      polled: 1,
+      ready: 0,
+      failed: 1,
+      skipped: 0,
+    })
+    expect(deps.storeParsedStatement).not.toHaveBeenCalled()
+    expect(deps.consumeCreditReservation).not.toHaveBeenCalled()
+    expect(deps.releaseCreditReservation).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      releasedAt: now.toISOString(),
+    })
+    expect(deps.markDocumentFailed).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      failureReason: 'Cloudflare R2 extractor could not be polled by this deployment.',
+    })
+  })
+
   it('targets one processing document when status polling drives finalization', async () => {
     const now = new Date('2026-05-06T22:55:00.000Z')
     const deps = createDependencies()
