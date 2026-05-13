@@ -27,6 +27,17 @@ Use a single rehearsal correlation ID for all actions. Store command output, req
 - Fetch a signed download URL through `/api/v1/exports/{exportId}/download`.
 - Query audit evidence for `document.upload_requested`.
 
+## Cloudflare R2 Kotlin Extraction Proof
+
+- Keep production on Textract while staging proves the Cloudflare path.
+- Set `DOCUMENT_STORAGE_PROVIDER=r2`, `DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2`, `CLOUDFLARE_EXTRACTOR_URL`, `CLOUDFLARE_EXTRACTOR_TOKEN`, and `CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY` only in the staging environment under test.
+- Deploy the container-backed Cloudflare Worker with Docker/WSL or a remote deploy path; the no-Docker Wrangler dry run is not enough for this proof.
+- Seed the healthcheck PDF in the R2 upload bucket and call the Worker `/v1/health` endpoint with the extractor bearer token.
+- Start and poll a staging extraction against the seeded PDF until the Worker returns normalized statement JSON.
+- Run the PRIZM conversion flow through status polling and verify statement persistence through the `statement` row and `document.processing_ready` audit event.
+- Force a controlled queue/storage failure and archive retry behavior plus `prizm-extractions-dlq` dead-letter handling evidence.
+- Record `CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID`, `CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT`, and `CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA` before considering a production launch gate pass.
+
 ## Billing And Webhook Sanity
 
 - Confirm Stripe test-mode keys, webhook secret, publishable key, and four plan price IDs are present in staging launch gates.

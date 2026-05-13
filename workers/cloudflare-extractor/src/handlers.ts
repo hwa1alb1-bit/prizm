@@ -21,6 +21,7 @@ export type ExtractionStartRequest = {
 export type CloudflareExtractorEnv = {
   EXTRACTOR_TOKEN: string
   UPLOAD_BUCKET_NAME: string
+  HEALTHCHECK_STORAGE_KEY?: string
   UPLOAD_BUCKET: R2BucketLike
   JOB_STATE_BUCKET: R2BucketLike
   EXTRACTION_QUEUE: QueueLike<ExtractionJobMessage>
@@ -57,11 +58,12 @@ export type QueueBatchLike<T> = {
   messages: Array<{
     body: T
     ack?: () => void
-    retry?: () => void
+    retry?: (options?: { delaySeconds?: number }) => void
   }>
 }
 
 const JOB_PREFIX = 'jobs/'
+const HEALTHCHECK_STATE_KEY = 'health/probe.json'
 
 export async function handleCloudflareExtractorRequest(
   request: Request,
@@ -78,6 +80,11 @@ export async function handleCloudflareExtractorRequest(
   }
 
   const url = new URL(request.url)
+
+  if (url.pathname === '/v1/health') {
+    if (request.method !== 'GET') return methodNotAllowed('GET')
+    return healthCheck(env)
+  }
 
   if (url.pathname === '/v1/extractions') {
     if (request.method !== 'POST') return methodNotAllowed('POST')
@@ -104,8 +111,79 @@ export async function handleCloudflareExtractorQueue(
   env: CloudflareExtractorEnv,
 ): Promise<void> {
   for (const message of batch.messages) {
-    await processExtractionJob(message.body, env)
-    message.ack?.()
+    try {
+      await processExtractionJob(message.body, env)
+      message.ack?.()
+    } catch (error) {
+      if (!message.retry) throw error
+      message.retry()
+    }
+  }
+}
+
+async function healthCheck(env: CloudflareExtractorEnv): Promise<Response> {
+  const checkedAt = new Date().toISOString()
+  const checks = {
+    jobStateBucket: await checkJobStateBucket(env, checkedAt),
+    uploadBucket: await checkUploadBucket(env),
+    extractionQueue: {
+      ok: typeof env.EXTRACTION_QUEUE?.send === 'function',
+    },
+    kotlinExtractor: {
+      ok: typeof env.KOTLIN_EXTRACTOR?.getByName === 'function',
+    },
+  }
+  const ok = Object.values(checks).every((check) => check.ok)
+
+  return jsonResponse(
+    {
+      status: ok ? 'ok' : 'degraded',
+      checkedAt,
+      checks,
+    },
+    ok ? 200 : 503,
+  )
+}
+
+async function checkJobStateBucket(
+  env: CloudflareExtractorEnv,
+  checkedAt: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const probeId = `health_${crypto.randomUUID()}`
+
+  try {
+    await env.JOB_STATE_BUCKET.put(HEALTHCHECK_STATE_KEY, JSON.stringify({ probeId, checkedAt }), {
+      httpMetadata: { contentType: 'application/json' },
+    })
+    const object = await env.JOB_STATE_BUCKET.get(HEALTHCHECK_STATE_KEY)
+    const parsed = object?.text ? JSON.parse(await object.text()) : null
+
+    return { ok: isRecord(parsed) && parsed.probeId === probeId }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'job_state_probe_failed' }
+  }
+}
+
+async function checkUploadBucket(
+  env: CloudflareExtractorEnv,
+): Promise<{ ok: boolean; key: string | null; error?: string }> {
+  const key = env.HEALTHCHECK_STORAGE_KEY?.trim()
+
+  if (!key) {
+    return {
+      ok: false,
+      key: null,
+      error: 'HEALTHCHECK_STORAGE_KEY is not configured.',
+    }
+  }
+
+  try {
+    const object = await env.UPLOAD_BUCKET.get(key)
+    return object?.body
+      ? { ok: true, key }
+      : { ok: false, key, error: 'Healthcheck storage object was not found.' }
+  } catch (error) {
+    return { ok: false, key, error: error instanceof Error ? error.message : 'upload_probe_failed' }
   }
 }
 

@@ -25,7 +25,26 @@ To disable the worker and fall back to Textract:
 4. Triage existing `kotlin_worker` processing rows separately: let healthy jobs finish, retry with Textract if product policy allows, or mark failed with clear support guidance.
 5. Keep `KOTLIN_WORKER_URL` and `KOTLIN_WORKER_API_KEY` disabled or rotated until the worker health proof is green again.
 
-Do not enable `kotlin_worker` in production until the staging proof covers worker health, S3 access, KMS decrypt, extraction success, PRIZM statement persistence, retry behavior, and dead-letter handling.
+Do not enable `kotlin_worker` in production until the staging proof covers worker health, R2 storage access, extraction success, PRIZM statement persistence, retry behavior, and dead-letter handling. For the production launch path, prefer `DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2`; keep the legacy `PRIZM_EXTRACTION_ENGINE=kotlin_worker` flag out of production.
+
+## Cloudflare R2 Production Enablement Proof
+
+Before setting `DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2` in production, run the proof from staging against the container-backed Cloudflare Worker deployment, not the no-Docker Wrangler dry run.
+
+Required proof evidence:
+
+- Worker health: call the authenticated Worker `/v1/health` endpoint and archive an `ok` response. The Worker must have `HEALTHCHECK_STORAGE_KEY` configured, and the corresponding PRIZM launch gate variable is `CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY`.
+- R2 storage access: seed a known-good selectable-text PDF at the healthcheck key and confirm `/v1/health` reports the upload bucket probe as `ok`.
+- Extraction success: start a staging extraction through the deployed Worker with the seeded PDF, poll until `succeeded`, and archive the Worker job ID plus sanitized normalized statement output.
+- Statement persistence: run the PRIZM staging conversion path for the same document and archive the `document.processing_ready` audit event plus the created `statement` row ID.
+- Retry behavior: force an infrastructure-style state write failure in staging or a controlled lower environment and confirm the queue message is retried rather than acknowledged.
+- Dead-letter handling: confirm the `prizm-extractions` consumer has `max_retries`, `retry_delay`, and `dead_letter_queue=prizm-extractions-dlq`, then archive the DLQ evidence for an exhausted controlled failure.
+
+After the proof is complete, set these launch gate variables in the production GitHub/Vercel environment:
+
+- `CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID`
+- `CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT`
+- `CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA`
 
 ## Verification
 

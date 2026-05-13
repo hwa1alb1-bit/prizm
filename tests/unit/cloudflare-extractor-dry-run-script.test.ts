@@ -30,4 +30,15 @@ describe('Cloudflare extractor dry-run verification script', () => {
     expect(script).toContain('wrangler')
     expect(script).toContain('--dry-run')
   })
+
+  it('keeps queue retry and DLQ settings explicit for the production proof', () => {
+    const wranglerConfig = readFileSync(
+      join(process.cwd(), 'workers/cloudflare-extractor/wrangler.jsonc'),
+      'utf8',
+    )
+
+    expect(wranglerConfig).toContain('"max_retries": 3')
+    expect(wranglerConfig).toContain('"retry_delay": 60')
+    expect(wranglerConfig).toContain('"dead_letter_queue": "prizm-extractions-dlq"')
+  })
 })

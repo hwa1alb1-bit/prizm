@@ -55,6 +55,23 @@ describe('launch operations controls', () => {
       expect(workflow).toContain(`${key}:`)
     }
 
+    for (const key of [
+      'DOCUMENT_STORAGE_PROVIDER',
+      'DOCUMENT_EXTRACTION_PROVIDER',
+      'R2_ACCOUNT_ID',
+      'R2_UPLOAD_BUCKET',
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'CLOUDFLARE_EXTRACTOR_URL',
+      'CLOUDFLARE_EXTRACTOR_TOKEN',
+      'CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY',
+      'CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID',
+      'CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT',
+      'CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA',
+    ]) {
+      expect(workflow).toContain(`${key}:`)
+    }
+
     expect(workflow).not.toContain('AWS_ACCESS_KEY_ID:')
     expect(workflow).not.toContain('AWS_SECRET_ACCESS_KEY:')
     expect(workflow).not.toContain('SUPABASE_ACCESS_TOKEN:')
@@ -141,5 +158,29 @@ describe('launch operations controls', () => {
     const dependabot = readFileSync(dependabotPath, 'utf8')
     expect(dependabot).toContain("package-ecosystem: 'npm'")
     expect(dependabot).toContain("package-ecosystem: 'github-actions'")
+  })
+
+  it('documents the Cloudflare Kotlin production proof before enabling the launch path', () => {
+    const fallback = readFileSync('docs/runbooks/kotlin-worker-fallback.md', 'utf8')
+    const rehearsal = readFileSync('docs/runbooks/staging-rehearsal.md', 'utf8')
+
+    for (const phrase of [
+      '/v1/health',
+      'HEALTHCHECK_STORAGE_KEY',
+      'CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID',
+      'worker health',
+      'R2 storage access',
+      'extraction success',
+      'statement persistence',
+      'retry behavior',
+      'dead-letter handling',
+      'DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2',
+    ]) {
+      expect(fallback).toContain(phrase)
+    }
+
+    expect(rehearsal).toContain('Cloudflare R2 Kotlin Extraction Proof')
+    expect(rehearsal).toContain('CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY')
+    expect(rehearsal).toContain('CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA')
   })
 })
