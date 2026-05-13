@@ -26,6 +26,29 @@ describe('Cloudflare extractor Worker contract', () => {
     expect(env.EXTRACTION_QUEUE.send).not.toHaveBeenCalled()
   })
 
+  it('reports authenticated health only when bindings and storage probes are usable', async () => {
+    const env = createEnv({ healthcheckStorageKey: 'uploads/probes/known-good.pdf' })
+    await env.UPLOAD_BUCKET.put('uploads/probes/known-good.pdf', new Blob(['%PDF-test']))
+
+    const response = await handleCloudflareExtractorRequest(
+      new Request('https://extractor.example.com/v1/health', {
+        headers: { authorization: 'Bearer test-token' },
+      }),
+      env,
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      status: 'ok',
+      checks: {
+        jobStateBucket: { ok: true },
+        uploadBucket: { ok: true, key: 'uploads/probes/known-good.pdf' },
+        extractionQueue: { ok: true },
+        kotlinExtractor: { ok: true },
+      },
+    })
+  })
+
   it('starts an authenticated extraction, records pending job state, and queues metadata only', async () => {
     const env = createEnv()
 
@@ -250,6 +273,24 @@ describe('Cloudflare extractor Worker contract', () => {
     })
     expect(env.JOB_STATE_BUCKET.objects.has('jobs/cf_job_wrong.json')).toBe(false)
   })
+
+  it('retries queued jobs when state storage fails so exhausted messages can reach the DLQ', async () => {
+    const env = createEnv()
+    vi.mocked(env.JOB_STATE_BUCKET.put).mockRejectedValueOnce(new Error('r2_write_failed'))
+    const batch = queueBatch([
+      {
+        jobId: 'cf_job_retry',
+        documentId: 'doc_retry',
+        storageBucket: 'prizm-r2-uploads',
+        storageKey: 'uploads/retry.pdf',
+      },
+    ])
+
+    await handleCloudflareExtractorQueue(batch, env)
+
+    expect(batch.messages[0].retry).toHaveBeenCalled()
+    expect(batch.messages[0].ack).not.toHaveBeenCalled()
+  })
 })
 
 function extractionRequest() {
@@ -266,7 +307,7 @@ function queueBatch(messages: ExtractionJobMessage[]) {
   }
 }
 
-function createEnv() {
+function createEnv(options: { healthcheckStorageKey?: string } = {}) {
   const container = {
     fetch: vi.fn().mockResolvedValue(
       Response.json({
@@ -279,6 +320,7 @@ function createEnv() {
   return {
     EXTRACTOR_TOKEN: 'test-token',
     UPLOAD_BUCKET_NAME: 'prizm-r2-uploads',
+    HEALTHCHECK_STORAGE_KEY: options.healthcheckStorageKey,
     UPLOAD_BUCKET: memoryBucket(),
     JOB_STATE_BUCKET: memoryBucket(),
     EXTRACTION_QUEUE: { send: vi.fn().mockResolvedValue(undefined) },

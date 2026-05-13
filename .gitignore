@@ -44,6 +44,10 @@ Thumbs.db
 # Vercel
 .vercel
 
+# Cloudflare Wrangler
+.wrangler
+**/.wrangler
+
 # Sentry
 .sentryclirc
 

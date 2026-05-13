@@ -10,6 +10,7 @@
   },
   "vars": {
     "UPLOAD_BUCKET_NAME": "prizm-r2-uploads",
+    "HEALTHCHECK_STORAGE_KEY": "probes/known-good.pdf",
   },
   "r2_buckets": [
     {
@@ -33,6 +34,8 @@
         "queue": "prizm-extractions",
         "max_batch_size": 5,
         "max_batch_timeout": 10,
+        "max_retries": 3,
+        "retry_delay": 60,
         "dead_letter_queue": "prizm-extractions-dlq",
       },
     ],

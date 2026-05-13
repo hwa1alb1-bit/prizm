@@ -81,6 +81,22 @@ const launchGates: readonly LaunchGateDefinition[] = [
   },
 ]
 
+const cloudflareR2RuntimeEnv = [
+  'R2_ACCOUNT_ID',
+  'R2_UPLOAD_BUCKET',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'CLOUDFLARE_EXTRACTOR_URL',
+  'CLOUDFLARE_EXTRACTOR_TOKEN',
+  'CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY',
+] as const
+
+const cloudflareR2ProductionProofEnv = [
+  'CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID',
+  'CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT',
+  'CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA',
+] as const
+
 function isPresent(value: string | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0
 }
@@ -136,6 +152,48 @@ export function evaluateLaunchReadiness({
       envKeys: staticAwsKeys,
       reason: 'invalid',
     })
+  }
+
+  if (target === 'production' && env.PRIZM_EXTRACTION_ENGINE === 'kotlin_worker') {
+    failures.push({
+      id: 'legacy-kotlin-worker-production-disabled',
+      title: 'Legacy kotlin_worker production flag stays disabled',
+      envKeys: ['PRIZM_EXTRACTION_ENGINE'],
+      reason: 'invalid',
+    })
+  }
+
+  if (env.DOCUMENT_EXTRACTION_PROVIDER === 'cloudflare-r2') {
+    if (env.DOCUMENT_STORAGE_PROVIDER !== 'r2') {
+      failures.push({
+        id: 'cloudflare-r2-storage-provider',
+        title: 'Cloudflare R2 extraction uses R2 document storage',
+        envKeys: ['DOCUMENT_STORAGE_PROVIDER'],
+        reason: 'invalid',
+      })
+    }
+
+    const missingRuntimeEnv = cloudflareR2RuntimeEnv.filter((key) => !isPresent(env[key]))
+    if (missingRuntimeEnv.length > 0) {
+      failures.push({
+        id: 'cloudflare-r2-extraction-configured',
+        title: 'Cloudflare R2 storage and extractor runtime are configured',
+        envKeys: [...missingRuntimeEnv],
+        reason: 'missing',
+      })
+    }
+
+    if (target === 'production') {
+      const missingProofEnv = cloudflareR2ProductionProofEnv.filter((key) => !isPresent(env[key]))
+      if (missingProofEnv.length > 0) {
+        failures.push({
+          id: 'cloudflare-r2-staging-proof-archived',
+          title: 'Cloudflare R2 extraction has a current staging proof archive',
+          envKeys: [...missingProofEnv],
+          reason: 'missing',
+        })
+      }
+    }
   }
 
   return {
