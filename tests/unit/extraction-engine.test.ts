@@ -4,6 +4,7 @@ import kotlinCreditCardFixture from '../fixtures/kotlin-worker/credit-card-state
 import creditCardFixture from '../fixtures/parser/textract-credit-card-statement.json'
 import bankFixture from '../fixtures/parser/textract-single-statement.json'
 import {
+  createCloudflareR2ExtractionEngine,
   createDefaultExtractionEngine,
   createExtractionEngineByName,
   createKotlinWorkerExtractionEngine,
@@ -163,6 +164,21 @@ describe('Kotlin worker extraction engine', () => {
     expect(result.status === 'succeeded' ? result.statements[0] : null).toEqual(
       kotlinCreditCardFixture.statements[0],
     )
+  })
+
+  it('keeps the Cloudflare R2 engine name when worker output is invalid', async () => {
+    const worker = workerReturning(null)
+
+    const result = await createCloudflareR2ExtractionEngine({ worker }).poll({
+      jobId: 'cf_job_invalid',
+    })
+
+    expect(result).toEqual({
+      status: 'failed',
+      engine: 'cloudflare-r2',
+      jobId: 'cf_job_invalid',
+      failureReason: 'Kotlin worker returned invalid normalized statement data.',
+    })
   })
 })
 

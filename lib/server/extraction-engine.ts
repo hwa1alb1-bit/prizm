@@ -320,7 +320,7 @@ function normalizeKotlinWorkerPollResult(
     | typeof KOTLIN_WORKER_EXTRACTION_ENGINE
     | typeof CLOUDFLARE_R2_EXTRACTION_ENGINE = KOTLIN_WORKER_EXTRACTION_ENGINE,
 ): ExtractionPollResult {
-  if (!isRecord(output)) return invalidKotlinWorkerOutput(input)
+  if (!isRecord(output)) return invalidKotlinWorkerOutput(input, engineName)
 
   if (output.status === 'in_progress') {
     return {
@@ -343,11 +343,13 @@ function normalizeKotlinWorkerPollResult(
   }
 
   if (output.status !== 'succeeded' || !Array.isArray(output.statements)) {
-    return invalidKotlinWorkerOutput(input)
+    return invalidKotlinWorkerOutput(input, engineName)
   }
 
   const statements = output.statements.map((statement) => normalizeParsedStatement(statement))
-  if (statements.some((statement) => statement === null)) return invalidKotlinWorkerOutput(input)
+  if (statements.some((statement) => statement === null)) {
+    return invalidKotlinWorkerOutput(input, engineName)
+  }
 
   return {
     status: 'succeeded',
@@ -357,10 +359,15 @@ function normalizeKotlinWorkerPollResult(
   }
 }
 
-function invalidKotlinWorkerOutput(input: ExtractionPollInput): ExtractionPollResult {
+function invalidKotlinWorkerOutput(
+  input: ExtractionPollInput,
+  engineName:
+    | typeof KOTLIN_WORKER_EXTRACTION_ENGINE
+    | typeof CLOUDFLARE_R2_EXTRACTION_ENGINE = KOTLIN_WORKER_EXTRACTION_ENGINE,
+): ExtractionPollResult {
   return {
     status: 'failed',
-    engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+    engine: engineName,
     jobId: input.jobId,
     failureReason: 'Kotlin worker returned invalid normalized statement data.',
   }

@@ -13,6 +13,16 @@ describe('extraction benchmark gate', () => {
     )
   })
 
+  it('is included in the extraction verification gate with Worker and Kotlin tests', () => {
+    const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
+      scripts?: Record<string, string>
+    }
+
+    expect(packageJson.scripts?.['verify:extraction']).toBe(
+      'pnpm exec vitest run tests/unit/cloudflare-extractor-worker.test.ts tests/unit/extraction-engine.test.ts tests/unit/extraction-benchmark-script.test.ts && pnpm test:kotlin-extractor && pnpm benchmark:extraction',
+    )
+  })
+
   it('records the required concurrency levels, invariants, and pricing sources', () => {
     const script = readFileSync(join(process.cwd(), 'scripts', 'benchmark-extraction.ts'), 'utf8')
 
@@ -38,5 +48,19 @@ describe('extraction benchmark gate', () => {
     ]) {
       expect(script).toContain(source)
     }
+  })
+
+  it('uses the extractor HTTP contract in target mode instead of fixture-only evidence', () => {
+    const script = readFileSync(join(process.cwd(), 'scripts', 'benchmark-extraction.ts'), 'utf8')
+
+    expect(script).toContain('BENCHMARK_EXTRACTION_TARGET_URL')
+    expect(script).toContain('BENCHMARK_EXTRACTION_TOKEN')
+    expect(script).toContain("method: 'POST'")
+    expect(script).toContain("method: 'GET'")
+    expect(script).toContain('/v1/extractions')
+    expect(script).toContain('pollTargetExtraction')
+    expect(script).toContain('timeToReadyP95Ms')
+    expect(script).toContain('timeToReadyP95ThresholdMs')
+    expect(script).toContain('run.timeToReadyP95Ms >= run.timeToReadyP95ThresholdMs')
   })
 })

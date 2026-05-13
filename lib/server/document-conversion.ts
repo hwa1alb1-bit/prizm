@@ -178,7 +178,8 @@ export async function convertDocument(
       status: document.status === 'ready' ? 'ready' : 'processing',
       extractionEngine: activeEngine,
       extractionJobId: activeJobId,
-      textractJobId: document.textractJobId ?? activeJobId,
+      textractJobId:
+        document.textractJobId ?? (activeEngine === DEFAULT_EXTRACTION_ENGINE ? activeJobId : null),
       chargeStatus: document.chargeStatus ?? 'reserved',
       alreadyStarted: true,
       requestId: input.routeContext.requestId,

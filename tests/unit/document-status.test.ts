@@ -88,6 +88,46 @@ describe('getDocumentStatus', () => {
       textractJobId: null,
     })
   })
+
+  it('does not expose Cloudflare R2 job ids through the Textract compatibility field', async () => {
+    const routeContext = {
+      requestId: 'req_status',
+      traceId: '0123456789abcdef0123456789abcdef',
+      pathname: '/api/v1/documents/doc_123/status',
+    }
+    const deps: DocumentStatusDependencies = {
+      getUserProfile: vi.fn().mockResolvedValue({
+        workspaceId: 'workspace_123',
+        role: 'member',
+      }),
+      getDocument: vi.fn().mockResolvedValue(
+        documentStatusRow({
+          status: 'processing',
+          extractionEngine: 'cloudflare-r2',
+          extractionJobId: 'cf_job_123',
+          textractJobId: null,
+        }),
+      ),
+      finalizeProcessingDocument: vi.fn().mockResolvedValue(undefined),
+      now: vi.fn(() => new Date('2026-05-06T22:15:00.000Z')),
+    }
+
+    const result = await getDocumentStatus(
+      {
+        documentId: 'doc_123',
+        actorUserId: 'user_123',
+        routeContext,
+      },
+      deps,
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      extractionEngine: 'cloudflare-r2',
+      extractionJobId: 'cf_job_123',
+      textractJobId: null,
+    })
+  })
 })
 
 function documentStatusRow({
