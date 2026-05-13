@@ -7,6 +7,24 @@ export type ServiceReadinessConnector = {
   errorCode?: string | null
 }
 
+export type ServiceReadinessProviders = {
+  vercel: boolean
+  supabase: boolean
+  stripe: boolean
+  cloudflareDns: boolean
+  sentry: boolean
+  awsS3Textract: boolean
+  resend: boolean
+  redis: boolean
+}
+
+export type ServiceReadinessAcceptedGrayProvider = {
+  provider: keyof ServiceReadinessProviders
+  owner: string
+  reason: string
+  nextProofStep: string
+}
+
 export type ServiceReadinessEvidence = {
   opsHealth: {
     authenticated: boolean
@@ -19,16 +37,8 @@ export type ServiceReadinessEvidence = {
     collectedAt: string
     connectors: ServiceReadinessConnector[]
   }
-  providers: {
-    vercel: boolean
-    supabase: boolean
-    stripe: boolean
-    cloudflareDns: boolean
-    sentry: boolean
-    awsS3Textract: boolean
-    resend: boolean
-    redis: boolean
-  }
+  providers: ServiceReadinessProviders
+  acceptedGrayProviders?: ServiceReadinessAcceptedGrayProvider[]
   stripe: {
     webhookEndpoint: {
       registered: boolean
@@ -92,7 +102,7 @@ export type OpsHealthAuth =
 
 type OpsHealthAuthEnv = Record<string, string | undefined>
 
-const providerLabels: Record<keyof ServiceReadinessEvidence['providers'], string> = {
+const providerLabels: Record<keyof ServiceReadinessProviders, string> = {
   vercel: 'Vercel',
   supabase: 'Supabase',
   stripe: 'Stripe',
@@ -109,6 +119,40 @@ const requiredStripeWebhookEvents = [
   'customer.subscription.updated',
   'customer.subscription.deleted',
 ]
+
+export function parseAcceptedGrayProviders(
+  rawValue: string | undefined,
+): ServiceReadinessAcceptedGrayProvider[] {
+  if (!rawValue?.trim()) return []
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawValue)
+  } catch {
+    throw new Error('SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS must be a JSON array.')
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS must be a JSON array.')
+  }
+
+  return parsed.map((value, index) => {
+    if (!isRecord(value)) {
+      throw new Error(`Accepted-gray provider entry ${index + 1} must be an object.`)
+    }
+
+    const provider = readProviderKey(value.provider)
+    return {
+      provider,
+      owner: readRequiredString(value.owner, `Accepted-gray provider "${provider}" owner`),
+      reason: readRequiredString(value.reason, `Accepted-gray provider "${provider}" reason`),
+      nextProofStep: readRequiredString(
+        value.nextProofStep,
+        `Accepted-gray provider "${provider}" nextProofStep`,
+      ),
+    }
+  })
+}
 
 export function evaluateServiceReadinessEvidence(
   evidence: ServiceReadinessEvidence,
@@ -169,6 +213,14 @@ export function evaluateServiceReadinessEvidence(
     if (!item.owner.trim() || !item.nextProofStep.trim()) {
       failures.push(
         `Dashboard-only item "${item.area}: ${item.item}" needs an owner and next proof step.`,
+      )
+    }
+  }
+
+  for (const item of evidence.acceptedGrayProviders ?? []) {
+    if (!acceptedGrayProviderComplete(item)) {
+      failures.push(
+        `Accepted-gray provider "${providerLabels[item.provider]}" needs an owner, reason, and next proof step.`,
       )
     }
   }
@@ -343,9 +395,49 @@ function hasArchivedAuthenticatedOpsHealth(evidence: ServiceReadinessEvidence): 
 }
 
 function missingProviderEvidence(evidence: ServiceReadinessEvidence): string[] {
-  return Object.entries(evidence.providers).flatMap(([key, present]) =>
-    present ? [] : [providerLabels[key as keyof ServiceReadinessEvidence['providers']]],
+  const acceptedGrayProviders = acceptedGrayProviderSet(evidence)
+
+  return (
+    Object.entries(evidence.providers) as Array<[keyof ServiceReadinessProviders, boolean]>
+  ).flatMap(([key, present]) =>
+    present || acceptedGrayProviders.has(key) ? [] : [providerLabels[key]],
   )
+}
+
+function acceptedGrayProviderSet(
+  evidence: ServiceReadinessEvidence,
+): Set<keyof ServiceReadinessProviders> {
+  const providers = new Set<keyof ServiceReadinessProviders>()
+
+  for (const item of evidence.acceptedGrayProviders ?? []) {
+    if (acceptedGrayProviderComplete(item)) providers.add(item.provider)
+  }
+
+  return providers
+}
+
+function acceptedGrayProviderComplete(item: ServiceReadinessAcceptedGrayProvider): boolean {
+  return Boolean(item.owner.trim() && item.reason.trim() && item.nextProofStep.trim())
+}
+
+function readProviderKey(value: unknown): keyof ServiceReadinessProviders {
+  if (typeof value !== 'string' || !Object.prototype.hasOwnProperty.call(providerLabels, value)) {
+    throw new Error(`Unsupported accepted-gray provider "${String(value)}".`)
+  }
+
+  return value as keyof ServiceReadinessProviders
+}
+
+function readRequiredString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${label} is required.`)
+  }
+
+  return value.trim()
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function connectorOk(connectors: ServiceReadinessConnector[], name: string): boolean {

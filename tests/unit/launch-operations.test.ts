@@ -135,6 +135,8 @@ describe('launch operations controls', () => {
     const evidenceReadme = readFileSync(evidenceReadmePath, 'utf8')
     expect(evidenceReadme).toContain('Branch 4: service readiness')
     expect(evidenceReadme).toContain('SERVICE_READINESS_ALLOW_INCOMPLETE=1')
+    expect(evidenceReadme).toContain('acceptedGrayProviders')
+    expect(runbook).toContain('SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS')
 
     const dependabot = readFileSync(dependabotPath, 'utf8')
     expect(dependabot).toContain("package-ecosystem: 'npm'")

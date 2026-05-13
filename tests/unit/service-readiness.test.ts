@@ -4,6 +4,7 @@ import {
   createServiceReadinessArchive,
   createServiceReadinessProviders,
   evaluateServiceReadinessEvidence,
+  parseAcceptedGrayProviders,
   resolveOpsHealthAuth,
   type ServiceReadinessEvidence,
 } from '@/lib/server/service-readiness'
@@ -88,6 +89,74 @@ describe('service readiness evidence', () => {
       'GitHub environment protections are not configured.',
       'Dashboard-only item "Cloudflare: DNSSEC DS copied to registrar" needs an owner and next proof step.',
     ])
+  })
+
+  it('accepts production providers that are explicitly archived as accepted-gray', () => {
+    const result = evaluateServiceReadinessEvidence(
+      readyEvidence({
+        providers: {
+          ...readyEvidence().providers,
+          resend: false,
+          sentry: false,
+        },
+        acceptedGrayProviders: [
+          {
+            provider: 'resend',
+            owner: 'Ops',
+            reason:
+              'Email sending is intentionally paused until the Resend DKIM cutover is confirmed.',
+            nextProofStep: 'Confirm Resend domain verification, then rerun the readiness archive.',
+          },
+          {
+            provider: 'sentry',
+            owner: 'Ops',
+            reason: 'Error telemetry is intentionally informational during the launch rehearsal.',
+            nextProofStep:
+              'Verify Sentry alert routing before enabling the provider as launch-required.',
+          },
+        ],
+      }),
+    )
+
+    expect(result).toEqual({
+      ok: true,
+      failures: [],
+    })
+  })
+
+  it('parses accepted-gray provider proof from the readiness environment', () => {
+    expect(
+      parseAcceptedGrayProviders(
+        JSON.stringify([
+          {
+            provider: 'sentry',
+            owner: 'Ops',
+            reason: 'Telemetry is informational during launch rehearsal.',
+            nextProofStep: 'Verify alert routing before making Sentry launch-required.',
+          },
+        ]),
+      ),
+    ).toEqual([
+      {
+        provider: 'sentry',
+        owner: 'Ops',
+        reason: 'Telemetry is informational during launch rehearsal.',
+        nextProofStep: 'Verify alert routing before making Sentry launch-required.',
+      },
+    ])
+
+    expect(() =>
+      parseAcceptedGrayProviders(
+        JSON.stringify([
+          {
+            provider: 'unknown-provider',
+            owner: 'Ops',
+            reason: 'Bad provider.',
+            nextProofStep: 'Fix the provider name.',
+          },
+        ]),
+      ),
+    ).toThrow('Unsupported accepted-gray provider "unknown-provider".')
   })
 
   it('creates an immutable Branch 4 archive envelope with the evaluation result', () => {

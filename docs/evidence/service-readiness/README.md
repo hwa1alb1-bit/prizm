@@ -13,10 +13,13 @@ The command writes a timestamped JSON file with:
 - Stripe webhook, delivery, Customer Portal, and credit-grant proof,
 - DNSSEC DS and Cloudflare template reconciliation,
 - GitHub repository governance state,
+- accepted-gray provider exceptions in `acceptedGrayProviders`,
 - dashboard-only exceptions with owner and next proof step.
 
 Local connector smoke results are archived as diagnostics only. When authenticated `/api/ops/health` is missing, local desktop connector results do not count as production provider proof.
 
 Use `SERVICE_READINESS_ALLOW_INCOMPLETE=1 vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness` only when archiving a known partial run. Partial archives must keep every dashboard-only item assigned to an owner with a concrete next proof step.
+
+Use `SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS` only for providers that are intentionally informational during the production rehearsal. The value must be a JSON array of objects with `provider`, `owner`, `reason`, and `nextProofStep`. Accepted-gray providers satisfy provider readiness, but missing owner/reason/next-step fields fail the archive.
 
 Do not store auth cookies, API keys, webhook secrets, or dashboard screenshots in this directory. Attach sensitive screenshots to the private evidence store and reference the evidence ID in the JSON or monthly SOC 2 pack.

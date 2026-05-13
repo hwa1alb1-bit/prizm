@@ -32,6 +32,17 @@ vercel env run -e production --scope plknokos-projects -- pnpm verify:service-re
 
 Only use incomplete mode for a handoff archive. The JSON must name an owner and next proof step for every exception.
 
+For a provider that is intentionally informational during the production rehearsal, archive it as accepted-gray instead of leaving an unexplained provider failure:
+
+```powershell
+$env:SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS='[{"provider":"sentry","owner":"Ops","reason":"Error telemetry is informational during launch rehearsal.","nextProofStep":"Verify Sentry alert routing before making the provider launch-required."}]'
+vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
+```
+
+Use accepted-gray only when the provider state is intentional. The archive fails if an accepted-gray item omits the owner, reason, or next proof step.
+
+For the Cloudflare R2 launch path, `awsS3Textract` may be accepted-gray only when `DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2` is the production launch setting and `pnpm verify:cloudflare-extractor-dry-run` plus the extraction benchmark evidence are current. Do not gray out Textract while production traffic still defaults to the Textract engine.
+
 ## Stripe Proof
 
 Required proof:
