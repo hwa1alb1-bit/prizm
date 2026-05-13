@@ -20,6 +20,7 @@ export type ExtractionStartRequest = {
 
 export type CloudflareExtractorEnv = {
   EXTRACTOR_TOKEN: string
+  UPLOAD_BUCKET_NAME: string
   UPLOAD_BUCKET: R2BucketLike
   JOB_STATE_BUCKET: R2BucketLike
   EXTRACTION_QUEUE: QueueLike<ExtractionJobMessage>
@@ -119,6 +120,15 @@ async function startExtraction(request: Request, env: CloudflareExtractorEnv): P
       400,
     )
   }
+  if (input.storageBucket !== env.UPLOAD_BUCKET_NAME) {
+    return jsonResponse(
+      {
+        status: 'failed',
+        failureReason: `Extraction request referenced unsupported R2 bucket ${input.storageBucket}.`,
+      },
+      400,
+    )
+  }
 
   const jobId = `cf_job_${safeIdentifier(input.documentId)}_${crypto.randomUUID()}`
   const message: ExtractionJobMessage = { jobId, ...input }
@@ -153,6 +163,14 @@ async function processExtractionJob(
   job: ExtractionJobMessage,
   env: CloudflareExtractorEnv,
 ): Promise<void> {
+  if (job.storageBucket !== env.UPLOAD_BUCKET_NAME) {
+    await putJobState(
+      env,
+      failedJob(job, `Extraction job referenced unsupported R2 bucket ${job.storageBucket}.`),
+    )
+    return
+  }
+
   const object = await env.UPLOAD_BUCKET.get(job.storageKey)
   if (!object?.body) {
     await putJobState(env, failedJob(job, 'Uploaded PDF was not found in R2.'))
