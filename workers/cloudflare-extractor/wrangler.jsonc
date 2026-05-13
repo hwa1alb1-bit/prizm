@@ -8,6 +8,9 @@
     "enabled": true,
     "head_sampling_rate": 1,
   },
+  "vars": {
+    "UPLOAD_BUCKET_NAME": "prizm-r2-uploads",
+  },
   "r2_buckets": [
     {
       "binding": "UPLOAD_BUCKET",

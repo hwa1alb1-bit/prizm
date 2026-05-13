@@ -58,6 +58,30 @@ describe('Cloudflare extractor Worker contract', () => {
     })
   })
 
+  it('rejects extraction starts for unsupported upload buckets', async () => {
+    const env = createEnv()
+
+    const response = await handleCloudflareExtractorRequest(
+      new Request('https://extractor.example.com/v1/extractions', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-token' },
+        body: JSON.stringify({
+          ...extractionRequest(),
+          storageBucket: 'other-r2-uploads',
+        }),
+      }),
+      env,
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      status: 'failed',
+      failureReason: 'Extraction request referenced unsupported R2 bucket other-r2-uploads.',
+    })
+    expect(env.JOB_STATE_BUCKET.put).not.toHaveBeenCalled()
+    expect(env.EXTRACTION_QUEUE.send).not.toHaveBeenCalled()
+  })
+
   it('returns current job state from the polling endpoint', async () => {
     const env = createEnv()
     await env.JOB_STATE_BUCKET.put(
@@ -130,6 +154,35 @@ describe('Cloudflare extractor Worker contract', () => {
       jobId: 'cf_job_missing',
       failureReason: 'Uploaded PDF was not found in R2.',
     })
+    expect(env.KOTLIN_EXTRACTOR.getByName).not.toHaveBeenCalled()
+  })
+
+  it('fails queued jobs that reference a different upload bucket', async () => {
+    const env = createEnv()
+    await env.UPLOAD_BUCKET.put('uploads/doc_123/statement.pdf', new Blob(['%PDF-test']))
+
+    await handleCloudflareExtractorQueue(
+      queueBatch([
+        {
+          jobId: 'cf_job_wrong_bucket',
+          documentId: 'doc_123',
+          storageBucket: 'other-r2-uploads',
+          storageKey: 'uploads/doc_123/statement.pdf',
+        },
+      ]),
+      env,
+    )
+
+    const jobState = JSON.parse(
+      env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_wrong_bucket.json') ?? '',
+    )
+    expect(jobState).toMatchObject({
+      status: 'failed',
+      jobId: 'cf_job_wrong_bucket',
+      storageBucket: 'other-r2-uploads',
+      failureReason: 'Extraction job referenced unsupported R2 bucket other-r2-uploads.',
+    })
+    expect(env.UPLOAD_BUCKET.get).not.toHaveBeenCalled()
     expect(env.KOTLIN_EXTRACTOR.getByName).not.toHaveBeenCalled()
   })
 
@@ -225,6 +278,7 @@ function createEnv() {
   }
   return {
     EXTRACTOR_TOKEN: 'test-token',
+    UPLOAD_BUCKET_NAME: 'prizm-r2-uploads',
     UPLOAD_BUCKET: memoryBucket(),
     JOB_STATE_BUCKET: memoryBucket(),
     EXTRACTION_QUEUE: { send: vi.fn().mockResolvedValue(undefined) },

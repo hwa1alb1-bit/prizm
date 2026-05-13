@@ -19,7 +19,7 @@ describe('extraction benchmark gate', () => {
     }
 
     expect(packageJson.scripts?.['verify:extraction']).toBe(
-      'pnpm exec vitest run tests/unit/cloudflare-extractor-worker.test.ts tests/unit/extraction-engine.test.ts tests/unit/extraction-benchmark-script.test.ts && pnpm test:kotlin-extractor && pnpm benchmark:extraction',
+      'pnpm exec vitest run tests/unit/cloudflare-extractor-worker.test.ts tests/unit/extraction-engine.test.ts tests/unit/extraction-benchmark-script.test.ts tests/unit/cloudflare-extractor-dry-run-script.test.ts && pnpm test:kotlin-extractor && pnpm benchmark:extraction && pnpm verify:cloudflare-extractor-dry-run',
     )
   })
 
