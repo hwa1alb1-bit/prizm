@@ -9,6 +9,7 @@ import {
   createServiceReadinessDashboardOnlyItems,
   createServiceReadinessArchive,
   createServiceReadinessProviders,
+  parseAcceptedGrayProviders,
   resolveOpsHealthAuth,
   type ServiceReadinessConnector,
   type ServiceReadinessEvidence,
@@ -94,11 +95,15 @@ async function collectServiceReadinessEvidence(
     stripeWebhookRegistered: stripe.webhookEndpoint.registered,
     cloudflareDnsReady: dnsEvidence.dnssecDsDelegated && dnsEvidence.cloudflareTemplateReconciled,
   })
+  const acceptedGrayProviders = parseAcceptedGrayProviders(
+    process.env.SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS,
+  )
 
   return {
     opsHealth,
     liveConnectorSmoke,
     providers,
+    acceptedGrayProviders,
     stripe,
     dns: dnsEvidence,
     github,
