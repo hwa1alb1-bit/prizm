@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import {
+  evaluateStagingRehearsalEvidence,
+  stagingRehearsalSections,
+} from '@/lib/server/staging-rehearsal-evidence'
 
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
 
@@ -78,6 +82,14 @@ describe('launch operations controls', () => {
     expect(workflow).not.toContain('SUPABASE_PROJECT_ID:')
     expect(workflow).not.toContain('S3_KMS_KEY_ID:')
     expect(workflow).not.toContain('LIVE_CONNECTOR_SMOKE:')
+  })
+
+  it('enforces STAGING_HOST before running security header checks on main', () => {
+    expect(workflow).toContain('STAGING_HOST: ${{ vars.STAGING_HOST }}')
+    expect(workflow).toContain('STAGING_HOST is required for security header enforcement.')
+    expect(workflow).toContain('STAGING_HOST=$STAGING_HOST does not resolve.')
+    expect(workflow).not.toContain('Skipping Mozilla Observatory check')
+    expect(workflow).not.toContain('Skipping Observatory check')
   })
 
   it('documents app deploy and database migration rollback procedures', () => {
@@ -183,4 +195,109 @@ describe('launch operations controls', () => {
     expect(rehearsal).toContain('CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY')
     expect(rehearsal).toContain('CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA')
   })
+
+  it('requires dated evidence artifacts before a staging rehearsal can pass', () => {
+    const artifact = validStagingRehearsalEvidence()
+
+    expect(evaluateStagingRehearsalEvidence(artifact)).toEqual({
+      ok: true,
+      failures: [],
+    })
+
+    const incomplete = {
+      ...artifact,
+      sectionEvidence: {
+        ...artifact.sectionEvidence,
+        'billing-and-webhook-sanity': {
+          ...artifact.sectionEvidence['billing-and-webhook-sanity'],
+          artifactPath: '',
+        },
+      },
+      stripeEventIds: [],
+      operatorSignoff: {
+        ...artifact.operatorSignoff,
+        result: 'pending',
+      },
+    }
+
+    expect(evaluateStagingRehearsalEvidence(incomplete)).toEqual({
+      ok: false,
+      failures: [
+        'Billing And Webhook Sanity evidence artifact must be archived under docs/evidence/staging-rehearsals/2026-05-14/.',
+        'Stripe event IDs are required.',
+        'Operator signoff result must be pass or fail.',
+      ],
+    })
+  })
+
+  it('documents the dated staging rehearsal evidence package contract', () => {
+    const runbook = readFileSync('docs/runbooks/staging-rehearsal.md', 'utf8')
+    const evidenceReadmePath = 'docs/evidence/staging-rehearsals/README.md'
+    const packageJson = readFileSync('package.json', 'utf8')
+
+    expect(packageJson).toContain('"check:staging-rehearsal-evidence"')
+    expect(existsSync(evidenceReadmePath)).toBe(true)
+
+    const evidenceReadme = readFileSync(evidenceReadmePath, 'utf8')
+    for (const section of stagingRehearsalSections) {
+      expect(runbook).toContain(`docs/evidence/staging-rehearsals/<YYYY-MM-DD>/${section.id}.md`)
+      expect(evidenceReadme).toContain(section.id)
+    }
+
+    for (const requiredField of [
+      'releaseSha',
+      'vercelDeploymentUrl',
+      'stagingHost',
+      'launchGateOutput',
+      'liveConnectorSmokeOutput',
+      'uploadRequestId',
+      'convertRequestId',
+      'statusRequestId',
+      'exportRequestId',
+      'auditQueryOutput',
+      'stripeEventIds',
+      'deletionSweepEvidence',
+      'deletionMonitorEvidence',
+      'sentryAlertLinkOrDrillId',
+      'operatorSignoff',
+    ]) {
+      expect(evidenceReadme).toContain(requiredField)
+    }
+  })
 })
+
+function validStagingRehearsalEvidence() {
+  return {
+    schemaVersion: 1,
+    rehearsalDate: '2026-05-14',
+    releaseSha: '5a6b2351b500024ab74b2f7c53b12e0afb478306',
+    vercelDeploymentUrl: 'https://prizm-git-main-plknokos-projects.vercel.app',
+    stagingHost: 'staging.prizmview.app',
+    launchGateOutput: 'Launch gate passed for staging',
+    liveConnectorSmokeOutput: 'supabase: ok\nstripe: ok\ns3: ok\nredis: ok',
+    uploadRequestId: 'req_upload_123',
+    convertRequestId: 'req_convert_123',
+    statusRequestId: 'req_status_123',
+    exportRequestId: 'req_export_123',
+    auditQueryOutput: 'document.upload_requested stripe.checkout.session.completed',
+    stripeEventIds: ['evt_123'],
+    deletionSweepEvidence: 'sweep_run_id=delete_sweep_123',
+    deletionMonitorEvidence: 'monitor_run_id=delete_monitor_123',
+    sentryAlertLinkOrDrillId: 'https://prizm.sentry.io/issues/123',
+    operatorSignoff: {
+      operator: 'Ops',
+      result: 'pass',
+      signedAt: '2026-05-14T15:30:00.000Z',
+    },
+    sectionEvidence: Object.fromEntries(
+      stagingRehearsalSections.map((section) => [
+        section.id,
+        {
+          artifactPath: `docs/evidence/staging-rehearsals/2026-05-14/${section.id}.md`,
+          collectedAt: '2026-05-14T15:30:00.000Z',
+          status: 'pass',
+        },
+      ]),
+    ),
+  }
+}
