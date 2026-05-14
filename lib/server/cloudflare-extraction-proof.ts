@@ -21,8 +21,53 @@ export type CloudflareExtractionProofValidation =
       failure: string
     }
 
+export type CloudflareExtractorHttpsUrlValidation =
+  | {
+      ok: true
+      url: string
+    }
+  | {
+      ok: false
+      failure: 'extractor_url_missing' | 'extractor_url_invalid' | 'extractor_url_insecure'
+    }
+
 const proofIdPattern = /^cf-extraction-staging-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/
 const sha256Pattern = /^[a-f0-9]{64}$/
+
+export function resolveHttpsCloudflareExtractorUrl(
+  rawUrl: string | null | undefined,
+): CloudflareExtractorHttpsUrlValidation {
+  const trimmed = rawUrl?.trim()
+  if (!trimmed) {
+    return {
+      ok: false,
+      failure: 'extractor_url_missing',
+    }
+  }
+
+  const normalized = trimmed.replace(/\/+$/, '')
+  let parsed: URL
+  try {
+    parsed = new URL(normalized)
+  } catch {
+    return {
+      ok: false,
+      failure: 'extractor_url_invalid',
+    }
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return {
+      ok: false,
+      failure: 'extractor_url_insecure',
+    }
+  }
+
+  return {
+    ok: true,
+    url: normalized,
+  }
+}
 
 export function validateCloudflareExtractionProofArchive({
   env,
@@ -149,7 +194,31 @@ function proofArchiveHasHealthyExtraction(proof: Record<string, unknown>): boole
     typeof extraction.jobId === 'string' &&
     Number(extraction.statementCount) > 0 &&
     firstStatement.ready === true &&
-    firstStatement.reconciles === true
+    firstStatement.reconciles === true &&
+    proofArchiveHasRuntimeRequirementCoverage(proof)
+  )
+}
+
+function proofArchiveHasRuntimeRequirementCoverage(proof: Record<string, unknown>): boolean {
+  const requirements = readRecord(proof.requirements)
+  const workerHealth = readRecord(requirements.workerHealth)
+  const r2StorageAccess = readRecord(requirements.r2StorageAccess)
+  const extractionSuccess = readRecord(requirements.extractionSuccess)
+  const queueRetryPolicy = readRecord(requirements.queueRetryPolicy)
+  const deadLetterQueue = readRecord(requirements.deadLetterQueue)
+
+  return (
+    workerHealth.ok === true &&
+    r2StorageAccess.ok === true &&
+    typeof r2StorageAccess.storageKey === 'string' &&
+    extractionSuccess.ok === true &&
+    typeof extractionSuccess.jobId === 'string' &&
+    queueRetryPolicy.ok === true &&
+    queueRetryPolicy.queue === 'prizm-extractions' &&
+    Number(queueRetryPolicy.maxRetries) > 0 &&
+    Number(queueRetryPolicy.retryDelaySeconds) > 0 &&
+    deadLetterQueue.ok === true &&
+    deadLetterQueue.queue === 'prizm-extractions-dlq'
   )
 }
 

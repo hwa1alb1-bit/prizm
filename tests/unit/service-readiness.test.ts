@@ -392,7 +392,7 @@ describe('service readiness evidence', () => {
       stagingProof: {
         id: 'cf-extraction-staging-2026-05-14T21-14-43-312Z',
         archivedAt: '2026-05-14T21:15:01.124Z',
-        sha: '3678faa25bf3f2277f15d04b84975832c1ed6815bd9ac684a61b1917f2aae816',
+        sha: '6c236fa3548b3ff7c19e8585ffc565e5586a4ce5f8083704482b26bf0fe1b0b6',
         validated: false,
         evidencePath:
           'docs/evidence/cloudflare-extraction/cf-extraction-staging-2026-05-14T21-14-43-312Z.json',
@@ -668,7 +668,7 @@ function readyCloudflareExtractor(
     stagingProof: {
       id: 'cf-extraction-staging-2026-05-14T21-14-43-312Z',
       archivedAt: '2026-05-14T21:15:01.124Z',
-      sha: '3678faa25bf3f2277f15d04b84975832c1ed6815bd9ac684a61b1917f2aae816',
+      sha: '6c236fa3548b3ff7c19e8585ffc565e5586a4ce5f8083704482b26bf0fe1b0b6',
       validated: true,
       evidencePath:
         'docs/evidence/cloudflare-extraction/cf-extraction-staging-2026-05-14T21-14-43-312Z.json',
