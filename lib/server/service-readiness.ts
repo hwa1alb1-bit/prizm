@@ -153,6 +153,21 @@ const providerLabels: Record<keyof ServiceReadinessProviders, string> = {
   redis: 'Redis',
 }
 
+const providerProofNextSteps: Partial<Record<keyof ServiceReadinessProviders, string>> = {
+  vercel:
+    'Confirm a READY production deployment for the configured Vercel project, then rerun the service readiness archive.',
+  supabase:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Supabase connector is ok.',
+  stripe:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Stripe connector is ok.',
+  sentry:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Sentry connector is ok, or archive an accepted-gray exception if telemetry is intentionally informational.',
+  resend:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Resend connector is ok, or archive an accepted-gray exception if email sending is intentionally paused.',
+  redis:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Redis connector is ok.',
+}
+
 const acceptedGrayBlockedProviders = new Set<keyof ServiceReadinessProviders>([
   'cloudflareR2Extractor',
 ])
@@ -338,6 +353,7 @@ export function createServiceReadinessDashboardOnlyItems(input: {
   opsHealth: ServiceReadinessEvidence['opsHealth']
   liveConnectorSmoke: NonNullable<ServiceReadinessEvidence['liveConnectorSmoke']>
   providers: ServiceReadinessEvidence['providers']
+  acceptedGrayProviders?: ServiceReadinessEvidence['acceptedGrayProviders']
   cloudflareExtractor: ServiceReadinessCloudflareExtractor
   stripe: ServiceReadinessEvidence['stripe']
   dnsEvidence: ServiceReadinessEvidence['dns']
@@ -363,6 +379,13 @@ export function createServiceReadinessDashboardOnlyItems(input: {
       nextProofStep:
         'Deploy and prove the Cloudflare Worker/container path, seed the R2 healthcheck PDF, archive the staging extraction proof, and rerun service readiness with Cloudflare extractor env.',
     })
+  }
+
+  for (const item of missingProductionProviderDashboardItems(
+    input.providers,
+    input.acceptedGrayProviders,
+  )) {
+    items.push(item)
   }
 
   if (!input.stripe.webhookEndpoint.deliverySuccess) {
@@ -416,6 +439,32 @@ export function createServiceReadinessDashboardOnlyItems(input: {
   }
 
   return items
+}
+
+function missingProductionProviderDashboardItems(
+  providers: ServiceReadinessEvidence['providers'],
+  acceptedGrayProviders: ServiceReadinessEvidence['acceptedGrayProviders'] = [],
+): DashboardOnlyReadinessItem[] {
+  const acceptedGray = new Set(
+    acceptedGrayProviders
+      .filter((item) => acceptedGrayProviderComplete(item))
+      .map((item) => item.provider),
+  )
+
+  return (Object.entries(providers) as Array<[keyof ServiceReadinessProviders, boolean]>)
+    .filter(([provider, present]) => {
+      if (present) return false
+      if (acceptedGray.has(provider)) return false
+      return provider !== 'cloudflareR2Extractor' && provider !== 'cloudflareDns'
+    })
+    .map(([provider]) => ({
+      area: providerLabels[provider],
+      item: `Authenticated production ${providerLabels[provider]} connector evidence`,
+      owner: 'Ops',
+      nextProofStep:
+        providerProofNextSteps[provider] ??
+        `Archive production evidence for ${providerLabels[provider]} and rerun service readiness.`,
+    }))
 }
 
 export function resolveOpsHealthAuth(env: OpsHealthAuthEnv): OpsHealthAuth {
