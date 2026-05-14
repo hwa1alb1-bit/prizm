@@ -1,11 +1,14 @@
 import { execFile } from 'node:child_process'
 import dns from 'node:dns/promises'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
-import { validateCloudflareExtractionProofArchive } from '@/lib/server/cloudflare-extraction-proof'
+import {
+  resolveHttpsCloudflareExtractorUrl,
+  validateCloudflareExtractionProofArchive,
+} from '@/lib/server/cloudflare-extraction-proof'
 import {
   createServiceReadinessDashboardOnlyItems,
   createServiceReadinessArchive,
@@ -170,7 +173,7 @@ async function collectCloudflareExtractorEvidence(
       archivedAt: process.env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT ?? null,
       sha: process.env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA ?? null,
       validated: proofValidation.ok,
-      evidencePath: proofValidation.evidencePath,
+      evidencePath: repoRelativePath(proofValidation.evidencePath),
       error: proofValidation.ok ? null : proofValidation.failure,
     },
     missingEnv: [...runtimeMissingEnv, ...proofMissingEnv],
@@ -179,8 +182,18 @@ async function collectCloudflareExtractorEvidence(
 
   if (!url || !token) return base
 
+  const secureUrl = resolveHttpsCloudflareExtractorUrl(url)
+  if (!secureUrl.ok) {
+    return {
+      ...base,
+      status: secureUrl.failure,
+      collectedAt: generatedAt,
+      checks: emptyCloudflareExtractorChecks(secureUrl.failure),
+    }
+  }
+
   try {
-    const response = await fetch(`${trimTrailingSlash(url)}/v1/health`, {
+    const response = await fetch(`${secureUrl.url}/v1/health`, {
       headers: {
         'cache-control': 'no-store',
         authorization: `Bearer ${token}`,
@@ -253,6 +266,15 @@ function emptyCloudflareExtractorChecks(
     extractionQueue: { ok: false, error },
     kotlinExtractor: { ok: false, error },
   }
+}
+
+function repoRelativePath(filePath: string | null): string | null {
+  if (!filePath) return null
+
+  const relativePath = relative(process.cwd(), filePath)
+  if (relativePath.startsWith('..') || isAbsolute(relativePath)) return filePath
+
+  return relativePath.replace(/\\/g, '/')
 }
 
 async function collectLiveConnectorSmoke(

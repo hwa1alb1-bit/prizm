@@ -71,6 +71,7 @@ Required proof:
 - The health payload reports `jobStateBucket.ok`, `uploadBucket.ok`, `extractionQueue.ok`, and `kotlinExtractor.ok`.
 - The returned upload bucket `key` matches `CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY`.
 - `CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID`, `CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT`, and `CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA` point to the archived staging Worker/container extraction proof.
+- The archived proof includes explicit runtime requirement coverage for Worker health, R2 storage access, extraction success, queue retry policy, and the `prizm-extractions-dlq` dead-letter queue.
 
 After Cloudflare auth is available, validate the Worker resources and seed the healthcheck PDF:
 
