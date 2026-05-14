@@ -249,20 +249,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [e2e, staging-launch-gate]
+    environment: staging
     steps:
       - name: Mozilla Observatory grade check
         env:
           STAGING_HOST: ${{ vars.STAGING_HOST }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
         run: |
-          if [ -z "$STAGING_HOST" ]; then
-            echo "STAGING_HOST is required for security header enforcement."
+          host="${STAGING_HOST:-}"
+          if [ -z "$host" ] && [ -n "$NEXT_PUBLIC_SITE_URL" ]; then
+            host="${NEXT_PUBLIC_SITE_URL#http://}"
+            host="${host#https://}"
+            host="${host%%/*}"
+          fi
+          if [ -z "$host" ]; then
+            echo "STAGING_HOST or NEXT_PUBLIC_SITE_URL is required for security header enforcement."
             exit 1
           fi
-          if ! getent hosts "$STAGING_HOST" >/dev/null 2>&1; then
-            echo "STAGING_HOST=$STAGING_HOST does not resolve."
+          if ! getent hosts "$host" >/dev/null 2>&1; then
+            echo "STAGING_HOST=$host does not resolve."
             exit 1
           fi
-          response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 -X POST --data ' ' "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=$STAGING_HOST")
+          response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 -X POST --data ' ' "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=$host")
           if ! echo "$response" | jq -e '.grade and .score and (.error == null)' >/dev/null; then
             echo "Unexpected Observatory response:"
             echo "$response"
@@ -271,7 +279,7 @@ jobs:
           grade=$(echo "$response" | jq -r '.grade')
           score=$(echo "$response" | jq -r '.score')
           details_url=$(echo "$response" | jq -r '.details_url // empty')
-          echo "Host: $STAGING_HOST Grade: $grade Score: $score Details: $details_url"
+          echo "Host: $host Grade: $grade Score: $score Details: $details_url"
           if [[ "$grade" =~ ^A ]]; then
             echo "Pass"
           else
