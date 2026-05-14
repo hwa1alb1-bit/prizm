@@ -26,7 +26,7 @@ export type LaunchGateCheckResult = {
   failures: LaunchGateFailure[]
 }
 
-const launchGates: readonly LaunchGateDefinition[] = [
+const commonLaunchGates: readonly LaunchGateDefinition[] = [
   {
     id: 'supabase-configured',
     title: 'Supabase project and service credentials are configured',
@@ -35,16 +35,6 @@ const launchGates: readonly LaunchGateDefinition[] = [
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       'SUPABASE_SERVICE_ROLE_KEY',
     ],
-  },
-  {
-    id: 'aws-oidc-configured',
-    title: 'AWS OIDC role assumption is configured',
-    requiredEnv: ['AWS_REGION', 'AWS_ROLE_ARN'],
-  },
-  {
-    id: 's3-upload-bucket-configured',
-    title: 'S3 browser upload bucket is configured',
-    requiredEnv: ['S3_UPLOAD_BUCKET'],
   },
   {
     id: 'stripe-configured',
@@ -81,6 +71,19 @@ const launchGates: readonly LaunchGateDefinition[] = [
   },
 ]
 
+const legacyAwsS3LaunchGates: readonly LaunchGateDefinition[] = [
+  {
+    id: 'aws-oidc-configured',
+    title: 'AWS OIDC role assumption is configured',
+    requiredEnv: ['AWS_REGION', 'AWS_ROLE_ARN'],
+  },
+  {
+    id: 's3-upload-bucket-configured',
+    title: 'S3 browser upload bucket is configured',
+    requiredEnv: ['S3_UPLOAD_BUCKET'],
+  },
+]
+
 const cloudflareR2RuntimeEnv = [
   'R2_ACCOUNT_ID',
   'R2_UPLOAD_BUCKET',
@@ -96,6 +99,10 @@ const cloudflareR2ProductionProofEnv = [
   'CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT',
   'CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA',
 ] as const
+
+const cloudflareProofIdPattern =
+  /^cf-extraction-staging-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/
+const sha256Pattern = /^[a-f0-9]{64}$/
 
 function isPresent(value: string | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0
@@ -124,7 +131,11 @@ export function evaluateLaunchReadiness({
   target: LaunchTarget
   env: LaunchEnv
 }): LaunchReadinessResult {
-  const failures: LaunchGateFailure[] = launchGates.flatMap((gate) => {
+  const gateDefinitions = [
+    ...commonLaunchGates,
+    ...(requiresLegacyAwsS3Gates(target, env) ? legacyAwsS3LaunchGates : []),
+  ]
+  const failures: LaunchGateFailure[] = gateDefinitions.flatMap((gate) => {
     const missingEnv = gate.requiredEnv.filter((key) => !isPresent(env[key]))
 
     if (missingEnv.length === 0) return []
@@ -163,6 +174,21 @@ export function evaluateLaunchReadiness({
     })
   }
 
+  if (
+    target === 'production' &&
+    (env.DOCUMENT_STORAGE_PROVIDER !== 'r2' || env.DOCUMENT_EXTRACTION_PROVIDER !== 'cloudflare-r2')
+  ) {
+    failures.push({
+      id: 'cloudflare-r2-production-provider-selected',
+      title: 'Production launch uses Cloudflare R2 storage and extractor',
+      envKeys: ['DOCUMENT_STORAGE_PROVIDER', 'DOCUMENT_EXTRACTION_PROVIDER'],
+      reason: 'invalid',
+    })
+  }
+
+  const requiresCloudflareR2LaunchBundle =
+    target === 'production' || env.DOCUMENT_EXTRACTION_PROVIDER === 'cloudflare-r2'
+
   if (env.DOCUMENT_EXTRACTION_PROVIDER === 'cloudflare-r2') {
     if (env.DOCUMENT_STORAGE_PROVIDER !== 'r2') {
       failures.push({
@@ -172,7 +198,9 @@ export function evaluateLaunchReadiness({
         reason: 'invalid',
       })
     }
+  }
 
+  if (requiresCloudflareR2LaunchBundle) {
     const missingRuntimeEnv = cloudflareR2RuntimeEnv.filter((key) => !isPresent(env[key]))
     if (missingRuntimeEnv.length > 0) {
       failures.push({
@@ -180,6 +208,15 @@ export function evaluateLaunchReadiness({
         title: 'Cloudflare R2 storage and extractor runtime are configured',
         envKeys: [...missingRuntimeEnv],
         reason: 'missing',
+      })
+    }
+
+    if (isPresent(env.CLOUDFLARE_EXTRACTOR_URL) && !isHttpsUrl(env.CLOUDFLARE_EXTRACTOR_URL)) {
+      failures.push({
+        id: 'cloudflare-extractor-url-secure',
+        title: 'Cloudflare extractor URL uses HTTPS',
+        envKeys: ['CLOUDFLARE_EXTRACTOR_URL'],
+        reason: 'invalid',
       })
     }
 
@@ -192,6 +229,13 @@ export function evaluateLaunchReadiness({
           envKeys: [...missingProofEnv],
           reason: 'missing',
         })
+      } else if (!cloudflareProofMetadataValid(env)) {
+        failures.push({
+          id: 'cloudflare-r2-staging-proof-metadata-valid',
+          title: 'Cloudflare R2 extraction staging proof metadata is well formed',
+          envKeys: [...cloudflareR2ProductionProofEnv],
+          reason: 'invalid',
+        })
       }
     }
   }
@@ -201,6 +245,29 @@ export function evaluateLaunchReadiness({
     target,
     failures,
   }
+}
+
+function cloudflareProofMetadataValid(env: LaunchEnv): boolean {
+  const proofId = env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID?.trim() ?? ''
+  const archivedAt = env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT?.trim() ?? ''
+  const sha = env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA?.trim() ?? ''
+
+  return (
+    cloudflareProofIdPattern.test(proofId) &&
+    !Number.isNaN(Date.parse(archivedAt)) &&
+    sha256Pattern.test(sha)
+  )
+}
+
+function requiresLegacyAwsS3Gates(target: LaunchTarget, env: LaunchEnv): boolean {
+  if (
+    env.DOCUMENT_STORAGE_PROVIDER === 'r2' &&
+    env.DOCUMENT_EXTRACTION_PROVIDER === 'cloudflare-r2'
+  ) {
+    return false
+  }
+
+  return target === 'staging'
 }
 
 export function evaluateLiveConnectorSmokeGate(env: LaunchEnv): LaunchGateCheckResult {

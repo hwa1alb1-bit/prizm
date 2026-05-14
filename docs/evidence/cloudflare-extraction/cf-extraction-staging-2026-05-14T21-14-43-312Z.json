@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "proofId": "cf-extraction-staging-2026-05-14T21-14-43-312Z",
+  "archivedAt": "2026-05-14T21:15:01.124Z",
+  "workerUrl": "https://prizm-cloudflare-extractor.hwa1alb1-prizm.workers.dev",
+  "storageBucket": "prizm-r2-uploads",
+  "storageKey": "benchmarks/golden-bank-statement.pdf",
+  "health": {
+    "status": "ok",
+    "checkedAt": "2026-05-14T21:14:41.768Z",
+    "checks": {
+      "jobStateBucket": {
+        "ok": true
+      },
+      "uploadBucket": {
+        "ok": true,
+        "key": "probes/known-good.pdf"
+      },
+      "extractionQueue": {
+        "ok": true
+      },
+      "kotlinExtractor": {
+        "ok": true
+      }
+    }
+  },
+  "extraction": {
+    "status": "succeeded",
+    "jobId": "cf_job_cf-extraction-staging-2026-05-14T21-14-43-312Z_7b5a4bb5-d401-40da-b99c-2403c9323636",
+    "statementCount": 1,
+    "firstStatement": {
+      "statementType": "credit_card",
+      "bankName": "Chase",
+      "accountLast4": "4242",
+      "periodStart": "2026-04-01",
+      "periodEnd": "2026-04-30",
+      "transactionCount": 3,
+      "reconciles": true,
+      "ready": true
+    }
+  },
+  "sha256": "3678faa25bf3f2277f15d04b84975832c1ed6815bd9ac684a61b1917f2aae816"
+}

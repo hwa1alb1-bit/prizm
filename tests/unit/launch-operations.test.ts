@@ -157,17 +157,18 @@ describe('launch operations controls', () => {
     for (const section of [
       '## Evidence Collection',
       '## Stripe Proof',
-      '## AWS Textract Subscription',
+      '## Cloudflare R2 Extractor Proof',
       '## DNSSEC And Cloudflare',
       '## GitHub Governance',
       '## Dashboard-Only Exceptions',
     ]) {
       expect(runbook).toContain(section)
     }
-    expect(runbook).toContain('connector_subscription_required')
-    expect(runbook).toContain(
-      'aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe',
-    )
+    expect(runbook).toContain('DOCUMENT_STORAGE_PROVIDER=r2')
+    expect(runbook).toContain('DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2')
+    expect(runbook).toContain('GET ${CLOUDFLARE_EXTRACTOR_URL}/v1/health')
+    expect(runbook).toContain('CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA')
+    expect(runbook).toContain('pnpm exec wrangler deploy --dry-run')
 
     const evidenceReadme = readFileSync(evidenceReadmePath, 'utf8')
     expect(evidenceReadme).toContain('Branch 4: service readiness')
@@ -195,6 +196,7 @@ describe('launch operations controls', () => {
       'retry behavior',
       'dead-letter handling',
       'DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2',
+      'Set the provider flags, R2 S3 credentials, Worker URL/token, healthcheck key, and staging proof variables in one Vercel production change window.',
     ]) {
       expect(fallback).toContain(phrase)
     }
