@@ -1,6 +1,6 @@
 import 'server-only'
 
-const REQUIRED_ALIASES = ['prizmview.app', 'www.prizmview.app'] as const
+export const REQUIRED_RELEASE_HOSTS = ['prizmview.app', 'www.prizmview.app'] as const
 
 export type ReleaseEvidence = {
   localHead: string
@@ -12,6 +12,13 @@ export type ReleaseEvidence = {
     url: string
     githubCommitSha: string
     aliases: string[]
+    requiredHosts?: Array<{
+      host: string
+      readyState: string
+      target: string | null
+      url: string
+      githubCommitSha: string
+    }>
   }
   liveHealth: {
     status: string
@@ -65,7 +72,40 @@ export function evaluateReleaseInvariant(evidence: ReleaseEvidence): ReleaseInva
   }
 
   const aliases = new Set(evidence.vercelDeployment.aliases)
-  const missingAliases = REQUIRED_ALIASES.filter((alias) => !aliases.has(alias))
+  const hostProofs = new Map(
+    (evidence.vercelDeployment.requiredHosts ?? []).map((host) => [host.host, host]),
+  )
+  const missingAliases: string[] = []
+
+  for (const host of REQUIRED_RELEASE_HOSTS) {
+    if (aliases.has(host)) continue
+
+    const proof = hostProofs.get(host)
+    if (!proof) {
+      missingAliases.push(host)
+      continue
+    }
+
+    if (proof.url !== evidence.vercelDeployment.url) {
+      failures.push(
+        `Vercel host ${host} points to ${proof.url}, not ${evidence.vercelDeployment.url}.`,
+      )
+    }
+
+    if (proof.githubCommitSha && proof.githubCommitSha !== localHead) {
+      failures.push(
+        `Vercel host ${host} commit ${proof.githubCommitSha} does not match local HEAD ${localHead}.`,
+      )
+    }
+
+    if (proof.readyState !== 'READY') {
+      failures.push(`Vercel host ${host} deployment is ${proof.readyState}, not READY.`)
+    }
+
+    if (proof.target !== 'production') {
+      failures.push(`Vercel host ${host} target is ${proof.target ?? 'null'}, not production.`)
+    }
+  }
 
   if (missingAliases.length > 0) {
     failures.push(`Vercel production aliases are missing ${missingAliases.join(', ')}.`)

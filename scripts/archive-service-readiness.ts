@@ -5,12 +5,16 @@ import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { validateCloudflareExtractionProofArchive } from '@/lib/server/cloudflare-extraction-proof'
 import {
   createServiceReadinessDashboardOnlyItems,
   createServiceReadinessArchive,
   createServiceReadinessProviders,
+  normalizeLiveConnectorSmokeForLaunchPath,
   parseAcceptedGrayProviders,
+  resolveCloudflareExtractorHealthStatus,
   resolveOpsHealthAuth,
+  type ServiceReadinessCloudflareExtractor,
   type ServiceReadinessConnector,
   type ServiceReadinessEvidence,
 } from '@/lib/server/service-readiness'
@@ -80,17 +84,25 @@ async function collectServiceReadinessEvidence(
   config: ReadinessConfig,
   generatedAt: string,
 ): Promise<ServiceReadinessEvidence> {
-  const [opsHealth, liveConnectorSmoke, vercel, stripe, dnsEvidence, github] = await Promise.all([
-    collectOpsHealth(config, generatedAt),
-    collectLiveConnectorSmoke(generatedAt),
-    collectVercelEvidence(config),
-    collectStripeEvidence(config),
-    collectDnsEvidence(config),
-    collectGithubEvidence(config),
-  ])
+  const [opsHealth, rawLiveConnectorSmoke, vercel, stripe, dnsEvidence, github] = await Promise.all(
+    [
+      collectOpsHealth(config, generatedAt),
+      collectLiveConnectorSmoke(generatedAt),
+      collectVercelEvidence(config),
+      collectStripeEvidence(config),
+      collectDnsEvidence(config),
+      collectGithubEvidence(config),
+    ],
+  )
+  const cloudflareExtractor = await collectCloudflareExtractorEvidence(generatedAt)
+  const liveConnectorSmoke = normalizeLiveConnectorSmokeForLaunchPath(
+    rawLiveConnectorSmoke,
+    cloudflareExtractor.launchPath,
+  )
   const providers = createServiceReadinessProviders({
     opsHealth,
     localConnectorSmoke: liveConnectorSmoke,
+    cloudflareExtractor,
     vercel,
     stripeWebhookRegistered: stripe.webhookEndpoint.registered,
     cloudflareDnsReady: dnsEvidence.dnssecDsDelegated && dnsEvidence.cloudflareTemplateReconciled,
@@ -102,6 +114,7 @@ async function collectServiceReadinessEvidence(
   return {
     opsHealth,
     liveConnectorSmoke,
+    cloudflareExtractor,
     providers,
     acceptedGrayProviders,
     stripe,
@@ -111,10 +124,134 @@ async function collectServiceReadinessEvidence(
       opsHealth,
       liveConnectorSmoke,
       providers,
+      cloudflareExtractor,
       stripe,
       dnsEvidence,
       github,
     }),
+  }
+}
+
+async function collectCloudflareExtractorEvidence(
+  generatedAt: string,
+): Promise<ServiceReadinessCloudflareExtractor> {
+  const url = process.env.CLOUDFLARE_EXTRACTOR_URL?.trim() || null
+  const token = process.env.CLOUDFLARE_EXTRACTOR_TOKEN?.trim() || null
+  const healthcheckStorageKey =
+    process.env.CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY?.trim() || null
+  const runtimeMissingEnv = missingCloudflareExtractorEnv([
+    'DOCUMENT_STORAGE_PROVIDER',
+    'DOCUMENT_EXTRACTION_PROVIDER',
+    'CLOUDFLARE_EXTRACTOR_URL',
+    'CLOUDFLARE_EXTRACTOR_TOKEN',
+    'CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY',
+  ])
+  const proofMissingEnv = missingCloudflareExtractorEnv([
+    'CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID',
+    'CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT',
+    'CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA',
+  ])
+  const proofValidation = validateCloudflareExtractionProofArchive({
+    env: process.env,
+    cwd: process.cwd(),
+  })
+  const base: ServiceReadinessCloudflareExtractor = {
+    configured: runtimeMissingEnv.length === 0,
+    status: 'missing_config',
+    collectedAt: null,
+    url,
+    healthcheckStorageKey,
+    launchPath: {
+      storageProvider: process.env.DOCUMENT_STORAGE_PROVIDER ?? null,
+      extractionProvider: process.env.DOCUMENT_EXTRACTION_PROVIDER ?? null,
+    },
+    stagingProof: {
+      id: process.env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID ?? null,
+      archivedAt: process.env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT ?? null,
+      sha: process.env.CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA ?? null,
+      validated: proofValidation.ok,
+      evidencePath: proofValidation.evidencePath,
+      error: proofValidation.ok ? null : proofValidation.failure,
+    },
+    missingEnv: [...runtimeMissingEnv, ...proofMissingEnv],
+    checks: emptyCloudflareExtractorChecks('not_checked'),
+  }
+
+  if (!url || !token) return base
+
+  try {
+    const response = await fetch(`${trimTrailingSlash(url)}/v1/health`, {
+      headers: {
+        'cache-control': 'no-store',
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = (await response.json().catch(() => ({}))) as JsonRecord
+
+    return {
+      ...base,
+      status: cloudflareExtractorStatus(response, body),
+      collectedAt: typeof body.checkedAt === 'string' ? body.checkedAt : generatedAt,
+      checks: normalizeCloudflareExtractorChecks(body),
+    }
+  } catch {
+    return {
+      ...base,
+      status: 'request_failed',
+      collectedAt: generatedAt,
+      checks: emptyCloudflareExtractorChecks('request_failed'),
+    }
+  }
+}
+
+function missingCloudflareExtractorEnv(keys: string[]): string[] {
+  return keys.filter((key) => {
+    const value = process.env[key]
+    return typeof value !== 'string' || value.trim().length === 0
+  })
+}
+
+function cloudflareExtractorStatus(response: Response, body: JsonRecord): string {
+  return resolveCloudflareExtractorHealthStatus({
+    ok: response.ok,
+    status: response.status,
+    bodyStatus: body.status,
+  })
+}
+
+function normalizeCloudflareExtractorChecks(
+  body: JsonRecord,
+): ServiceReadinessCloudflareExtractor['checks'] {
+  const checks = isRecord(body.checks) ? body.checks : {}
+
+  return {
+    jobStateBucket: normalizeCloudflareExtractorCheck(checks.jobStateBucket),
+    uploadBucket: normalizeCloudflareExtractorCheck(checks.uploadBucket),
+    extractionQueue: normalizeCloudflareExtractorCheck(checks.extractionQueue),
+    kotlinExtractor: normalizeCloudflareExtractorCheck(checks.kotlinExtractor),
+  }
+}
+
+function normalizeCloudflareExtractorCheck(
+  value: unknown,
+): ServiceReadinessCloudflareExtractor['checks']['uploadBucket'] {
+  const record = isRecord(value) ? value : {}
+
+  return {
+    ok: record.ok === true,
+    key: typeof record.key === 'string' ? record.key : null,
+    error: typeof record.error === 'string' ? record.error : null,
+  }
+}
+
+function emptyCloudflareExtractorChecks(
+  error: string,
+): ServiceReadinessCloudflareExtractor['checks'] {
+  return {
+    jobStateBucket: { ok: false, error },
+    uploadBucket: { ok: false, key: null, error },
+    extractionQueue: { ok: false, error },
+    kotlinExtractor: { ok: false, error },
   }
 }
 

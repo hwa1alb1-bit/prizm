@@ -23,7 +23,7 @@ $env:OPS_HEALTH_COOKIE='<redacted browser cookie>'
 vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 
-The command archives sanitized JSON in `docs/evidence/service-readiness/`. It fails unless the archive proves Vercel, Supabase, Stripe, Cloudflare/DNS, Sentry, AWS/S3/Textract, Resend, and Redis. If a dashboard-only item remains, run:
+The command archives sanitized JSON in `docs/evidence/service-readiness/`. It fails unless the archive proves Vercel, Supabase, Stripe, the Cloudflare R2 extractor, Cloudflare/DNS, Sentry, Resend, and Redis. If a dashboard-only item remains, run:
 
 ```bash
 $env:SERVICE_READINESS_ALLOW_INCOMPLETE='1'
@@ -41,7 +41,7 @@ vercel env run -e production --scope plknokos-projects -- pnpm verify:service-re
 
 Use accepted-gray only when the provider state is intentional. The archive fails if an accepted-gray item omits the owner, reason, or next proof step.
 
-For the Cloudflare R2 launch path, `awsS3Textract` may be accepted-gray only when `DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2` is the production launch setting and `pnpm verify:cloudflare-extractor-dry-run` plus the extraction benchmark evidence are current. Do not gray out Textract while production traffic still defaults to the Textract engine.
+Do not use accepted-gray to bypass the Cloudflare R2 extractor proof for launch. AWS Textract is legacy compatibility evidence only and is not a required launch provider when `DOCUMENT_STORAGE_PROVIDER=r2` and `DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2`.
 
 ## Stripe Proof
 
@@ -62,25 +62,29 @@ vercel env run -e production --scope plknokos-projects -- pnpm verify:service-re
 
 The command retrieves the Checkout Session, resolves the workspace, and checks Supabase for the credit grant. Use the Stripe dashboard only to capture supplemental screenshots; the JSON archive is the acceptance record.
 
-## AWS Textract Subscription
+## Cloudflare R2 Extractor Proof
 
 Required proof:
 
-- Production `/api/ops/health` reports both `s3` and `textract` as healthy.
-- S3 bucket access, AWS credentials, and `AWS_REGION=us-east-1` are proven separately from Textract service entitlement.
-- A Textract failure with `connector_subscription_required` means the production AWS account/role has not been enabled or subscribed for Textract in `us-east-1`; do not treat this as a generic IAM or S3 failure.
+- `DOCUMENT_STORAGE_PROVIDER=r2` and `DOCUMENT_EXTRACTION_PROVIDER=cloudflare-r2` are present in the production environment.
+- `GET ${CLOUDFLARE_EXTRACTOR_URL}/v1/health` succeeds with `Authorization: Bearer ${CLOUDFLARE_EXTRACTOR_TOKEN}`.
+- The health payload reports `jobStateBucket.ok`, `uploadBucket.ok`, `extractionQueue.ok`, and `kotlinExtractor.ok`.
+- The returned upload bucket `key` matches `CLOUDFLARE_EXTRACTOR_HEALTHCHECK_STORAGE_KEY`.
+- `CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID`, `CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT`, and `CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA` point to the archived staging Worker/container extraction proof.
 
-Use the local AWS CLI to prove the remaining Textract action after signing in with the production account or role:
+After Cloudflare auth is available, validate the Worker resources and seed the healthcheck PDF:
 
 ```powershell
-aws sts get-caller-identity --region us-east-1
-aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe
+pnpm exec wrangler whoami
+pnpm exec wrangler deploy --dry-run --config workers/cloudflare-extractor/wrangler.jsonc
+pnpm exec wrangler r2 bucket list --config workers/cloudflare-extractor/wrangler.jsonc
+pnpm exec wrangler queues list --config workers/cloudflare-extractor/wrangler.jsonc
 ```
 
-The expected healthy proof is an AWS Textract response that reaches the service, usually an invalid-job response for `prizm-health-probe`. If the CLI returns `The AWS Access Key Id needs a subscription for the service.`, enable or subscribe AWS Textract for the production AWS account/role in `us-east-1`, then rerun:
+Then call the deployed Worker health endpoint and rerun the archive:
 
 ```powershell
-aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe
+Invoke-WebRequest -Uri "$env:CLOUDFLARE_EXTRACTOR_URL/v1/health" -Headers @{ Authorization = "Bearer $env:CLOUDFLARE_EXTRACTOR_TOKEN" } -UseBasicParsing
 $env:OPS_HEALTH_COOKIE='<redacted browser cookie>'
 vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
