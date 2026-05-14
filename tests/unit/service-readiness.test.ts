@@ -285,6 +285,108 @@ describe('service readiness evidence', () => {
     })
   })
 
+  it('creates owner-assigned dashboard follow-ups for missing production provider evidence', () => {
+    const evidence = readyEvidence({
+      opsHealth: {
+        authenticated: false,
+        status: 'missing_auth',
+        archivedAt: null,
+        connectors: [],
+      },
+      providers: {
+        vercel: true,
+        supabase: false,
+        stripe: false,
+        cloudflareR2Extractor: true,
+        cloudflareDns: true,
+        sentry: false,
+        resend: false,
+        redis: false,
+      },
+    })
+
+    const items = createServiceReadinessDashboardOnlyItems({
+      opsHealth: evidence.opsHealth,
+      liveConnectorSmoke: evidence.liveConnectorSmoke!,
+      providers: evidence.providers,
+      cloudflareExtractor: evidence.cloudflareExtractor,
+      stripe: evidence.stripe,
+      dnsEvidence: evidence.dns,
+      github: evidence.github,
+    })
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          area: 'Supabase',
+          item: 'Authenticated production Supabase connector evidence',
+          owner: 'Ops',
+        }),
+        expect.objectContaining({
+          area: 'Stripe',
+          item: 'Authenticated production Stripe connector evidence',
+          owner: 'Ops',
+        }),
+        expect.objectContaining({
+          area: 'Sentry',
+          item: 'Authenticated production Sentry connector evidence',
+          owner: 'Ops',
+        }),
+        expect.objectContaining({
+          area: 'Resend',
+          item: 'Authenticated production Resend connector evidence',
+          owner: 'Ops',
+        }),
+        expect.objectContaining({
+          area: 'Redis',
+          item: 'Authenticated production Redis connector evidence',
+          owner: 'Ops',
+        }),
+      ]),
+    )
+    expect(items).not.toContainEqual(
+      expect.objectContaining({
+        area: 'Cloudflare extraction',
+      }),
+    )
+    expect(items.every((item) => item.nextProofStep.trim().length > 0)).toBe(true)
+  })
+
+  it('does not duplicate provider dashboard follow-ups for accepted-gray evidence', () => {
+    const evidence = readyEvidence({
+      providers: {
+        ...readyEvidence().providers,
+        sentry: false,
+      },
+      acceptedGrayProviders: [
+        {
+          provider: 'sentry',
+          owner: 'Ops',
+          reason: 'Telemetry is informational during launch rehearsal.',
+          nextProofStep: 'Verify alert routing before making Sentry launch-required.',
+        },
+      ],
+    })
+
+    const items = createServiceReadinessDashboardOnlyItems({
+      opsHealth: evidence.opsHealth,
+      liveConnectorSmoke: evidence.liveConnectorSmoke!,
+      providers: evidence.providers,
+      acceptedGrayProviders: evidence.acceptedGrayProviders,
+      cloudflareExtractor: evidence.cloudflareExtractor,
+      stripe: evidence.stripe,
+      dnsEvidence: evidence.dns,
+      github: evidence.github,
+    })
+
+    expect(items).not.toContainEqual(
+      expect.objectContaining({
+        area: 'Sentry',
+        item: 'Authenticated production Sentry connector evidence',
+      }),
+    )
+  })
+
   it('fails when the Cloudflare R2/container extractor health proof is degraded', () => {
     const opsHealth: ServiceReadinessEvidence['opsHealth'] = {
       authenticated: true,

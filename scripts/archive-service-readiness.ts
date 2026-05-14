@@ -127,6 +127,7 @@ async function collectServiceReadinessEvidence(
       opsHealth,
       liveConnectorSmoke,
       providers,
+      acceptedGrayProviders,
       cloudflareExtractor,
       stripe,
       dnsEvidence,
