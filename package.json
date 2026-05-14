@@ -25,6 +25,7 @@
     "test:connectors:live": "tsx --conditions react-server scripts/smoke-live-connectors.ts",
     "benchmark:extraction": "tsx --conditions react-server scripts/benchmark-extraction.ts",
     "check:launch-gates": "tsx --conditions react-server scripts/check-launch-gates.ts",
+    "check:staging-rehearsal-evidence": "tsx --conditions react-server scripts/check-staging-rehearsal-evidence.ts",
     "verify:cloudflare-extractor-dry-run": "tsx scripts/verify-cloudflare-extractor-dry-run.ts",
     "verify:extraction": "pnpm exec vitest run tests/unit/cloudflare-extractor-worker.test.ts tests/unit/extraction-engine.test.ts tests/unit/extraction-benchmark-script.test.ts tests/unit/cloudflare-extractor-dry-run-script.test.ts && pnpm test:kotlin-extractor && pnpm benchmark:extraction && pnpm verify:cloudflare-extractor-dry-run",
     "verify:release": "tsx --conditions react-server scripts/verify-release.ts",

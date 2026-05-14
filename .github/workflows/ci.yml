@@ -248,22 +248,19 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: e2e
+    needs: [e2e, staging-launch-gate]
     steps:
       - name: Mozilla Observatory grade check
         env:
           STAGING_HOST: ${{ vars.STAGING_HOST }}
         run: |
-          # Skip cleanly until staging is provisioned. Set repo variable
-          # STAGING_HOST (e.g. staging.prizmview.app) at Settings -> Secrets and
-          # variables -> Actions -> Variables to enable enforcement.
           if [ -z "$STAGING_HOST" ]; then
-            echo "STAGING_HOST not set. Skipping Mozilla Observatory check until staging URL is configured."
-            exit 0
+            echo "STAGING_HOST is required for security header enforcement."
+            exit 1
           fi
           if ! getent hosts "$STAGING_HOST" >/dev/null 2>&1; then
-            echo "STAGING_HOST=$STAGING_HOST does not resolve. Skipping Observatory check."
-            exit 0
+            echo "STAGING_HOST=$STAGING_HOST does not resolve."
+            exit 1
           fi
           response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 -X POST --data ' ' "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=$STAGING_HOST")
           if ! echo "$response" | jq -e '.grade and .score and (.error == null)' >/dev/null; then
