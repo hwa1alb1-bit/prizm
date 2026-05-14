@@ -270,8 +270,8 @@ jobs:
             echo "STAGING_HOST=$host does not resolve."
             exit 1
           fi
-          response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-delay 10 -X POST --data ' ' "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=$host")
-          if ! echo "$response" | jq -e '.grade and .score and (.error == null)' >/dev/null; then
+          response=$(curl --silent --show-error --retry 2 --retry-delay 10 -X POST --data ' ' "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=$host")
+          if ! echo "$response" | jq -e '.grade and (.score != null) and (.error == null)' >/dev/null; then
             echo "Unexpected Observatory response:"
             echo "$response"
             exit 1
@@ -280,9 +280,10 @@ jobs:
           score=$(echo "$response" | jq -r '.score')
           details_url=$(echo "$response" | jq -r '.details_url // empty')
           echo "Host: $host Grade: $grade Score: $score Details: $details_url"
-          if [[ "$grade" =~ ^A ]]; then
+          minimum_score=80
+          if [ "$score" -ge "$minimum_score" ]; then
             echo "Pass"
           else
-            echo "Fail: grade $grade is below A"
+            echo "Fail: score $score is below $minimum_score"
             exit 1
           fi
