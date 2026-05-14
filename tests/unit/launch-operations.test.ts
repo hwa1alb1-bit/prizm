@@ -85,9 +85,15 @@ describe('launch operations controls', () => {
   })
 
   it('enforces STAGING_HOST before running security header checks on main', () => {
+    expect(workflow).toContain('needs: [e2e, staging-launch-gate]')
+    expect(workflow).toContain('NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}')
     expect(workflow).toContain('STAGING_HOST: ${{ vars.STAGING_HOST }}')
-    expect(workflow).toContain('STAGING_HOST is required for security header enforcement.')
-    expect(workflow).toContain('STAGING_HOST=$STAGING_HOST does not resolve.')
+    expect(workflow).toContain('host="${STAGING_HOST:-}"')
+    expect(workflow).toContain('host="${NEXT_PUBLIC_SITE_URL#http://}"')
+    expect(workflow).toContain(
+      'STAGING_HOST or NEXT_PUBLIC_SITE_URL is required for security header enforcement.',
+    )
+    expect(workflow).toContain('STAGING_HOST=$host does not resolve.')
     expect(workflow).not.toContain('Skipping Mozilla Observatory check')
     expect(workflow).not.toContain('Skipping Observatory check')
   })
