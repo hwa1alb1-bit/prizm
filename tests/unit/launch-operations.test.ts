@@ -94,6 +94,8 @@ describe('launch operations controls', () => {
       'STAGING_HOST or NEXT_PUBLIC_SITE_URL is required for security header enforcement.',
     )
     expect(workflow).toContain('STAGING_HOST=$host does not resolve.')
+    expect(workflow).toContain('minimum_score=80')
+    expect(workflow).toContain('Fail: score $score is below $minimum_score')
     expect(workflow).not.toContain('Skipping Mozilla Observatory check')
     expect(workflow).not.toContain('Skipping Observatory check')
   })
