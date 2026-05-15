@@ -1,0 +1,18 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://prizmview.app",
+          "https://www.prizmview.app",
+          "https://*.vercel.app",
+          "http://localhost:3030"
+        ],
+        "methods": ["PUT", "GET", "HEAD"],
+        "headers": ["*"]
+      },
+      "exposeHeaders": ["ETag"],
+      "maxAgeSeconds": 3000
+    }
+  ]
+}
