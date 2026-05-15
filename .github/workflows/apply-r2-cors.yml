@@ -5,11 +5,6 @@ on:
     paths:
       - .github/workflows/apply-r2-cors.yml
       - infra/cloudflare/r2-upload-cors.json
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/apply-r2-cors.yml
-      - infra/cloudflare/r2-upload-cors.json
   workflow_dispatch:
 
 permissions:
@@ -29,7 +24,7 @@ jobs:
 
   apply:
     name: Apply production R2 CORS
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
     steps:
