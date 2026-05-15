@@ -1,0 +1,72 @@
+name: Apply R2 CORS
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/apply-r2-cors.yml
+      - infra/cloudflare/r2-upload-cors.json
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-r2-cors.yml
+      - infra/cloudflare/r2-upload-cors.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate R2 CORS config
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate CORS JSON
+        run: |
+          node -e "const fs = require('node:fs'); const config = JSON.parse(fs.readFileSync('infra/cloudflare/r2-upload-cors.json', 'utf8')); if (!Array.isArray(config.rules) || config.rules.length !== 1) throw new Error('Expected exactly one R2 CORS rule'); const rule = config.rules[0]; for (const origin of ['https://prizmview.app', 'https://www.prizmview.app', 'https://*.vercel.app', 'http://localhost:3030']) { if (!rule.allowed?.origins?.includes(origin)) throw new Error(`Missing origin ${origin}`); } for (const method of ['PUT', 'GET', 'HEAD']) { if (!rule.allowed?.methods?.includes(method)) throw new Error(`Missing method ${method}`); } if (!rule.allowed?.headers?.includes('*')) throw new Error('Expected wildcard allowed headers'); if (!rule.exposeHeaders?.includes('ETag')) throw new Error('Expected exposed ETag header'); if (rule.maxAgeSeconds !== 3000) throw new Error('Expected maxAgeSeconds=3000');"
+
+  apply:
+    name: Apply production R2 CORS
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Validate required Cloudflare env
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+          R2_UPLOAD_BUCKET: ${{ vars.R2_UPLOAD_BUCKET }}
+        run: |
+          missing=0
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID R2_UPLOAD_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "$name is not configured in the GitHub production environment."
+              missing=1
+            else
+              echo "$name is configured."
+            fi
+          done
+          exit "$missing"
+
+      - name: Apply R2 CORS
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+          R2_UPLOAD_BUCKET: ${{ vars.R2_UPLOAD_BUCKET }}
+        run: |
+          pnpm exec wrangler r2 bucket cors set "$R2_UPLOAD_BUCKET" --file infra/cloudflare/r2-upload-cors.json --force
+          pnpm exec wrangler r2 bucket cors list "$R2_UPLOAD_BUCKET"
