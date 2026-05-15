@@ -52,7 +52,7 @@
     "resend": "^6.12.2",
     "server-only": "^0.0.1",
     "stripe": "^22.1.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/containers": "^0.3.3",
