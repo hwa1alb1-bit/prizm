@@ -45,8 +45,54 @@ export function getServerClient(accessToken?: string | null): SupabaseClient<Dat
 export async function pingSupabase(): Promise<{ ok: boolean; error?: string }> {
   try {
     const client = getServiceRoleClient()
-    const { error } = await client.from('workspace').select('id').limit(0)
-    if (error) return { ok: false, error: error.message }
+
+    const workspace = await client.from('workspace').select('id').limit(0)
+    if (workspace.error) return { ok: false, error: workspace.error.message }
+
+    const documentSchema = await client
+      .from('document')
+      .select('id, storage_provider, storage_bucket, storage_key')
+      .limit(0)
+    if (documentSchema.error) {
+      return {
+        ok: false,
+        error: `document upload schema not ready: ${documentSchema.error.message}`,
+      }
+    }
+
+    // Invalid provider proves the current RPC signature without allowing an insert.
+    const uploadRpc = await client.rpc('create_pending_document_upload_for_actor', {
+      p_actor_user_id: '00000000-0000-0000-0000-000000000000',
+      p_filename: 'schema-probe.pdf',
+      p_content_type: 'application/pdf',
+      p_size_bytes: 1,
+      p_s3_bucket: 'schema-probe',
+      p_s3_key: 'schema-probe.pdf',
+      p_expires_at: new Date(Date.now() + 60_000).toISOString(),
+      p_request_id: 'supabase-health-schema-probe',
+      p_trace_id: 'supabasehealthschemaprobe0001',
+      p_actor_ip: null,
+      p_actor_user_agent: 'prizm-health-schema-probe',
+      p_file_sha256: 'a'.repeat(64),
+      p_conversion_cost_credits: 1,
+      p_storage_provider: '__schema_probe__',
+      p_storage_bucket: 'schema-probe',
+      p_storage_key: 'schema-probe.pdf',
+    })
+    if (!uploadRpc.error) {
+      return {
+        ok: false,
+        error: 'document upload RPC probe unexpectedly succeeded',
+      }
+    }
+
+    if (uploadRpc.error.message !== 'invalid_storage_provider') {
+      return {
+        ok: false,
+        error: `document upload RPC not ready: ${uploadRpc.error.message}`,
+      }
+    }
+
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
