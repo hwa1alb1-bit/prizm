@@ -188,10 +188,7 @@
     "github": {
       "repoPublic": true,
       "rulesetsConfigured": true,
-      "requiredStatusChecks": [
-        "Lint, types, unit tests",
-        "Playwright E2E"
-      ],
+      "requiredStatusChecks": ["Lint, types, unit tests", "Playwright E2E"],
       "dependabotConfigured": true,
       "vulnerabilityAlertsEnabled": true,
       "secretScanningEnabled": true,
