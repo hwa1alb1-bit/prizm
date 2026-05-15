@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "branch": "Branch 4: service readiness",
+  "generatedAt": "2026-05-15T02:32:59.456Z",
+  "evidence": {
+    "opsHealth": {
+      "authenticated": true,
+      "status": "degraded",
+      "archivedAt": "2026-05-15T02:32:59.456Z",
+      "connectors": [
+        {
+          "name": "supabase",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "stripe",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "s3",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "textract",
+          "ok": false,
+          "required": true,
+          "errorCode": "connector_subscription_required"
+        },
+        {
+          "name": "resend",
+          "ok": true,
+          "required": false,
+          "errorCode": null
+        },
+        {
+          "name": "redis",
+          "ok": true,
+          "required": true,
+          "errorCode": null
+        },
+        {
+          "name": "sentry",
+          "ok": true,
+          "required": false,
+          "errorCode": null
+        }
+      ]
+    },
+    "liveConnectorSmoke": {
+      "status": "ok",
+      "collectedAt": "2026-05-15T02:32:59.456Z",
+      "connectors": [
+        {
+          "name": "supabase",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "stripe",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "s3",
+          "ok": true,
+          "required": false
+        },
+        {
+          "name": "textract",
+          "ok": false,
+          "required": false,
+          "errorCode": "connector_subscription_required"
+        },
+        {
+          "name": "resend",
+          "ok": true,
+          "required": false
+        },
+        {
+          "name": "redis",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "sentry",
+          "ok": false,
+          "required": false,
+          "errorCode": "configuration_missing"
+        }
+      ]
+    },
+    "cloudflareExtractor": {
+      "configured": true,
+      "status": "ok",
+      "collectedAt": "2026-05-15T02:33:03.870Z",
+      "url": "https://prizm-cloudflare-extractor.hwa1alb1-prizm.workers.dev",
+      "healthcheckStorageKey": "probes/known-good.pdf",
+      "launchPath": {
+        "storageProvider": "r2",
+        "extractionProvider": "cloudflare-r2"
+      },
+      "stagingProof": {
+        "id": "cf-extraction-staging-2026-05-14T21-14-43-312Z",
+        "archivedAt": "2026-05-14T21:15:01.124Z",
+        "sha": "6c236fa3548b3ff7c19e8585ffc565e5586a4ce5f8083704482b26bf0fe1b0b6",
+        "validated": true,
+        "evidencePath": "docs/evidence/cloudflare-extraction/cf-extraction-staging-2026-05-14T21-14-43-312Z.json",
+        "error": null
+      },
+      "missingEnv": [],
+      "checks": {
+        "jobStateBucket": {
+          "ok": true,
+          "key": null,
+          "error": null
+        },
+        "uploadBucket": {
+          "ok": true,
+          "key": "probes/known-good.pdf",
+          "error": null
+        },
+        "extractionQueue": {
+          "ok": true,
+          "key": null,
+          "error": null
+        },
+        "kotlinExtractor": {
+          "ok": true,
+          "key": null,
+          "error": null
+        }
+      }
+    },
+    "providers": {
+      "vercel": true,
+      "supabase": true,
+      "stripe": true,
+      "cloudflareR2Extractor": true,
+      "cloudflareDns": true,
+      "sentry": true,
+      "resend": true,
+      "redis": true
+    },
+    "acceptedGrayProviders": [
+      {
+        "provider": "sentry",
+        "owner": "Ops",
+        "reason": "Telemetry is informational during launch rehearsal.",
+        "nextProofStep": "Verify Sentry alert routing before making Sentry launch-required."
+      },
+      {
+        "provider": "resend",
+        "owner": "Ops",
+        "reason": "Email sending is informational during launch rehearsal.",
+        "nextProofStep": "Verify Resend domain verification before making Resend launch-required."
+      }
+    ],
+    "stripe": {
+      "webhookEndpoint": {
+        "registered": true,
+        "url": "https://prizmview.app/api/v1/webhooks/stripe",
+        "subscribedEvents": [
+          "checkout.session.completed",
+          "customer.subscription.created",
+          "customer.subscription.updated",
+          "customer.subscription.deleted"
+        ],
+        "deliverySuccess": true
+      },
+      "customerPortal": {
+        "configured": true
+      },
+      "checkoutSubscriptionCreditGrant": {
+        "proven": true
+      }
+    },
+    "dns": {
+      "dnssecDsDelegated": true,
+      "cloudflareTemplateReconciled": true,
+      "drift": []
+    },
+    "github": {
+      "repoPublic": true,
+      "rulesetsConfigured": true,
+      "requiredStatusChecks": ["Lint, types, unit tests", "Playwright E2E"],
+      "dependabotConfigured": true,
+      "vulnerabilityAlertsEnabled": true,
+      "secretScanningEnabled": true,
+      "environmentsProtected": true
+    },
+    "dashboardOnlyItems": []
+  },
+  "result": {
+    "ok": true,
+    "failures": []
+  }
+}
