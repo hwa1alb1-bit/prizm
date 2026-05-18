@@ -95,11 +95,6 @@ export function buildSoftwareApplicationJsonLd() {
     url: siteUrl,
     description:
       'PrizmView converts PDF bank statements into reviewable Excel and CSV-ready transaction data.',
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
-    },
     featureList: [
       'PDF bank statement upload',
       'Transaction review before export',

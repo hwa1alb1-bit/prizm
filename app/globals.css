@@ -40,7 +40,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  --font-product: var(--font-montserrat), var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-product: var(--font-montserrat), Arial, Helvetica, sans-serif;
   font-family: var(--font-product);
   font-variant-numeric: tabular-nums;
 }

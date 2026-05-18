@@ -188,9 +188,9 @@ export default function Home() {
         <div>
           <h2 className="text-2xl font-semibold tracking-normal">Evidence before claims</h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-foreground/70">
-            Trust copy stays close to product evidence: retention windows, request IDs, trace IDs,
-            review status, security pages, and privacy routes. No compliance badge appears unless
-            the underlying control is verified.
+            Trust copy stays close to product evidence: retention windows, audit history, review
+            status, security pages, and privacy routes. No compliance badge appears unless the
+            underlying control is verified.
           </p>
         </div>
         <nav className="grid gap-3 sm:grid-cols-2" aria-label="Trust and privacy evidence routes">
