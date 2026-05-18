@@ -165,6 +165,27 @@ describe('privacy request routes', () => {
     expect(createPrivacyRequestMock).not.toHaveBeenCalled()
   })
 
+  it('rejects cross-origin privacy workflow mutations before auth side effects', async () => {
+    const response = await requestDataExport(
+      new Request('http://localhost/api/v1/account/data-export', {
+        method: 'POST',
+        headers: {
+          origin: 'https://attacker.example',
+          'x-request-id': 'req_export_cross_site',
+        },
+      }) as never,
+    )
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 403,
+      code: 'PRZM_CSRF_ORIGIN_MISMATCH',
+      request_id: 'req_export_cross_site',
+    })
+    expect(requireOwnerOrAdminUserMock).not.toHaveBeenCalled()
+    expect(rateLimitMock).not.toHaveBeenCalled()
+    expect(createPrivacyRequestMock).not.toHaveBeenCalled()
+  })
+
   it('rate-limits duplicate privacy workflow submissions before creating workflow state', async () => {
     rateLimitMock.mockResolvedValue({
       success: false,

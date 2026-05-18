@@ -81,6 +81,11 @@ export type CreateExtractionEngineByNameInput = {
   kotlinWorker?: KotlinWorkerClient
 }
 
+const MAX_WORKER_STATEMENTS = 4
+const MAX_WORKER_TRANSACTIONS = 5000
+const MAX_WORKER_STRING_LENGTH = 1000
+const MAX_WORKER_REVIEW_FLAGS = 100
+
 export function createDefaultExtractionEngine(
   input: CreateDefaultExtractionEngineInput = {},
 ): ExtractionEngine {
@@ -320,7 +325,7 @@ function normalizeKotlinWorkerPollResult(
     | typeof KOTLIN_WORKER_EXTRACTION_ENGINE
     | typeof CLOUDFLARE_R2_EXTRACTION_ENGINE = KOTLIN_WORKER_EXTRACTION_ENGINE,
 ): ExtractionPollResult {
-  if (!isRecord(output)) return invalidKotlinWorkerOutput(input)
+  if (!isRecord(output)) return invalidKotlinWorkerOutput(input, engineName)
 
   if (output.status === 'in_progress') {
     return {
@@ -342,12 +347,18 @@ function normalizeKotlinWorkerPollResult(
     }
   }
 
-  if (output.status !== 'succeeded' || !Array.isArray(output.statements)) {
-    return invalidKotlinWorkerOutput(input)
+  if (
+    output.status !== 'succeeded' ||
+    !Array.isArray(output.statements) ||
+    output.statements.length > MAX_WORKER_STATEMENTS
+  ) {
+    return invalidKotlinWorkerOutput(input, engineName)
   }
 
   const statements = output.statements.map((statement) => normalizeParsedStatement(statement))
-  if (statements.some((statement) => statement === null)) return invalidKotlinWorkerOutput(input)
+  if (statements.some((statement) => statement === null)) {
+    return invalidKotlinWorkerOutput(input, engineName)
+  }
 
   return {
     status: 'succeeded',
@@ -357,10 +368,15 @@ function normalizeKotlinWorkerPollResult(
   }
 }
 
-function invalidKotlinWorkerOutput(input: ExtractionPollInput): ExtractionPollResult {
+function invalidKotlinWorkerOutput(
+  input: ExtractionPollInput,
+  engineName:
+    | typeof KOTLIN_WORKER_EXTRACTION_ENGINE
+    | typeof CLOUDFLARE_R2_EXTRACTION_ENGINE = KOTLIN_WORKER_EXTRACTION_ENGINE,
+): ExtractionPollResult {
   return {
     status: 'failed',
-    engine: KOTLIN_WORKER_EXTRACTION_ENGINE,
+    engine: engineName,
     jobId: input.jobId,
     failureReason: 'Kotlin worker returned invalid normalized statement data.',
   }
@@ -369,10 +385,10 @@ function invalidKotlinWorkerOutput(input: ExtractionPollInput): ExtractionPollRe
 function normalizeParsedStatement(input: unknown): ParsedStatement | null {
   if (!isRecord(input)) return null
   if (input.statementType !== 'bank' && input.statementType !== 'credit_card') return null
-  if (!isNullableString(input.bankName)) return null
-  if (!isNullableString(input.accountLast4)) return null
-  if (!isNullableString(input.periodStart)) return null
-  if (!isNullableString(input.periodEnd)) return null
+  if (!isNullableBoundedString(input.bankName)) return null
+  if (!isNullableBoundedString(input.accountLast4)) return null
+  if (!isNullableBoundedString(input.periodStart)) return null
+  if (!isNullableBoundedString(input.periodEnd)) return null
   if (!isNullableNumber(input.openingBalance)) return null
   if (!isNullableNumber(input.closingBalance)) return null
   if (!isNullableNumber(input.reportedTotal)) return null
@@ -382,7 +398,9 @@ function normalizeParsedStatement(input: unknown): ParsedStatement | null {
   if (!isConfidence(input.confidence)) return null
   if (!isStringArray(input.reviewFlags)) return null
   if (!isMetadata(input.metadata)) return null
-  if (!Array.isArray(input.transactions)) return null
+  if (!Array.isArray(input.transactions) || input.transactions.length > MAX_WORKER_TRANSACTIONS) {
+    return null
+  }
 
   const transactions = input.transactions.map((transaction) => normalizeTransaction(transaction))
   if (transactions.some((transaction) => transaction === null)) return null
@@ -408,8 +426,8 @@ function normalizeParsedStatement(input: unknown): ParsedStatement | null {
 
 function normalizeTransaction(input: unknown): ParsedStatementTransaction | null {
   if (!isRecord(input)) return null
-  if (typeof input.date !== 'string') return null
-  if (typeof input.description !== 'string') return null
+  if (!isBoundedString(input.date)) return null
+  if (!isBoundedString(input.description)) return null
   if (!isFiniteNumber(input.amount)) return null
   if (!isFiniteNumber(input.confidence)) return null
 
@@ -452,7 +470,7 @@ function copyOptionalString(
 ): void {
   const value = input[key]
   if (typeof value === 'undefined') return
-  if (typeof value === 'string') target[key] = value
+  if (isBoundedString(value)) target[key] = value
 }
 
 function copyOptionalBoolean(
@@ -479,14 +497,18 @@ function isMetadata(value: unknown): value is ParsedStatement['metadata'] {
   return Object.values(value).every(
     (entry) =>
       entry === null ||
-      typeof entry === 'string' ||
-      typeof entry === 'number' ||
+      isBoundedString(entry) ||
+      isFiniteNumber(entry) ||
       typeof entry === 'boolean',
   )
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_WORKER_REVIEW_FLAGS &&
+    value.every((entry) => isBoundedString(entry))
+  )
 }
 
 function isParsedStatement(value: ParsedStatement | null): value is ParsedStatement {
@@ -499,8 +521,8 @@ function isParsedStatementTransaction(
   return value !== null
 }
 
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === 'string'
+function isNullableBoundedString(value: unknown): value is string | null {
+  return value === null || isBoundedString(value)
 }
 
 function isNullableNumber(value: unknown): value is number | null {
@@ -509,6 +531,10 @@ function isNullableNumber(value: unknown): value is number | null {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isBoundedString(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= MAX_WORKER_STRING_LENGTH
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

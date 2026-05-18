@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { getServiceRoleClient } from '../supabase'
+import type { DocumentStorageProvider } from '../document-storage'
 
 export type DeletionSweepTrigger = 'cron' | 'manual' | 'test'
 
@@ -10,6 +11,9 @@ export type ExpiredDocumentCandidate = {
   uploadedBy: string
   recipientEmail: string | null
   filename: string
+  storageProvider?: DocumentStorageProvider | null
+  storageBucket?: string | null
+  storageKey?: string | null
   s3Bucket: string
   s3Key: string
   expiresAt: string
@@ -93,6 +97,9 @@ type DocumentRow = {
   uploaded_by: string
   s3_bucket: string
   s3_key: string
+  storage_provider: DocumentStorageProvider | null
+  storage_bucket: string | null
+  storage_key: string | null
   filename: string
   expires_at: string
   user_profile: { email: string | null } | Array<{ email: string | null }> | null
@@ -119,7 +126,7 @@ export async function listExpiredDocuments(input: {
   const { data, error } = await client
     .from('document')
     .select<DocumentRow>(
-      'id, workspace_id, uploaded_by, s3_bucket, s3_key, filename, expires_at, user_profile!document_uploaded_by_fkey(email)',
+      'id, workspace_id, uploaded_by, s3_bucket, s3_key, storage_provider, storage_bucket, storage_key, filename, expires_at, user_profile!document_uploaded_by_fkey(email)',
     )
     .lt('expires_at', input.now)
     .is('deleted_at', null)
@@ -133,6 +140,9 @@ export async function listExpiredDocuments(input: {
     uploadedBy: row.uploaded_by,
     recipientEmail: normalizeProfileEmail(row.user_profile),
     filename: row.filename,
+    storageProvider: row.storage_provider,
+    storageBucket: row.storage_bucket,
+    storageKey: row.storage_key,
     s3Bucket: row.s3_bucket,
     s3Key: row.s3_key,
     expiresAt: row.expires_at,

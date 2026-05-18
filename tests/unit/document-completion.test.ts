@@ -65,6 +65,23 @@ describe('completeDocumentUpload', () => {
     expect(deps.markUploadCompleted).not.toHaveBeenCalled()
   })
 
+  it('rejects expired pending uploads before verifying storage state', async () => {
+    const deps = createDependencies({
+      document: documentRow({ expiresAt: '2026-05-05T00:00:00.000Z' }),
+    })
+
+    const result = await completeDocumentUpload(completionInput(), deps)
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'expired',
+      status: 410,
+      code: 'PRZM_DOCUMENT_EXPIRED',
+    })
+    expect(deps.headObject).not.toHaveBeenCalled()
+    expect(deps.markUploadCompleted).not.toHaveBeenCalled()
+  })
+
   it('transitions pending uploads to verified and writes upload evidence without starting extraction', async () => {
     const deps = createDependencies()
 
@@ -214,6 +231,8 @@ function documentRow(overrides: Partial<CompletionDocument> = {}): CompletionDoc
     storageKey: 'user_123/doc_123/statement.pdf',
     textractJobId: null,
     failureReason: null,
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    deletedAt: null,
     ...overrides,
   }
 }

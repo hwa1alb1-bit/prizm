@@ -69,8 +69,11 @@ export async function runDeletionSweep(input: {
 
   for (const document of documents) {
     const s3 = await deleteOrVerifyS3Object({
+      storageProvider: document.storageProvider ?? 's3',
       bucket: document.s3Bucket,
       key: document.s3Key,
+      storageBucket: document.storageBucket ?? document.s3Bucket,
+      storageKey: document.storageKey ?? document.s3Key,
     })
 
     if (!s3.ok) {
@@ -101,6 +104,7 @@ export async function runDeletionSweep(input: {
       metadata: {
         trigger: input.trigger,
         s3_state: s3.state,
+        storage_provider: document.storageProvider ?? 's3',
         expires_at: document.expiresAt,
       },
     })
