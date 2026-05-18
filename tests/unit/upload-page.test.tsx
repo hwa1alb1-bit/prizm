@@ -78,6 +78,11 @@ describe('UploadPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Drop a PDF statement here')).toBeInTheDocument()
     expect(screen.getByText(/Choose a bank or credit-card statement PDF/)).toBeInTheDocument()
+    expect(screen.getByText('Reading document')).toBeInTheDocument()
+    expect(screen.getByText('Detecting transactions')).toBeInTheDocument()
+    expect(screen.getByText('Checking balances')).toBeInTheDocument()
+    expect(screen.getByText('Preparing export')).toBeInTheDocument()
+    expect(screen.getAllByText(/extraction record/).length).toBeGreaterThan(0)
 
     await userEvent.upload(
       input,
@@ -281,7 +286,7 @@ describe('UploadPage', () => {
     expect(screen.getByText(/create a new verified object/)).toBeInTheDocument()
   })
 
-  it('shows OCR start recovery when completion cannot start Textract', async () => {
+  it('shows extraction start recovery when completion cannot start the provider job', async () => {
     mockSha256([0xab, 0xc1, 0x23])
     const fetchMock = vi
       .fn()
@@ -316,7 +321,7 @@ describe('UploadPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm conversion' }))
 
-    expect((await screen.findAllByText('OCR start failed')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Extraction start failed')).length).toBeGreaterThan(0)
     expect(screen.getByText(/Textract could not start analysis/)).toBeInTheDocument()
     expect(screen.getByText('PRZM_TEXTRACT_START_FAILED')).toBeInTheDocument()
     expect(screen.getByText(/upload again if no retry action is available/)).toBeInTheDocument()

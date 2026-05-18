@@ -112,11 +112,11 @@ const workflowSteps = [
   },
   {
     label: 'Upload securely',
-    detail: 'The browser uploads to a short-lived URL before OCR can begin.',
+    detail: 'The browser uploads to a short-lived URL before extraction can begin.',
   },
   {
     label: 'Convert rows',
-    detail: 'Textract output becomes a statement preview with exceptions called out.',
+    detail: 'Extraction output becomes a statement preview with exceptions called out.',
   },
   {
     label: 'Export spreadsheet',
@@ -129,6 +129,25 @@ const trustControls = [
   { label: 'Quote', value: 'One credit reserved only after confirmation' },
   { label: 'Output', value: 'XLSX, CSV, QuickBooks CSV, and Xero CSV' },
   { label: 'Retention', value: '24-hour auto-delete with request evidence' },
+]
+
+const processingStages = [
+  {
+    label: 'Reading document',
+    detail: 'Statement pages and account sections enter the extraction record.',
+  },
+  {
+    label: 'Detecting transactions',
+    detail: 'Dates, descriptions, amounts, and balances resolve into columns.',
+  },
+  {
+    label: 'Checking balances',
+    detail: 'Rows are prepared for review with reconciliation evidence visible.',
+  },
+  {
+    label: 'Preparing export',
+    detail: 'Spreadsheet formats wait for the review record to be ready.',
+  },
 ]
 
 export default function UploadPage() {
@@ -398,7 +417,7 @@ export default function UploadPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
             Upload one bank or credit-card statement PDF. PRIZM checks the file, quotes the
-            conversion, starts OCR, and opens a review record for spreadsheet export.
+            conversion, starts extraction, and opens a review record for spreadsheet export.
           </p>
         </div>
         <Link
@@ -497,6 +516,7 @@ export default function UploadPage() {
                   pendingPreflight={pendingPreflight}
                 />
               </div>
+              <ProcessingAnimation state={state} />
             </div>
           </div>
 
@@ -576,7 +596,9 @@ function UploadMessage({
   }
   if (state === 'completing') {
     return (
-      <p className="text-sm text-foreground/65">Verifying S3 object evidence and starting OCR...</p>
+      <p className="text-sm text-foreground/65">
+        Verifying storage object evidence and starting extraction...
+      </p>
     )
   }
   if (state === 'converting') {
@@ -690,7 +712,7 @@ function recoveryKindLabel(kind: UploadRecoveryKind): string {
     case 's3_verification_failed':
       return 'S3 verification failed'
     case 'ocr_start_failed':
-      return 'OCR start failed'
+      return 'Extraction start failed'
   }
 }
 
@@ -774,9 +796,9 @@ function recoveryFromCompletionProblem(
 
   return {
     kind: 'ocr_start_failed',
-    title: 'OCR start failed',
+    title: 'Extraction start failed',
     plainCause:
-      problem.detail ?? 'The PDF reached secure storage, but PRIZM could not start OCR analysis.',
+      problem.detail ?? 'The PDF reached secure storage, but PRIZM could not start extraction.',
     evidence,
     nextAction:
       'Open the review record, keep the document ID, and upload again if no retry action is available.',
@@ -853,6 +875,78 @@ function WorkflowPanel({
           )
         })}
       </ol>
+    </section>
+  )
+}
+
+function ProcessingAnimation({ state }: { state: UploadState }) {
+  const active =
+    state === 'completing' || state === 'converting' || state === 'polling' || state === 'done'
+  const activeIndex =
+    state === 'completing'
+      ? 0
+      : state === 'converting'
+        ? 1
+        : state === 'polling'
+          ? 2
+          : state === 'done'
+            ? 3
+            : -1
+
+  return (
+    <section
+      className="mt-5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4"
+      aria-label="Processing animation"
+    >
+      <div className="grid gap-4 lg:grid-cols-[13rem_1fr] lg:items-center">
+        <div className="relative overflow-hidden rounded-md border border-[var(--border-subtle)] bg-background p-3">
+          <div
+            className={`processing-scan-line absolute inset-y-0 w-12 bg-[color-mix(in_oklch,var(--accent)_22%,transparent)] ${
+              active ? '' : 'opacity-0'
+            }`}
+            aria-hidden="true"
+          />
+          <div className="space-y-2" aria-hidden="true">
+            {[0, 1, 2, 3].map((row) => (
+              <div
+                key={row}
+                className={`processing-row grid grid-cols-[2.8rem_1fr_3.5rem] gap-2 ${
+                  active ? '' : 'opacity-70'
+                }`}
+                style={{ '--row-index': row } as React.CSSProperties}
+              >
+                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
+                <span className="h-2 rounded-full bg-[var(--border-subtle)]" />
+                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
+            Document to table
+          </p>
+          <p className="mt-1 text-sm text-foreground/65">
+            The extraction record stays visible while rows resolve into spreadsheet columns.
+          </p>
+          <ol className="mt-4 grid gap-2 sm:grid-cols-2">
+            {processingStages.map((stage, index) => (
+              <li
+                key={stage.label}
+                className={`rounded-md border px-3 py-2 ${
+                  index <= activeIndex
+                    ? 'border-[var(--accent)] bg-background'
+                    : 'border-[var(--border-subtle)] bg-transparent'
+                }`}
+              >
+                <p className="text-sm font-semibold">{stage.label}</p>
+                <p className="mt-1 text-xs leading-5 text-foreground/60">{stage.detail}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
     </section>
   )
 }
