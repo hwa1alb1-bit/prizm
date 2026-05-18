@@ -19,7 +19,8 @@ export default function StatusPage() {
             <dd>Alpha, active development</dd>
           </div>
           <div>
-            <dt className="font-medium text-foreground">Conversion pipeline</dt>
+            {/* SECURITY-AUDIT: renamed Conversion pipeline to Conversion status */}
+            <dt className="font-medium text-foreground">Conversion status</dt>
             <dd>Implementation in progress</dd>
           </div>
           <div>
