@@ -8,6 +8,12 @@ const migrationPath = join(
   'migrations',
   '20260518120000_harden_main_scan_findings.sql',
 )
+const statementEditRpcGrantMigrationPath = join(
+  process.cwd(),
+  'supabase',
+  'migrations',
+  '20260518162000_revoke_statement_edit_rpc_client_execute.sql',
+)
 
 describe('main branch security hardening migration', () => {
   const sql = () => readFileSync(migrationPath, 'utf8').toLowerCase()
@@ -42,5 +48,19 @@ describe('main branch security hardening migration', () => {
     expect(migration).toContain('d.expires_at > now()')
     expect(migration).toContain('create or replace function public.attest_ops_admin_access_review')
     expect(migration).toContain("and ar.status = 'pending'")
+  })
+
+  it('keeps the statement edit RPC service-role only after signature extensions', () => {
+    const migration = readFileSync(statementEditRpcGrantMigrationPath, 'utf8').toLowerCase()
+
+    expect(migration).toContain('revoke all on function public.update_statement_edit_if_current')
+    expect(migration).toContain('from public')
+    expect(migration).toContain(
+      'revoke execute on function public.update_statement_edit_if_current',
+    )
+    expect(migration).toContain('from anon')
+    expect(migration).toContain('from authenticated')
+    expect(migration).toContain('grant execute on function public.update_statement_edit_if_current')
+    expect(migration).toContain('to service_role')
   })
 })
