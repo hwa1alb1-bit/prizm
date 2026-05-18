@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "branch": "Branch 4: service readiness",
+  "generatedAt": "2026-05-14T21:47:50.490Z",
+  "evidence": {
+    "opsHealth": {
+      "authenticated": false,
+      "status": "missing_auth",
+      "archivedAt": null,
+      "connectors": []
+    },
+    "liveConnectorSmoke": {
+      "status": "ok",
+      "collectedAt": "2026-05-14T21:47:50.490Z",
+      "connectors": [
+        {
+          "name": "supabase",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "stripe",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "s3",
+          "ok": true,
+          "required": false
+        },
+        {
+          "name": "textract",
+          "ok": false,
+          "required": false,
+          "errorCode": "connector_subscription_required"
+        },
+        {
+          "name": "resend",
+          "ok": true,
+          "required": false
+        },
+        {
+          "name": "redis",
+          "ok": true,
+          "required": true
+        },
+        {
+          "name": "sentry",
+          "ok": true,
+          "required": false
+        }
+      ]
+    },
+    "cloudflareExtractor": {
+      "configured": true,
+      "status": "ok",
+      "collectedAt": "2026-05-14T21:47:54.657Z",
+      "url": "https://prizm-cloudflare-extractor.hwa1alb1-prizm.workers.dev",
+      "healthcheckStorageKey": "probes/known-good.pdf",
+      "launchPath": {
+        "storageProvider": "r2",
+        "extractionProvider": "cloudflare-r2"
+      },
+      "stagingProof": {
+        "id": "cf-extraction-staging-2026-05-14T21-14-43-312Z",
+        "archivedAt": "2026-05-14T21:15:01.124Z",
+        "sha": "6c236fa3548b3ff7c19e8585ffc565e5586a4ce5f8083704482b26bf0fe1b0b6",
+        "validated": true,
+        "evidencePath": "docs/evidence/cloudflare-extraction/cf-extraction-staging-2026-05-14T21-14-43-312Z.json",
+        "error": null
+      },
+      "missingEnv": [],
+      "checks": {
+        "jobStateBucket": {
+          "ok": true,
+          "key": null,
+          "error": null
+        },
+        "uploadBucket": {
+          "ok": true,
+          "key": "probes/known-good.pdf",
+          "error": null
+        },
+        "extractionQueue": {
+          "ok": true,
+          "key": null,
+          "error": null
+        },
+        "kotlinExtractor": {
+          "ok": true,
+          "key": null,
+          "error": null
+        }
+      }
+    },
+    "providers": {
+      "vercel": true,
+      "supabase": false,
+      "stripe": false,
+      "cloudflareR2Extractor": true,
+      "cloudflareDns": true,
+      "sentry": false,
+      "resend": false,
+      "redis": false
+    },
+    "acceptedGrayProviders": [],
+    "stripe": {
+      "webhookEndpoint": {
+        "registered": true,
+        "url": "https://prizmview.app/api/v1/webhooks/stripe",
+        "subscribedEvents": [
+          "checkout.session.completed",
+          "customer.subscription.created",
+          "customer.subscription.updated",
+          "customer.subscription.deleted"
+        ],
+        "deliverySuccess": true
+      },
+      "customerPortal": {
+        "configured": true
+      },
+      "checkoutSubscriptionCreditGrant": {
+        "proven": false
+      }
+    },
+    "dns": {
+      "dnssecDsDelegated": true,
+      "cloudflareTemplateReconciled": true,
+      "drift": []
+    },
+    "github": {
+      "repoPublic": true,
+      "rulesetsConfigured": true,
+      "requiredStatusChecks": ["Lint, types, unit tests", "Playwright E2E"],
+      "dependabotConfigured": true,
+      "vulnerabilityAlertsEnabled": true,
+      "secretScanningEnabled": true,
+      "environmentsProtected": true
+    },
+    "dashboardOnlyItems": [
+      {
+        "area": "Ops health",
+        "item": "Authenticated production /api/ops/health response",
+        "owner": "Ops",
+        "nextProofStep": "Run this script with OPS_HEALTH_COOKIE from an owner/admin session and archive the resulting JSON."
+      },
+      {
+        "area": "Stripe",
+        "item": "Checkout-to-subscription-to-credit-grant path",
+        "owner": "Ops",
+        "nextProofStep": "Complete a test checkout, pass SERVICE_READINESS_STRIPE_CHECKOUT_SESSION_ID, and confirm a subscription_grant credit ledger row."
+      }
+    ]
+  },
+  "result": {
+    "ok": false,
+    "failures": [
+      "Authenticated /api/ops/health evidence has not been archived.",
+      "Production provider evidence is missing for Supabase, Stripe, Sentry, Resend, Redis.",
+      "Checkout-to-subscription-to-credit-grant evidence has not been proven."
+    ]
+  }
+}

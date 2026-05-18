@@ -1,0 +1,65 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "prizm-cloudflare-extractor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+  "vars": {
+    "UPLOAD_BUCKET_NAME": "prizm-r2-uploads",
+    "HEALTHCHECK_STORAGE_KEY": "probes/known-good.pdf",
+  },
+  "r2_buckets": [
+    {
+      "binding": "UPLOAD_BUCKET",
+      "bucket_name": "prizm-r2-uploads",
+    },
+    {
+      "binding": "JOB_STATE_BUCKET",
+      "bucket_name": "prizm-extraction-jobs",
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "EXTRACTION_QUEUE",
+        "queue": "prizm-extractions",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "prizm-extractions",
+        "max_batch_size": 5,
+        "max_batch_timeout": 10,
+        "max_retries": 3,
+        "retry_delay": 60,
+        "dead_letter_queue": "prizm-extractions-dlq",
+      },
+    ],
+  },
+  "containers": [
+    {
+      "class_name": "KotlinExtractorContainer",
+      "image": "../kotlin-extractor/Dockerfile",
+      "max_instances": 10,
+      "instance_type": "basic",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "KOTLIN_EXTRACTOR",
+        "class_name": "KotlinExtractorContainer",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["KotlinExtractorContainer"],
+    },
+  ],
+}

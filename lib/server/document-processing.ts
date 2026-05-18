@@ -6,7 +6,12 @@ import {
   consumeDocumentConversionCredit,
   releaseDocumentConversionCredit,
 } from './credit-reservation'
-import { createExtractionEngineByName, type ExtractionPollResult } from './extraction-engine'
+import {
+  CLOUDFLARE_R2_EXTRACTION_ENGINE,
+  createExtractionEngineByName,
+  KOTLIN_WORKER_EXTRACTION_ENGINE,
+  type ExtractionPollResult,
+} from './extraction-engine'
 import type { RouteContext } from './http'
 import { type ParsedStatement } from './statement-parser'
 import { getServiceRoleClient } from './supabase'
@@ -137,7 +142,21 @@ export async function processExtractionDocuments(
       continue
     }
 
-    const extraction = await deps.pollExtraction(identity)
+    let extraction: ExtractionPollResult
+    try {
+      extraction = await deps.pollExtraction(identity)
+    } catch (error) {
+      if (!shouldFailClosedOnPollError(identity.engine)) throw error
+      await failProcessingDocument({
+        deps,
+        document,
+        failureReason: pollFailureReason(identity.engine),
+        releasedAt: nowIso,
+        input,
+      })
+      failed += 1
+      continue
+    }
 
     if (extraction.status === 'in_progress') {
       skipped += 1
@@ -269,17 +288,28 @@ async function pollExtraction(input: {
   try {
     return await engine.poll({ jobId: input.jobId })
   } catch (err) {
-    if (input.engine === 'kotlin_worker') {
+    if (shouldFailClosedOnPollError(input.engine)) {
       return {
         status: 'failed',
         engine: input.engine,
         jobId: input.jobId,
-        failureReason: 'Kotlin worker could not be polled by this deployment.',
+        failureReason: pollFailureReason(input.engine),
       }
     }
 
     throw err
   }
+}
+
+function shouldFailClosedOnPollError(engine: string): boolean {
+  return engine === KOTLIN_WORKER_EXTRACTION_ENGINE || engine === CLOUDFLARE_R2_EXTRACTION_ENGINE
+}
+
+function pollFailureReason(engine: string): string {
+  if (engine === CLOUDFLARE_R2_EXTRACTION_ENGINE) {
+    return 'Cloudflare R2 extractor could not be polled by this deployment.'
+  }
+  return 'Kotlin worker could not be polled by this deployment.'
 }
 
 function extractionIdentity(document: ProcessingDocument): {

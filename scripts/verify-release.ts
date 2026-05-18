@@ -1,6 +1,10 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { evaluateReleaseInvariant, type ReleaseEvidence } from '@/lib/server/release-invariant'
+import {
+  evaluateReleaseInvariant,
+  REQUIRED_RELEASE_HOSTS,
+  type ReleaseEvidence,
+} from '@/lib/server/release-invariant'
 
 const execFileAsync = promisify(execFile)
 
@@ -26,7 +30,13 @@ type VercelListOutput = {
 }
 
 type VercelInspectOutput = {
+  readyState?: string
+  target?: string | null
+  url?: string
   aliases?: string[]
+  meta?: {
+    githubCommitSha?: string
+  }
 }
 
 type LiveHealthOutput = {
@@ -55,7 +65,10 @@ async function collectReleaseEvidence(): Promise<ReleaseEvidence> {
   ])
 
   const deployment = findProductionDeployment(vercelList)
-  const inspection = await inspectVercelDeployment(deployment.url)
+  const [inspection, requiredHosts] = await Promise.all([
+    inspectVercelDeployment(deployment.url),
+    inspectRequiredHosts(),
+  ])
 
   return {
     localHead,
@@ -67,12 +80,32 @@ async function collectReleaseEvidence(): Promise<ReleaseEvidence> {
       url: deployment.url,
       githubCommitSha: deployment.meta?.githubCommitSha ?? '',
       aliases: inspection.aliases ?? [],
+      requiredHosts,
     },
     liveHealth: {
       status: liveHealth.status ?? 'unknown',
       version: liveHealth.version ?? 'unknown',
     },
   }
+}
+
+async function inspectRequiredHosts(): Promise<
+  NonNullable<ReleaseEvidence['vercelDeployment']['requiredHosts']>
+> {
+  const inspections = await Promise.all(
+    REQUIRED_RELEASE_HOSTS.map(async (host) => {
+      const inspection = await inspectVercelDeployment(host)
+      return {
+        host,
+        readyState: inspection.readyState ?? 'unknown',
+        target: inspection.target ?? null,
+        url: inspection.url ?? '',
+        githubCommitSha: inspection.meta?.githubCommitSha ?? '',
+      }
+    }),
+  )
+
+  return inspections
 }
 
 async function listVercelDeployments(): Promise<VercelListOutput> {

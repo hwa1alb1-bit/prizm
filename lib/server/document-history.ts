@@ -80,6 +80,8 @@ export type HistoryDocumentView = {
   pages: number | null
   s3Bucket: string
   s3Key: string
+  extractionEngine: string | null
+  extractionJobId: string | null
   textractJobId: string | null
   statements: StatementEvidenceView[]
   auditEvents: AuditEventEvidenceView[]
@@ -134,6 +136,8 @@ type DocumentRow = {
   pages: number | null
   s3_bucket: string
   s3_key: string
+  extraction_engine: string | null
+  extraction_job_id: string | null
   textract_job_id: string | null
 }
 
@@ -237,6 +241,8 @@ export async function listDocumentHistoryForWorkspace(
         'pages',
         's3_bucket',
         's3_key',
+        'extraction_engine',
+        'extraction_job_id',
         'textract_job_id',
       ].join(', '),
     )
@@ -269,6 +275,8 @@ async function getDocumentHistoryForWorkspace(
         'pages',
         's3_bucket',
         's3_key',
+        'extraction_engine',
+        'extraction_job_id',
         'textract_job_id',
       ].join(', '),
     )
@@ -327,6 +335,8 @@ async function hydrateDocuments(
     pages: document.pages,
     s3Bucket: document.s3_bucket,
     s3Key: document.s3_key,
+    extractionEngine: document.extraction_engine,
+    extractionJobId: document.extraction_job_id,
     textractJobId: document.textract_job_id,
     statements: (statementsByDocument.get(document.id) ?? []).map(statementView),
     auditEvents: (auditEventsByDocument.get(document.id) ?? []).map(auditEventView),

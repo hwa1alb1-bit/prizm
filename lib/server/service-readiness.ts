@@ -7,6 +7,57 @@ export type ServiceReadinessConnector = {
   errorCode?: string | null
 }
 
+export type ServiceReadinessProviders = {
+  vercel: boolean
+  supabase: boolean
+  stripe: boolean
+  cloudflareR2Extractor: boolean
+  cloudflareDns: boolean
+  sentry: boolean
+  resend: boolean
+  redis: boolean
+}
+
+export type ServiceReadinessCloudflareExtractorCheck = {
+  ok: boolean
+  key?: string | null
+  error?: string | null
+}
+
+export type ServiceReadinessCloudflareExtractor = {
+  configured: boolean
+  status: string
+  collectedAt: string | null
+  url: string | null
+  healthcheckStorageKey: string | null
+  launchPath: {
+    storageProvider: string | null
+    extractionProvider: string | null
+  }
+  stagingProof: {
+    id: string | null
+    archivedAt: string | null
+    sha: string | null
+    validated: boolean
+    evidencePath: string | null
+    error: string | null
+  }
+  missingEnv: string[]
+  checks: {
+    jobStateBucket: ServiceReadinessCloudflareExtractorCheck
+    uploadBucket: ServiceReadinessCloudflareExtractorCheck
+    extractionQueue: ServiceReadinessCloudflareExtractorCheck
+    kotlinExtractor: ServiceReadinessCloudflareExtractorCheck
+  }
+}
+
+export type ServiceReadinessAcceptedGrayProvider = {
+  provider: keyof ServiceReadinessProviders
+  owner: string
+  reason: string
+  nextProofStep: string
+}
+
 export type ServiceReadinessEvidence = {
   opsHealth: {
     authenticated: boolean
@@ -19,16 +70,9 @@ export type ServiceReadinessEvidence = {
     collectedAt: string
     connectors: ServiceReadinessConnector[]
   }
-  providers: {
-    vercel: boolean
-    supabase: boolean
-    stripe: boolean
-    cloudflareDns: boolean
-    sentry: boolean
-    awsS3Textract: boolean
-    resend: boolean
-    redis: boolean
-  }
+  cloudflareExtractor: ServiceReadinessCloudflareExtractor
+  providers: ServiceReadinessProviders
+  acceptedGrayProviders?: ServiceReadinessAcceptedGrayProvider[]
   stripe: {
     webhookEndpoint: {
       registered: boolean
@@ -80,6 +124,12 @@ export type ServiceReadinessArchive = {
   result: ServiceReadinessResult
 }
 
+export type CloudflareExtractorHealthStatusInput = {
+  ok: boolean
+  status: number
+  bodyStatus?: unknown
+}
+
 export type OpsHealthAuth =
   | {
       ok: true
@@ -92,16 +142,35 @@ export type OpsHealthAuth =
 
 type OpsHealthAuthEnv = Record<string, string | undefined>
 
-const providerLabels: Record<keyof ServiceReadinessEvidence['providers'], string> = {
+const providerLabels: Record<keyof ServiceReadinessProviders, string> = {
   vercel: 'Vercel',
   supabase: 'Supabase',
   stripe: 'Stripe',
+  cloudflareR2Extractor: 'Cloudflare R2 extractor',
   cloudflareDns: 'Cloudflare/DNS',
   sentry: 'Sentry',
-  awsS3Textract: 'AWS/S3/Textract',
   resend: 'Resend',
   redis: 'Redis',
 }
+
+const providerProofNextSteps: Partial<Record<keyof ServiceReadinessProviders, string>> = {
+  vercel:
+    'Confirm a READY production deployment for the configured Vercel project, then rerun the service readiness archive.',
+  supabase:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Supabase connector is ok.',
+  stripe:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Stripe connector is ok.',
+  sentry:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Sentry connector is ok, or archive an accepted-gray exception if telemetry is intentionally informational.',
+  resend:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Resend connector is ok, or archive an accepted-gray exception if email sending is intentionally paused.',
+  redis:
+    'Run the archive with OPS_HEALTH_COOKIE from an owner/admin session and confirm the production Redis connector is ok.',
+}
+
+const acceptedGrayBlockedProviders = new Set<keyof ServiceReadinessProviders>([
+  'cloudflareR2Extractor',
+])
 
 const requiredStripeWebhookEvents = [
   'checkout.session.completed',
@@ -109,6 +178,44 @@ const requiredStripeWebhookEvents = [
   'customer.subscription.updated',
   'customer.subscription.deleted',
 ]
+
+export function parseAcceptedGrayProviders(
+  rawValue: string | undefined,
+): ServiceReadinessAcceptedGrayProvider[] {
+  if (!rawValue?.trim()) return []
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawValue)
+  } catch {
+    throw new Error('SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS must be a JSON array.')
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('SERVICE_READINESS_ACCEPTED_GRAY_PROVIDERS must be a JSON array.')
+  }
+
+  return parsed.map((value, index) => {
+    if (!isRecord(value)) {
+      throw new Error(`Accepted-gray provider entry ${index + 1} must be an object.`)
+    }
+
+    const provider = readProviderKey(value.provider)
+    if (acceptedGrayBlockedProviders.has(provider)) {
+      throw new Error(`${providerLabels[provider]} proof cannot be accepted-gray.`)
+    }
+
+    return {
+      provider,
+      owner: readRequiredString(value.owner, `Accepted-gray provider "${provider}" owner`),
+      reason: readRequiredString(value.reason, `Accepted-gray provider "${provider}" reason`),
+      nextProofStep: readRequiredString(
+        value.nextProofStep,
+        `Accepted-gray provider "${provider}" nextProofStep`,
+      ),
+    }
+  })
+}
 
 export function evaluateServiceReadinessEvidence(
   evidence: ServiceReadinessEvidence,
@@ -173,6 +280,21 @@ export function evaluateServiceReadinessEvidence(
     }
   }
 
+  for (const item of evidence.acceptedGrayProviders ?? []) {
+    if (acceptedGrayBlockedProviders.has(item.provider)) {
+      failures.push(
+        `Accepted-gray provider "${providerLabels[item.provider]}" cannot bypass launch-required proof.`,
+      )
+      continue
+    }
+
+    if (!acceptedGrayProviderComplete(item)) {
+      failures.push(
+        `Accepted-gray provider "${providerLabels[item.provider]}" needs an owner, reason, and next proof step.`,
+      )
+    }
+  }
+
   return {
     ok: failures.length === 0,
     failures,
@@ -183,6 +305,7 @@ export function createServiceReadinessProviders(input: {
   opsHealth: ServiceReadinessEvidence['opsHealth']
   // Diagnostic-only. Local smoke must never satisfy production provider proof.
   localConnectorSmoke?: NonNullable<ServiceReadinessEvidence['liveConnectorSmoke']>
+  cloudflareExtractor: ServiceReadinessCloudflareExtractor
   vercel: boolean
   stripeWebhookRegistered: boolean
   cloudflareDnsReady: boolean
@@ -193,12 +316,36 @@ export function createServiceReadinessProviders(input: {
     vercel: input.vercel,
     supabase: connectorOk(productionConnectors, 'supabase'),
     stripe: connectorOk(productionConnectors, 'stripe') && input.stripeWebhookRegistered,
+    cloudflareR2Extractor: cloudflareR2ExtractorReady(input.cloudflareExtractor),
     cloudflareDns: input.cloudflareDnsReady,
     sentry: connectorOk(productionConnectors, 'sentry'),
-    awsS3Textract:
-      connectorOk(productionConnectors, 's3') && connectorOk(productionConnectors, 'textract'),
     resend: connectorOk(productionConnectors, 'resend'),
     redis: connectorOk(productionConnectors, 'redis'),
+  }
+}
+
+export function normalizeLiveConnectorSmokeForLaunchPath(
+  smoke: NonNullable<ServiceReadinessEvidence['liveConnectorSmoke']>,
+  launchPath: ServiceReadinessCloudflareExtractor['launchPath'],
+): NonNullable<ServiceReadinessEvidence['liveConnectorSmoke']> {
+  const cloudflareLaunchPath =
+    launchPath.storageProvider === 'r2' && launchPath.extractionProvider === 'cloudflare-r2'
+  const connectors = smoke.connectors.map((connector) =>
+    cloudflareLaunchPath && (connector.name === 's3' || connector.name === 'textract')
+      ? { ...connector, required: false }
+      : connector,
+  )
+  const requiredFailure = connectors.some((connector) => connector.required && !connector.ok)
+
+  return {
+    ...smoke,
+    status:
+      smoke.status === 'failed' && connectors.length === 0
+        ? 'failed'
+        : requiredFailure
+          ? 'degraded'
+          : 'ok',
+    connectors,
   }
 }
 
@@ -206,6 +353,8 @@ export function createServiceReadinessDashboardOnlyItems(input: {
   opsHealth: ServiceReadinessEvidence['opsHealth']
   liveConnectorSmoke: NonNullable<ServiceReadinessEvidence['liveConnectorSmoke']>
   providers: ServiceReadinessEvidence['providers']
+  acceptedGrayProviders?: ServiceReadinessEvidence['acceptedGrayProviders']
+  cloudflareExtractor: ServiceReadinessCloudflareExtractor
   stripe: ServiceReadinessEvidence['stripe']
   dnsEvidence: ServiceReadinessEvidence['dns']
   github: ServiceReadinessEvidence['github']
@@ -222,24 +371,21 @@ export function createServiceReadinessDashboardOnlyItems(input: {
     })
   }
 
-  if (!input.providers.awsS3Textract) {
-    const textract =
-      findConnector(input.opsHealth.connectors, 'textract') ??
-      findConnector(input.liveConnectorSmoke.connectors, 'textract')
-    const subscriptionRequired = textract?.errorCode === 'connector_subscription_required'
-
+  if (!input.providers.cloudflareR2Extractor) {
     items.push({
-      area: 'AWS/Textract',
-      item: subscriptionRequired
-        ? 'Textract service subscription is not enabled for the production AWS account/role'
-        : textract?.errorCode
-          ? `Textract provider proof failed with ${textract.errorCode}`
-          : 'S3 and Textract deep provider proof',
-      owner: 'AWS admin',
-      nextProofStep: subscriptionRequired
-        ? 'Enable or subscribe AWS Textract for the production AWS account/role in us-east-1, then run `aws textract get-document-analysis --region us-east-1 --job-id prizm-health-probe` and rerun authenticated /api/ops/health from Vercel production.'
-        : 'Run authenticated /api/ops/health from Vercel production and, if Textract still fails, verify Textract service access in the AWS account and region.',
+      area: 'Cloudflare extraction',
+      item: describeCloudflareExtractorGap(input.cloudflareExtractor),
+      owner: 'Cloudflare admin',
+      nextProofStep:
+        'Deploy and prove the Cloudflare Worker/container path, seed the R2 healthcheck PDF, archive the staging extraction proof, and rerun service readiness with Cloudflare extractor env.',
     })
+  }
+
+  for (const item of missingProductionProviderDashboardItems(
+    input.providers,
+    input.acceptedGrayProviders,
+  )) {
+    items.push(item)
   }
 
   if (!input.stripe.webhookEndpoint.deliverySuccess) {
@@ -295,6 +441,32 @@ export function createServiceReadinessDashboardOnlyItems(input: {
   return items
 }
 
+function missingProductionProviderDashboardItems(
+  providers: ServiceReadinessEvidence['providers'],
+  acceptedGrayProviders: ServiceReadinessEvidence['acceptedGrayProviders'] = [],
+): DashboardOnlyReadinessItem[] {
+  const acceptedGray = new Set(
+    acceptedGrayProviders
+      .filter((item) => acceptedGrayProviderComplete(item))
+      .map((item) => item.provider),
+  )
+
+  return (Object.entries(providers) as Array<[keyof ServiceReadinessProviders, boolean]>)
+    .filter(([provider, present]) => {
+      if (present) return false
+      if (acceptedGray.has(provider)) return false
+      return provider !== 'cloudflareR2Extractor' && provider !== 'cloudflareDns'
+    })
+    .map(([provider]) => ({
+      area: providerLabels[provider],
+      item: `Authenticated production ${providerLabels[provider]} connector evidence`,
+      owner: 'Ops',
+      nextProofStep:
+        providerProofNextSteps[provider] ??
+        `Archive production evidence for ${providerLabels[provider]} and rerun service readiness.`,
+    }))
+}
+
 export function resolveOpsHealthAuth(env: OpsHealthAuthEnv): OpsHealthAuth {
   const cookie = env.OPS_HEALTH_COOKIE ?? env.SERVICE_READINESS_OPS_COOKIE
   if (cookie) {
@@ -343,21 +515,156 @@ function hasArchivedAuthenticatedOpsHealth(evidence: ServiceReadinessEvidence): 
 }
 
 function missingProviderEvidence(evidence: ServiceReadinessEvidence): string[] {
-  return Object.entries(evidence.providers).flatMap(([key, present]) =>
-    present ? [] : [providerLabels[key as keyof ServiceReadinessEvidence['providers']]],
+  const acceptedGrayProviders = acceptedGrayProviderSet(evidence)
+
+  return (
+    Object.entries(evidence.providers) as Array<[keyof ServiceReadinessProviders, boolean]>
+  ).flatMap(([key, present]) =>
+    present || acceptedGrayProviders.has(key) ? [] : [providerLabels[key]],
   )
+}
+
+function acceptedGrayProviderSet(
+  evidence: ServiceReadinessEvidence,
+): Set<keyof ServiceReadinessProviders> {
+  const providers = new Set<keyof ServiceReadinessProviders>()
+
+  for (const item of evidence.acceptedGrayProviders ?? []) {
+    if (acceptedGrayProviderComplete(item) && !acceptedGrayBlockedProviders.has(item.provider)) {
+      providers.add(item.provider)
+    }
+  }
+
+  return providers
+}
+
+function acceptedGrayProviderComplete(item: ServiceReadinessAcceptedGrayProvider): boolean {
+  return Boolean(item.owner.trim() && item.reason.trim() && item.nextProofStep.trim())
+}
+
+function readProviderKey(value: unknown): keyof ServiceReadinessProviders {
+  if (typeof value !== 'string' || !Object.prototype.hasOwnProperty.call(providerLabels, value)) {
+    throw new Error(`Unsupported accepted-gray provider "${String(value)}".`)
+  }
+
+  return value as keyof ServiceReadinessProviders
+}
+
+function readRequiredString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${label} is required.`)
+  }
+
+  return value.trim()
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function resolveCloudflareExtractorHealthStatus(
+  input: CloudflareExtractorHealthStatusInput,
+): string {
+  if (input.status === 401 || input.status === 403) return 'unauthorized'
+  if (!input.ok) return `http_${input.status}`
+  if (typeof input.bodyStatus === 'string') return input.bodyStatus
+  return 'ok'
+}
+
+function cloudflareR2ExtractorReady(extractor: ServiceReadinessCloudflareExtractor): boolean {
+  return (
+    cloudflareExtractorLaunchPathSelected(extractor) &&
+    extractor.configured &&
+    extractor.status === 'ok' &&
+    cloudflareExtractorChecksReady(extractor) &&
+    cloudflareExtractorHealthcheckKeyMatches(extractor) &&
+    cloudflareExtractorStagingProofReady(extractor)
+  )
+}
+
+function describeCloudflareExtractorGap(extractor: ServiceReadinessCloudflareExtractor): string {
+  if (!cloudflareExtractorLaunchPathSelected(extractor)) {
+    return 'Production launch path is not set to Cloudflare R2 storage and extractor'
+  }
+
+  if (!extractor.configured) {
+    const missing = extractor.missingEnv.length > 0 ? `: ${extractor.missingEnv.join(', ')}` : ''
+    return `Cloudflare R2/container extractor configuration is incomplete${missing}`
+  }
+
+  const failedChecks = failedCloudflareExtractorCheckDetails(extractor)
+  if (failedChecks) {
+    return `Cloudflare R2/container extractor health is degraded: ${failedChecks}`
+  }
+
+  if (!cloudflareExtractorHealthcheckKeyMatches(extractor)) {
+    return 'Cloudflare R2/container extractor healthcheck key does not match the upload bucket proof'
+  }
+
+  if (!cloudflareExtractorStagingProofReady(extractor)) {
+    if (!cloudflareExtractorStagingProofMetadataPresent(extractor)) {
+      return 'Cloudflare R2/container extractor staging proof is not archived'
+    }
+
+    return `Cloudflare R2/container extractor staging proof archive is invalid: ${extractor.stagingProof.error ?? 'unknown'}`
+  }
+
+  return 'Cloudflare R2/container extractor production proof'
+}
+
+function cloudflareExtractorLaunchPathSelected(
+  extractor: ServiceReadinessCloudflareExtractor,
+): boolean {
+  return (
+    extractor.launchPath.storageProvider === 'r2' &&
+    extractor.launchPath.extractionProvider === 'cloudflare-r2'
+  )
+}
+
+function cloudflareExtractorChecksReady(extractor: ServiceReadinessCloudflareExtractor): boolean {
+  return Object.values(extractor.checks).every((check) => check.ok)
+}
+
+function cloudflareExtractorHealthcheckKeyMatches(
+  extractor: ServiceReadinessCloudflareExtractor,
+): boolean {
+  const expectedKey = extractor.healthcheckStorageKey?.trim()
+  return Boolean(expectedKey && extractor.checks.uploadBucket.key === expectedKey)
+}
+
+function cloudflareExtractorStagingProofReady(
+  extractor: ServiceReadinessCloudflareExtractor,
+): boolean {
+  return (
+    cloudflareExtractorStagingProofMetadataPresent(extractor) && extractor.stagingProof.validated
+  )
+}
+
+function cloudflareExtractorStagingProofMetadataPresent(
+  extractor: ServiceReadinessCloudflareExtractor,
+): boolean {
+  return Boolean(
+    extractor.stagingProof.id?.trim() &&
+    extractor.stagingProof.archivedAt?.trim() &&
+    extractor.stagingProof.sha?.trim(),
+  )
+}
+
+function failedCloudflareExtractorCheckDetails(
+  extractor: ServiceReadinessCloudflareExtractor,
+): string {
+  return Object.entries(extractor.checks)
+    .flatMap(([name, check]) => {
+      if (check.ok) return []
+      const error = check.error?.trim()
+      return [`${name} failed${error ? `: ${error}` : ''}`]
+    })
+    .join('; ')
 }
 
 function connectorOk(connectors: ServiceReadinessConnector[], name: string): boolean {
   const connector = connectors.find((candidate) => candidate.name === name)
   return connector?.ok === true
-}
-
-function findConnector(
-  connectors: ServiceReadinessConnector[],
-  name: string,
-): ServiceReadinessConnector | undefined {
-  return connectors.find((candidate) => candidate.name === name)
 }
 
 function stripeWebhookRegistered(evidence: ServiceReadinessEvidence): boolean {

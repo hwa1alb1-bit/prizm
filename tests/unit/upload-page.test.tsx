@@ -232,6 +232,8 @@ describe('UploadPage', () => {
     expect(screen.getByText(/browser could not reach secure storage/)).toBeInTheDocument()
     expect(screen.getByText('doc_123')).toBeInTheDocument()
     expect(screen.getByText('req_presign')).toBeInTheDocument()
+    expect(screen.getByText(/active storage provider/)).toBeInTheDocument()
+    expect(screen.queryByText(/S3 browser-upload CORS/)).not.toBeInTheDocument()
     expect(screen.getByText('0123456789abcdef0123456789abcdef')).toBeInTheDocument()
     expect(screen.queryByText('local-upload-validation')).not.toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()

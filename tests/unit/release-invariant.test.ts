@@ -8,6 +8,35 @@ describe('release invariant', () => {
     expect(evaluateReleaseInvariant(goodEvidence()).ok).toBe(true)
   })
 
+  it('accepts custom-domain host inspection when Vercel omits domains from deployment aliases', () => {
+    expect(
+      evaluateReleaseInvariant(
+        goodEvidence({
+          vercelDeployment: {
+            ...goodEvidence().vercelDeployment,
+            aliases: ['prizm-plknokos-projects.vercel.app'],
+            requiredHosts: [
+              {
+                host: 'prizmview.app',
+                readyState: 'READY',
+                target: 'production',
+                url: 'prizm-lh20glonj-plknokos-projects.vercel.app',
+                githubCommitSha: '',
+              },
+              {
+                host: 'www.prizmview.app',
+                readyState: 'READY',
+                target: 'production',
+                url: 'prizm-lh20glonj-plknokos-projects.vercel.app',
+                githubCommitSha: '',
+              },
+            ],
+          },
+        }),
+      ).ok,
+    ).toBe(true)
+  })
+
   it('fails with actionable drift messages when the live stack is stale', () => {
     const result = evaluateReleaseInvariant(
       goodEvidence({
@@ -45,6 +74,7 @@ function goodEvidence(overrides: Partial<ReleaseEvidence> = {}): ReleaseEvidence
       url: 'prizm-lh20glonj-plknokos-projects.vercel.app',
       githubCommitSha: sha,
       aliases: ['prizmview.app', 'www.prizmview.app'],
+      requiredHosts: [],
     },
     liveHealth: {
       status: 'ok',

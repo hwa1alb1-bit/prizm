@@ -27,10 +27,30 @@ async function processingFromAuthorizedRequest(request: NextRequest): Promise<Re
   }
 
   try {
-    const result = await processExtractionDocuments({
-      trigger: 'cron',
-      routeContext: context,
-    })
+    const documentRequest = await documentIdFromRequest(request)
+    if (!documentRequest.ok) {
+      return problemResponse(context, {
+        status: 400,
+        code: 'PRZM_OPS_PROCESSING_DOCUMENT_ID_INVALID',
+        title: 'Document ID is invalid',
+        detail: documentRequest.detail,
+      })
+    }
+
+    const documentId = documentRequest.documentId
+    const result = await processExtractionDocuments(
+      documentId
+        ? {
+            trigger: 'manual',
+            limit: 1,
+            documentId,
+            routeContext: context,
+          }
+        : {
+            trigger: 'cron',
+            routeContext: context,
+          },
+    )
     return jsonResponse(
       context,
       {
@@ -52,4 +72,39 @@ async function processingFromAuthorizedRequest(request: NextRequest): Promise<Re
         'Document processing could not be polled. Failed documents will release reservations.',
     })
   }
+}
+
+type DocumentIdRequest = { ok: true; documentId: string | null } | { ok: false; detail: string }
+
+async function documentIdFromRequest(request: NextRequest): Promise<DocumentIdRequest> {
+  const queryDocumentId = new URL(request.url).searchParams.get('documentId')
+  if (queryDocumentId !== null) return parseDocumentId(queryDocumentId)
+  if (request.method === 'GET') return { ok: true, documentId: null }
+
+  const contentType = request.headers.get('content-type') ?? ''
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return { ok: true, documentId: null }
+  }
+
+  const body = (await request.json().catch(() => null)) as unknown
+  if (!isRecord(body)) {
+    return { ok: false, detail: 'JSON body must be an object.' }
+  }
+  if (!('documentId' in body)) return { ok: true, documentId: null }
+  return parseDocumentId(body.documentId)
+}
+
+function parseDocumentId(value: unknown): DocumentIdRequest {
+  if (typeof value !== 'string') {
+    return { ok: false, detail: 'documentId must be a non-empty string.' }
+  }
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return { ok: false, detail: 'documentId must be a non-empty string.' }
+  }
+  return { ok: true, documentId: trimmed }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }

@@ -288,7 +288,7 @@ export default function UploadPage() {
             { label: 'Browser upload error', value: browserError },
           ]),
           nextAction:
-            'Ask ops to verify S3 browser-upload CORS for prizmview.app, then upload the same PDF again.',
+            'Ask ops to verify browser-upload CORS for prizmview.app and the active storage provider, then upload the same PDF again.',
         })
       }
 

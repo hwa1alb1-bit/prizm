@@ -3,6 +3,7 @@ import {
   formatLaunchGateReport,
   type LaunchTarget,
 } from '@/lib/server/launch-gates'
+import { validateCloudflareExtractionProofArchive } from '@/lib/server/cloudflare-extraction-proof'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -51,7 +52,33 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  const result = evaluateLaunchReadiness({ target, env: process.env })
+  let result = evaluateLaunchReadiness({ target, env: process.env })
+  if (target === 'production' && result.ok) {
+    const proofValidation = validateCloudflareExtractionProofArchive({
+      env: process.env,
+      cwd: process.cwd(),
+    })
+    if (!proofValidation.ok) {
+      result = {
+        ...result,
+        ok: false,
+        failures: [
+          ...result.failures,
+          {
+            id: 'cloudflare-r2-staging-proof-archive-valid',
+            title: 'Cloudflare R2 extraction staging proof archive matches env metadata',
+            envKeys: [
+              'CLOUDFLARE_EXTRACTION_STAGING_PROOF_ID',
+              'CLOUDFLARE_EXTRACTION_STAGING_PROOF_AT',
+              'CLOUDFLARE_EXTRACTION_STAGING_PROOF_SHA',
+            ],
+            reason: 'invalid',
+          },
+        ],
+      }
+      console.error(`Cloudflare proof archive validation failed: ${proofValidation.failure}`)
+    }
+  }
   console.log(formatLaunchGateReport(result))
 
   if (!result.ok) {
