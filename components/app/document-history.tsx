@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { EditableReviewWorkflow } from './editable-review-workflow'
+import { ProcessingStatusRefresh } from './processing-status-refresh'
 import {
   documentStateLabel,
   type AuditEventEvidenceView,
@@ -106,6 +107,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {document.state === 'processing' && <ProcessingStatusRefresh documentId={document.id} />}
       <header className="grid gap-4 border-b border-[var(--border-subtle)] pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <Link
@@ -427,13 +429,11 @@ function StatementSummary({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold">Statement pending OCR</p>
+        <p className="text-sm font-semibold">Statement extraction pending</p>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/60">
-          PRIZM has proven the upload request, S3 object verification, and OCR start. It is waiting
-          on Textract job{' '}
-          <span className="font-mono text-foreground">
-            {document.textractJobId ?? 'not assigned'}
-          </span>{' '}
+          PRIZM has proven the upload request, S3 object verification, and extraction start. It is
+          waiting on {extractionJobLabel(document)}{' '}
+          <span className="font-mono text-foreground">{displayExtractionJobId(document)}</span>{' '}
           before showing balances, transactions, and reconciliation evidence.
         </p>
       </div>
@@ -579,11 +579,12 @@ function evidenceTimelineFor(
   const hasVerifiedS3 =
     Boolean(uploadCompletedAudit) ||
     Boolean(processingStartedAudit) ||
-    Boolean(document.textractJobId) ||
+    displayExtractionJobId(document) !== 'Not assigned' ||
     document.state === 'verified' ||
     document.state === 'ready' ||
     Boolean(statement)
-  const hasOcrStarted = Boolean(processingStartedAudit) || Boolean(document.textractJobId)
+  const hasOcrStarted =
+    Boolean(processingStartedAudit) || displayExtractionJobId(document) !== 'Not assigned'
   const hasOcrCompleted =
     Boolean(ocrCompletedAudit) || document.state === 'ready' || Boolean(statement)
   const deletionTimestamp =
@@ -630,7 +631,7 @@ function evidenceTimelineFor(
     },
     {
       id: 'ocr_started',
-      label: 'OCR started',
+      label: 'Extraction started',
       status:
         recoveryKind === 'ocr_start_failed'
           ? 'blocked'
@@ -641,21 +642,23 @@ function evidenceTimelineFor(
               : 'waiting',
       detail:
         recoveryKind === 'ocr_start_failed'
-          ? (document.failureReason ?? 'Textract could not start analysis for this document.')
+          ? (document.failureReason ?? 'Extraction could not start for this document.')
           : hasOcrStarted
-            ? `Textract job ${document.textractJobId ?? 'not recorded'} is attached to this document.`
+            ? `${extractionJobLabel(document)} ${displayExtractionJobId(
+                document,
+              )} is attached to this document.`
             : hasVerifiedS3
-              ? 'PRIZM has proven storage and is waiting to start OCR analysis.'
-              : 'OCR waits until the S3 object is verified.',
+              ? 'PRIZM has proven storage and is waiting to start statement extraction.'
+              : 'Extraction waits until the S3 object is verified.',
       timestamp: processingStartedAudit?.createdAt ?? null,
       evidence: [
-        { label: 'Textract job ID', value: document.textractJobId ?? 'Not assigned' },
+        { label: extractionJobEvidenceLabel(document), value: displayExtractionJobId(document) },
         { label: 'Trace ID', value: processingStartedAudit?.traceId ?? 'Not recorded' },
       ],
     },
     {
       id: 'ocr_completed',
-      label: 'OCR completed',
+      label: 'Extraction completed',
       status:
         recoveryKind === 'ocr_processing_failed'
           ? 'blocked'
@@ -666,14 +669,14 @@ function evidenceTimelineFor(
               : 'waiting',
       detail:
         recoveryKind === 'ocr_processing_failed'
-          ? (document.failureReason ?? 'OCR started, but processing did not complete.')
+          ? (document.failureReason ?? 'Extraction started, but processing did not complete.')
           : hasOcrCompleted
-            ? 'OCR has produced reviewable output for this document.'
+            ? 'Extraction has produced reviewable output for this document.'
             : document.state === 'processing'
-              ? `PRIZM has proven upload, S3 verification, and OCR start. It is waiting for Textract job ${
-                  document.textractJobId ?? 'not assigned'
-                } to complete.`
-              : 'OCR completion waits on a running Textract job.',
+              ? `PRIZM has proven upload, S3 verification, and extraction start. It is waiting for ${extractionJobLabel(
+                  document,
+                )} ${displayExtractionJobId(document)} to complete.`
+              : 'Extraction completion waits on a running job.',
       timestamp: ocrCompletedAudit?.createdAt ?? statement?.createdAt ?? null,
       evidence: [{ label: 'Pages', value: document.pages?.toString() ?? 'Not counted' }],
     },
@@ -688,7 +691,7 @@ function evidenceTimelineFor(
           )}.`
         : document.state === 'ready'
           ? 'The document is ready, but no statement record is attached.'
-          : 'PRIZM is waiting for OCR output to create statement fields and transaction rows.',
+          : 'PRIZM is waiting for extraction output to create statement fields and transaction rows.',
       timestamp: statement?.createdAt ?? null,
       evidence: [
         { label: 'Statement ID', value: statement?.id ?? 'Not created' },
@@ -913,8 +916,8 @@ function TransactionTable({
       return (
         <div className="space-y-3">
           <QuietStatusPanel
-            title="Transaction rows pending OCR"
-            detail="PRIZM has a verified upload and a running OCR job. It is waiting for statement rows before review can start."
+            title="Transaction rows pending extraction"
+            detail="PRIZM has a verified upload and a running extraction job. It is waiting for statement rows before review can start."
           />
           <QuietSkeletonRows rows={4} />
         </div>
@@ -923,7 +926,7 @@ function TransactionTable({
 
     return (
       <p className="text-sm text-foreground/60">
-        Transaction rows will appear after OCR produces a statement record.
+        Transaction rows will appear after extraction produces a statement record.
       </p>
     )
   }
@@ -1004,7 +1007,7 @@ function ExceptionsPanel({
   if (!statement) {
     return (
       <p className="text-sm text-foreground/60">
-        No extracted statement exists yet, so exception review is waiting on OCR output.
+        No extracted statement exists yet, so exception review is waiting on extraction output.
       </p>
     )
   }
@@ -1245,7 +1248,7 @@ function statementExtractionExceptions(statement: StatementEvidenceView): Review
     exceptions.push({
       id: 'extraction:statement-fields',
       title: 'Extraction incomplete',
-      cause: `OCR output is missing ${missing.join(', ')}.`,
+      cause: `Extraction output is missing ${missing.join(', ')}.`,
       evidence: `Statement ${statement.id}`,
       nextAction: 'Use the source PDF to fill missing statement evidence before export.',
       tone: 'warning',
@@ -1274,12 +1277,12 @@ function recoveryCardsFor(
       kind: 'extraction_incomplete',
       title: 'Extraction incomplete',
       cause: statement
-        ? 'Required statement fields or transaction evidence are missing from OCR output.'
+        ? 'Required statement fields or transaction evidence are missing from extraction output.'
         : 'The document is ready, but no statement record is attached.',
       evidence: [
         { label: 'Document ID', value: document.id },
         statement ? { label: 'Statement ID', value: statement.id } : null,
-        document.textractJobId ? { label: 'Textract job ID', value: document.textractJobId } : null,
+        extractionJobEvidence(document),
       ].filter((item): item is ReviewEvidence => item !== null),
       nextAction:
         'Check the source PDF and resolve missing statement fields or rows before export.',
@@ -1320,7 +1323,7 @@ function failedRecoveryCard(document: HistoryDocumentView): RecoveryCardData {
     cause: document.failureReason ?? recoveryFallbackCause(kind),
     evidence: [
       { label: 'Document ID', value: document.id },
-      document.textractJobId ? { label: 'Textract job ID', value: document.textractJobId } : null,
+      extractionJobEvidence(document),
       failureAudit?.id ? { label: 'Audit event ID', value: failureAudit.id } : null,
       failureAudit?.requestId ? { label: 'Request ID', value: failureAudit.requestId } : null,
       failureAudit?.traceId ? { label: 'Trace ID', value: failureAudit.traceId } : null,
@@ -1339,13 +1342,20 @@ function recoveryKindFromDocument(document: HistoryDocumentView): RecoveryKind {
   if (reason.includes('could not be started') || reason.includes('start')) {
     return 'ocr_start_failed'
   }
-  if (reason.includes('ocr') || reason.includes('textract') || reason.includes('processing')) {
+  if (
+    reason.includes('ocr') ||
+    reason.includes('textract') ||
+    reason.includes('extraction') ||
+    reason.includes('processing')
+  ) {
     return 'ocr_processing_failed'
   }
   if (reason.includes('upload')) {
     return 'upload_failed'
   }
-  return document.textractJobId ? 'ocr_processing_failed' : 'upload_failed'
+  return displayExtractionJobId(document) !== 'Not assigned'
+    ? 'ocr_processing_failed'
+    : 'upload_failed'
 }
 
 function recoveryTitle(kind: RecoveryKind): string {
@@ -1355,9 +1365,9 @@ function recoveryTitle(kind: RecoveryKind): string {
     case 's3_verification_failed':
       return 'S3 verification failed'
     case 'ocr_start_failed':
-      return 'OCR start failed'
+      return 'Extraction start failed'
     case 'ocr_processing_failed':
-      return 'OCR processing failed'
+      return 'Extraction processing failed'
     case 'extraction_incomplete':
       return 'Extraction incomplete'
     case 'reconciliation_mismatch':
@@ -1372,11 +1382,11 @@ function recoveryFallbackCause(kind: RecoveryKind): string {
     case 's3_verification_failed':
       return 'PRIZM could not verify that the S3 object matched the document record.'
     case 'ocr_start_failed':
-      return 'The file reached storage, but OCR analysis did not start.'
+      return 'The file reached storage, but extraction did not start.'
     case 'ocr_processing_failed':
-      return 'OCR started, but processing did not produce usable statement output.'
+      return 'Extraction started, but processing did not produce usable statement output.'
     case 'extraction_incomplete':
-      return 'OCR output is missing required statement or transaction evidence.'
+      return 'Extraction output is missing required statement or transaction evidence.'
     case 'reconciliation_mismatch':
       return 'Reported and computed totals do not match.'
   }
@@ -1389,7 +1399,7 @@ function recoveryNextAction(kind: RecoveryKind): string {
     case 's3_verification_failed':
       return 'Upload the original PDF again so PRIZM can create a new verified storage object.'
     case 'ocr_start_failed':
-      return 'Keep the document ID, then upload again or retry OCR when a retry action is available.'
+      return 'Keep the document ID, then upload again or retry extraction when a retry action is available.'
     case 'ocr_processing_failed':
       return 'Confirm the PDF is readable, then reprocess or upload a cleaner statement file.'
     case 'extraction_incomplete':
@@ -1397,6 +1407,28 @@ function recoveryNextAction(kind: RecoveryKind): string {
     case 'reconciliation_mismatch':
       return 'Resolve missing, duplicate, or sign-flipped transactions before export.'
   }
+}
+
+function displayExtractionJobId(document: HistoryDocumentView): string {
+  return document.extractionJobId ?? document.textractJobId ?? 'Not assigned'
+}
+
+function extractionJobLabel(document: HistoryDocumentView): string {
+  if (document.extractionEngine === 'cloudflare-r2') return 'Cloudflare extraction job'
+  if (document.extractionEngine === 'kotlin_worker') return 'Kotlin extraction job'
+  return 'Textract job'
+}
+
+function extractionJobEvidenceLabel(document: HistoryDocumentView): string {
+  if (document.extractionEngine === 'cloudflare-r2') return 'Cloudflare job ID'
+  if (document.extractionEngine === 'kotlin_worker') return 'Kotlin job ID'
+  return 'Textract job ID'
+}
+
+function extractionJobEvidence(document: HistoryDocumentView): ReviewEvidence | null {
+  const jobId = displayExtractionJobId(document)
+  if (jobId === 'Not assigned') return null
+  return { label: extractionJobEvidenceLabel(document), value: jobId }
 }
 
 function exportReadinessFor(
@@ -1430,12 +1462,12 @@ function exportReadinessFor(
     return {
       label: 'Export waiting',
       tone: 'info',
-      cause: 'OCR has not produced statement rows yet.',
+      cause: 'Extraction has not produced statement rows yet.',
       evidence: [
         { label: 'Document state', value: documentStateLabel(document.state) },
-        { label: 'Textract job ID', value: document.textractJobId ?? 'Not assigned' },
+        { label: extractionJobEvidenceLabel(document), value: displayExtractionJobId(document) },
       ],
-      nextAction: 'Wait for OCR to finish, then review exceptions before export.',
+      nextAction: 'Wait for extraction to finish, then review exceptions before export.',
       actions: [],
     }
   }
@@ -1695,7 +1727,7 @@ function queueSignal(
 ): string {
   if (document.state === 'failed') return 'Action needed'
   if (document.state === 'verified') return 'Storage verified'
-  if (document.state === 'processing') return 'OCR running'
+  if (document.state === 'processing') return 'Extraction running'
   if (isExpiringSoon) return 'Retention deadline near'
   if (document.state === 'ready') {
     return statement?.reconciles === false ? 'Needs review' : 'Ready for review'
