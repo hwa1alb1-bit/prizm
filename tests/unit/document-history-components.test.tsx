@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DocumentHistoryList,
   DocumentReview,
@@ -7,9 +7,26 @@ import {
   type HistoryDocumentView,
 } from '@/components/app/document-history'
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+const { fetchMock, refresh } = vi.hoisted(() => ({
+  fetchMock: vi.fn(),
+  refresh: vi.fn(),
 }))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh }),
+}))
+
+beforeEach(() => {
+  refresh.mockClear()
+  fetchMock.mockReset()
+  fetchMock.mockResolvedValue(statusResponse('processing'))
+  vi.stubGlobal('fetch', fetchMock)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('DocumentHistoryList', () => {
   it('renders an empty state before any document records exist', () => {
@@ -41,14 +58,14 @@ describe('DocumentHistoryList', () => {
     expect(screen.getAllByText('Waiting').length).toBeGreaterThan(0)
   })
 
-  it('shows long-running OCR evidence in history rows before statement extraction finishes', () => {
+  it('shows long-running extraction evidence in history rows before statement extraction finishes', () => {
     render(<DocumentHistoryList documents={[processingDocument()]} />)
 
     expect(screen.getAllByText('Processing').length).toBeGreaterThan(0)
-    expect(screen.getByText('OCR running')).toBeInTheDocument()
-    expect(screen.getByText('OCR completed')).toBeInTheDocument()
+    expect(screen.getByText('Extraction running')).toBeInTheDocument()
+    expect(screen.getByText('Extraction completed')).toBeInTheDocument()
     expect(
-      screen.getByText(/PRIZM has proven upload, S3 verification, and OCR start/),
+      screen.getByText(/PRIZM has proven upload, S3 verification, and extraction start/),
     ).toBeInTheDocument()
     expect(screen.getByText(/Textract job textract_job_123/)).toBeInTheDocument()
     expect(screen.getAllByText('Now').length).toBeGreaterThan(0)
@@ -104,13 +121,13 @@ describe('DocumentHistoryList', () => {
 })
 
 describe('DocumentReview', () => {
-  it('shows processing evidence with the Textract job id while OCR is running', () => {
+  it('shows processing evidence with the Textract job id while extraction is running', () => {
     render(<DocumentReview document={processingDocument()} />)
 
     expect(screen.getByRole('heading', { name: 'Evidence timeline' })).toBeInTheDocument()
     expect(screen.getByText('Upload requested')).toBeInTheDocument()
     expect(screen.getByText('S3 object verified')).toBeInTheDocument()
-    expect(screen.getByText('OCR completed')).toBeInTheDocument()
+    expect(screen.getByText('Extraction completed')).toBeInTheDocument()
     expect(screen.getByText('Statement extracted')).toBeInTheDocument()
     expect(screen.getByText('Export generated')).toBeInTheDocument()
     expect(screen.getByText('Deletion completed')).toBeInTheDocument()
@@ -120,7 +137,7 @@ describe('DocumentReview', () => {
     expect(
       screen.getByText(/PRIZM has proven the upload request, S3 object verification/),
     ).toBeInTheDocument()
-    expect(screen.getByText('Transaction rows pending OCR')).toBeInTheDocument()
+    expect(screen.getByText('Transaction rows pending extraction')).toBeInTheDocument()
     expect(screen.getAllByText('Textract job ID').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('textract_job_123').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('Trace ID').length).toBeGreaterThanOrEqual(2)
@@ -129,8 +146,40 @@ describe('DocumentReview', () => {
     expect(screen.getByText('document.processing_started')).toBeInTheDocument()
     expect(screen.getAllByText('Elapsed time')).toHaveLength(1)
     expect(screen.getAllByText('Retention deadline').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('Statement pending OCR')).toBeInTheDocument()
+    expect(screen.getByText('Statement extraction pending')).toBeInTheDocument()
     expect(screen.getAllByText('Export waiting').length).toBeGreaterThan(0)
+  })
+
+  it('shows Cloudflare extraction job evidence without Textract job copy', () => {
+    render(<DocumentReview document={cloudflareProcessingDocument()} />)
+
+    expect(screen.getAllByText('Cloudflare job ID').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('cf_job_123').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText(/Cloudflare extraction job cf_job_123 is attached/)).toBeInTheDocument()
+    expect(screen.queryByText('Textract job ID')).not.toBeInTheDocument()
+  })
+
+  it('polls document status and refreshes once when processing reaches a terminal state', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValue(statusResponse('ready'))
+
+    render(<DocumentReview document={processingDocument()} />)
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/documents/doc_processing/status', {
+      cache: 'no-store',
+    })
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000)
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('renders the extracted statement review surface for dense accounting work', () => {
@@ -211,16 +260,16 @@ describe('DocumentReview', () => {
     expect(screen.getByText(/Upload the original PDF again/)).toBeInTheDocument()
   })
 
-  it('shows distinct recovery for OCR start and OCR processing failures', () => {
+  it('shows distinct recovery for extraction start and extraction processing failures', () => {
     const { rerender } = render(<DocumentReview document={failedDocument()} />)
 
-    expect(screen.getAllByText('OCR start failed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Extraction start failed').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Textract analysis could not be started/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('trace_failed').length).toBeGreaterThan(0)
 
     rerender(<DocumentReview document={ocrProcessingFailedDocument()} />)
 
-    expect(screen.getAllByText('OCR processing failed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Extraction processing failed').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Textract job failed during OCR processing/).length).toBeGreaterThan(
       0,
     )
@@ -271,6 +320,13 @@ describe('DocumentStateBadge', () => {
   })
 })
 
+function statusResponse(state: string): Response {
+  return new Response(JSON.stringify({ state }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 function historyDocument(): HistoryDocumentView {
   return {
     id: 'doc_ready',
@@ -285,7 +341,9 @@ function historyDocument(): HistoryDocumentView {
     pages: 4,
     s3Bucket: 'prizm-uploads',
     s3Key: 'workspace/doc/May_Statement.pdf',
-    textractJobId: 'textract-123',
+    extractionEngine: 'textract',
+    extractionJobId: 'textract_job_123',
+    textractJobId: 'textract_job_123',
     statements: [
       {
         id: 'statement_123',
@@ -361,6 +419,8 @@ function verifiedDocument(): HistoryDocumentView {
     id: 'doc_verified',
     filename: 'Verified Statement.pdf',
     state: 'verified',
+    extractionEngine: null,
+    extractionJobId: null,
     textractJobId: null,
     statements: [],
     auditEvents: [
@@ -383,6 +443,8 @@ function processingDocument(): HistoryDocumentView {
     id: 'doc_processing',
     filename: 'Processing Statement.pdf',
     state: 'processing',
+    extractionEngine: 'textract',
+    extractionJobId: 'textract_job_123',
     textractJobId: 'textract_job_123',
     statements: [],
     auditEvents: [
@@ -414,6 +476,8 @@ function failedDocument(): HistoryDocumentView {
     filename: 'June Statement.pdf',
     state: 'failed',
     failureReason: 'Textract analysis could not be started for the verified upload.',
+    extractionEngine: null,
+    extractionJobId: null,
     textractJobId: null,
     statements: [],
     auditEvents: [
@@ -446,7 +510,19 @@ function ocrProcessingFailedDocument(): HistoryDocumentView {
     id: 'doc_ocr_processing_failed',
     filename: 'OCR Processing Failed.pdf',
     failureReason: 'Textract job failed during OCR processing.',
+    extractionEngine: 'textract',
+    extractionJobId: 'textract_failed_123',
     textractJobId: 'textract_failed_123',
+  }
+}
+
+function cloudflareProcessingDocument(): HistoryDocumentView {
+  return {
+    ...processingDocument(),
+    id: 'doc_cloudflare_processing',
+    extractionEngine: 'cloudflare-r2',
+    extractionJobId: 'cf_job_123',
+    textractJobId: null,
   }
 }
 
