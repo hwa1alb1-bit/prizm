@@ -132,6 +132,25 @@ const trustControls = [
   { label: 'Retention', value: '24-hour auto-delete with request evidence' },
 ]
 
+const processingStages = [
+  {
+    label: 'Reading document',
+    detail: 'Statement pages and account sections enter the extraction record.',
+  },
+  {
+    label: 'Detecting transactions',
+    detail: 'Dates, descriptions, amounts, and balances resolve into columns.',
+  },
+  {
+    label: 'Checking balances',
+    detail: 'Rows are prepared for review with reconciliation evidence visible.',
+  },
+  {
+    label: 'Preparing export',
+    detail: 'Spreadsheet formats wait for the review record to be ready.',
+  },
+]
+
 export default function UploadPage() {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -501,6 +520,7 @@ export default function UploadPage() {
                   pendingPreflight={pendingPreflight}
                 />
               </div>
+              <ProcessingAnimation state={state} />
             </div>
           </div>
 
@@ -880,6 +900,78 @@ function WorkflowPanel({ currentState }: { currentState: UploadState }) {
           )
         })}
       </ol>
+    </section>
+  )
+}
+
+function ProcessingAnimation({ state }: { state: UploadState }) {
+  const active =
+    state === 'completing' || state === 'converting' || state === 'polling' || state === 'done'
+  const activeIndex =
+    state === 'completing'
+      ? 0
+      : state === 'converting'
+        ? 1
+        : state === 'polling'
+          ? 2
+          : state === 'done'
+            ? 3
+            : -1
+
+  return (
+    <section
+      className="mt-5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4"
+      aria-label="Processing animation"
+    >
+      <div className="grid gap-4 lg:grid-cols-[13rem_1fr] lg:items-center">
+        <div className="relative overflow-hidden rounded-md border border-[var(--border-subtle)] bg-background p-3">
+          <div
+            className={`processing-scan-line absolute inset-y-0 w-12 bg-[color-mix(in_oklch,var(--accent)_22%,transparent)] ${
+              active ? '' : 'opacity-0'
+            }`}
+            aria-hidden="true"
+          />
+          <div className="space-y-2" aria-hidden="true">
+            {[0, 1, 2, 3].map((row) => (
+              <div
+                key={row}
+                className={`processing-row grid grid-cols-[2.8rem_1fr_3.5rem] gap-2 ${
+                  active ? '' : 'opacity-70'
+                }`}
+                style={{ '--row-index': row } as React.CSSProperties}
+              >
+                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
+                <span className="h-2 rounded-full bg-[var(--border-subtle)]" />
+                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
+            Document to table
+          </p>
+          <p className="mt-1 text-sm text-foreground/65">
+            The extraction record stays visible while rows resolve into spreadsheet columns.
+          </p>
+          <ol className="mt-4 grid gap-2 sm:grid-cols-2">
+            {processingStages.map((stage, index) => (
+              <li
+                key={stage.label}
+                className={`rounded-md border px-3 py-2 ${
+                  index <= activeIndex
+                    ? 'border-[var(--accent)] bg-background'
+                    : 'border-[var(--border-subtle)] bg-transparent'
+                }`}
+              >
+                <p className="text-sm font-semibold">{stage.label}</p>
+                <p className="mt-1 text-xs leading-5 text-foreground/60">{stage.detail}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
     </section>
   )
 }

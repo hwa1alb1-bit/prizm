@@ -78,6 +78,11 @@ describe('UploadPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Drop a PDF statement here')).toBeInTheDocument()
     expect(screen.getByText(/Choose a bank or credit-card statement PDF/)).toBeInTheDocument()
+    expect(screen.getByText('Reading document')).toBeInTheDocument()
+    expect(screen.getByText('Detecting transactions')).toBeInTheDocument()
+    expect(screen.getByText('Checking balances')).toBeInTheDocument()
+    expect(screen.getByText('Preparing export')).toBeInTheDocument()
+    expect(screen.getAllByText(/extraction record/).length).toBeGreaterThan(0)
 
     await userEvent.upload(
       input,
