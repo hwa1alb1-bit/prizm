@@ -41,7 +41,8 @@ export default function HistoryLoading() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
-                {['OCR evidence pending', 'Audit records pending', 'Retention proof pending'].map(
+                {/* SECURITY-AUDIT: renamed OCR evidence pending to Conversion evidence pending */}
+                {['Conversion evidence pending', 'Audit records pending', 'Retention proof pending'].map(
                   (status, index) => (
                     <tr key={status}>
                       <td className="px-4 py-4 align-top">
@@ -56,13 +57,14 @@ export default function HistoryLoading() {
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="space-y-2" aria-label="Evidence timeline loading">
+                          {/* SECURITY-AUDIT: redacted S3/OCR/Export-generated skeleton timeline labels */}
                           {[
                             'Upload requested',
-                            'S3 object verified',
-                            'OCR started',
-                            'OCR completed',
+                            'Document verified',
+                            'Reading document',
+                            'Document read',
                             'Statement extracted',
-                            'Export generated',
+                            'Export ready',
                             'Deletion completed',
                           ].map((label, stepIndex) => (
                             <div

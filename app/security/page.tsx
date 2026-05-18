@@ -22,8 +22,9 @@ export default function SecurityPage() {
           <h2 className="text-xl font-semibold">Active Controls</h2>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground/70">
             <li>Authenticated application routes use Supabase-backed server checks.</li>
-            <li>Public API errors use RFC 7807 problem responses with request and trace IDs.</li>
-            <li>Uploads are presigned server-side and configured for S3 KMS encryption.</li>
+            {/* SECURITY-AUDIT: removed RFC 7807 request/trace ID detail and S3/KMS naming from product copy */}
+            <li>Structured error responses for support diagnostics.</li>
+            <li>Uploads are encrypted in transit and at rest.</li>
             <li>Provider and Ops Dashboard data is fetched server-side, not from the browser.</li>
             <li>Security headers and CSP are configured in the Next.js deployment.</li>
           </ul>
