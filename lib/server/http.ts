@@ -87,6 +87,31 @@ export function getClientIp(request: Request): string | null {
   return null
 }
 
+export function crossOriginMutationProblem(
+  request: Request,
+  context: RouteContext,
+): ProblemInit | null {
+  const origin = request.headers.get('origin')
+  const fetchSite = request.headers.get('sec-fetch-site')
+
+  if (fetchSite === 'cross-site') {
+    return csrfProblem()
+  }
+
+  if (!origin) return null
+
+  try {
+    if (new URL(origin).origin === new URL(request.url).origin) return null
+  } catch {
+    return csrfProblem()
+  }
+
+  return {
+    ...csrfProblem(),
+    detail: `Cross-origin mutations are not accepted for ${context.pathname}.`,
+  }
+}
+
 function normalizeRequestId(value: string | null): string | null {
   if (!value) return null
   const trimmed = value.trim()
@@ -99,4 +124,13 @@ function extractTraceId(sentryTrace: string | null): string | null {
   if (!sentryTrace) return null
   const traceId = sentryTrace.split('-')[0]
   return TRACE_ID_PATTERN.test(traceId) ? traceId : null
+}
+
+function csrfProblem(): ProblemInit {
+  return {
+    status: 403,
+    code: 'PRZM_CSRF_ORIGIN_MISMATCH',
+    title: 'Cross-origin request rejected',
+    detail: 'Cross-origin mutations are not accepted.',
+  }
 }

@@ -23,6 +23,8 @@ export type CompletionDocument = {
   storageKey: string | null
   textractJobId: string | null
   failureReason: string | null
+  expiresAt: string
+  deletedAt: string | null
 }
 
 export type CompletionProfile = {
@@ -77,6 +79,7 @@ export type CompleteDocumentUploadFailure = {
     | 's3_metadata_mismatch'
     | 's3_verification_failed'
     | 'transition_failed'
+    | 'expired'
   status: number
   code: string
   title: string
@@ -141,6 +144,8 @@ type DocumentRow = {
   storage_key: string | null
   textract_job_id: string | null
   failure_reason: string | null
+  expires_at: string
+  deleted_at: string | null
 }
 
 const COMPLETION_ROLES = new Set(['owner', 'admin', 'member'])
@@ -156,6 +161,7 @@ export async function completeDocumentUpload(
   const document = await deps.getDocument(input.documentId)
   if (!document) return completionProblem('not_found')
   if (document.workspaceId !== profile.workspaceId) return completionProblem('forbidden')
+  if (document.deletedAt || isExpired(document.expiresAt)) return completionProblem('expired')
 
   if (isAlreadyCompleted(document)) {
     return {
@@ -267,6 +273,8 @@ async function getDocumentForCompletion(documentId: string): Promise<CompletionD
         'storage_key',
         'textract_job_id',
         'failure_reason',
+        'expires_at',
+        'deleted_at',
       ].join(', '),
     )
     .eq('id', documentId)
@@ -555,6 +563,15 @@ function completionProblem(
         title: 'Document state could not be recorded',
         detail: 'The verified upload could not be recorded safely.',
       }
+    case 'expired':
+      return {
+        ok: false,
+        reason,
+        status: 410,
+        code: 'PRZM_DOCUMENT_EXPIRED',
+        title: 'Document expired',
+        detail: 'This document is outside the active retention window.',
+      }
   }
 }
 
@@ -574,6 +591,8 @@ function documentFromRow(row: DocumentRow): CompletionDocument {
     storageKey: row.storage_key,
     textractJobId: row.textract_job_id,
     failureReason: row.failure_reason,
+    expiresAt: row.expires_at,
+    deletedAt: row.deleted_at,
   }
 }
 
@@ -601,6 +620,10 @@ function normalizeContentType(value: string | undefined): string | undefined {
 
 function kmsKeyMatches(actual: string, expected: string): boolean {
   return actual === expected || actual.endsWith(`/${expected}`) || expected.endsWith(`/${actual}`)
+}
+
+function isExpired(value: string): boolean {
+  return new Date(value).getTime() <= Date.now()
 }
 
 function isS3NotFound(err: unknown): boolean {

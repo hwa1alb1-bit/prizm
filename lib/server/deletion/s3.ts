@@ -6,6 +6,11 @@ import {
   HeadObjectCommand,
   type S3Client,
 } from '@aws-sdk/client-s3'
+import {
+  createDocumentStorageClient,
+  storageConfigForProvider,
+  type DocumentStorageProvider,
+} from '../document-storage'
 import { getS3Client, getUploadBucket } from '../s3'
 
 export type S3DeletionState = 'deleted' | 'absent'
@@ -15,26 +20,35 @@ export type S3DeletionResult =
   | { ok: false; errorCode: 's3_delete_failed' | 's3_object_still_present' }
 
 export async function deleteOrVerifyS3Object(input: {
+  storageProvider?: DocumentStorageProvider
   bucket: string
   key: string
+  storageBucket?: string
+  storageKey?: string
 }): Promise<S3DeletionResult> {
-  const client = getS3Client()
+  const provider = input.storageProvider ?? 's3'
+  const bucket = input.storageBucket ?? input.bucket
+  const key = input.storageKey ?? input.key
+  const client =
+    provider === 's3'
+      ? getS3Client()
+      : createDocumentStorageClient(storageConfigForProvider(provider))
 
   try {
-    await client.send(new HeadObjectCommand({ Bucket: input.bucket, Key: input.key }))
+    await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }))
   } catch (err) {
     if (isS3NotFound(err)) return { ok: true, state: 'absent' }
     return { ok: false, errorCode: 's3_delete_failed' }
   }
 
   try {
-    await client.send(new DeleteObjectCommand({ Bucket: input.bucket, Key: input.key }))
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
   } catch {
     return { ok: false, errorCode: 's3_delete_failed' }
   }
 
   try {
-    await client.send(new HeadObjectCommand({ Bucket: input.bucket, Key: input.key }))
+    await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }))
     return { ok: false, errorCode: 's3_object_still_present' }
   } catch (err) {
     if (isS3NotFound(err)) return { ok: true, state: 'deleted' }

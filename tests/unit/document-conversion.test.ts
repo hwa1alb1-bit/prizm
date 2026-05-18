@@ -30,6 +30,15 @@ describe('convertDocument', () => {
         costCredits: 1,
       }),
     )
+    expect(deps.claimProcessingStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc_123',
+        chargeStatus: 'reserved',
+      }),
+    )
+    expect(deps.claimProcessingStart.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.startExtraction.mock.invocationCallOrder[0],
+    )
     expect(deps.startExtraction).toHaveBeenCalledWith({
       documentId: 'doc_123',
       s3Bucket: 'prizm-uploads-test',
@@ -63,6 +72,38 @@ describe('convertDocument', () => {
     })
     expect(deps.startExtraction).not.toHaveBeenCalled()
     expect(deps.markProcessingStarted).not.toHaveBeenCalled()
+  })
+
+  it('does not start extraction when another request already claimed processing', async () => {
+    const deps = createDependencies()
+    deps.claimProcessingStart.mockRejectedValueOnce(new Error('document_processing_claim_failed'))
+
+    const result = await convertDocument(conversionInput(), deps)
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'transition_failed',
+      status: 500,
+    })
+    expect(deps.startExtraction).not.toHaveBeenCalled()
+    expect(deps.releaseCreditReservation).not.toHaveBeenCalled()
+  })
+
+  it('rejects expired verified documents before reserving credits', async () => {
+    const deps = createDependencies({
+      document: documentRow({ expiresAt: '2026-05-05T00:00:00.000Z' }),
+    })
+
+    const result = await convertDocument(conversionInput(), deps)
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'expired',
+      status: 410,
+      code: 'PRZM_DOCUMENT_EXPIRED',
+    })
+    expect(deps.reserveCredit).not.toHaveBeenCalled()
+    expect(deps.startExtraction).not.toHaveBeenCalled()
   })
 
   it('releases a reserved credit when extraction cannot be started', async () => {
@@ -258,6 +299,7 @@ function createDependencies(overrides: { document?: ConversionDocument | null } 
     getDocument: vi.fn().mockResolvedValue(overrides.document ?? documentRow()),
     reserveCredit: vi.fn().mockResolvedValue({ ok: true, chargeStatus: 'reserved' }),
     releaseCreditReservation: vi.fn().mockResolvedValue(undefined),
+    claimProcessingStart: vi.fn().mockResolvedValue(undefined),
     startExtraction: vi.fn().mockResolvedValue({
       engine: 'textract',
       jobId: 'textract_job_123',
@@ -284,6 +326,8 @@ function documentRow(overrides: Partial<ConversionDocument> = {}): ConversionDoc
     chargeStatus: 'quoted',
     conversionCostCredits: 1,
     failureReason: null,
+    expiresAt: '2099-01-01T00:00:00.000Z',
+    deletedAt: null,
     ...overrides,
   }
 }

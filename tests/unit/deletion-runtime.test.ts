@@ -69,6 +69,9 @@ describe('runDeletionSweep', () => {
         uploadedBy: 'user_123',
         recipientEmail: 'owner@example.com',
         filename: 'May Statement.pdf',
+        storageProvider: 'r2',
+        storageBucket: 'prizm-r2-uploads',
+        storageKey: 'user_123/doc_123/May_Statement.pdf',
         s3Bucket: 'prizm-uploads-test',
         s3Key: 'user_123/doc_123/May_Statement.pdf',
         expiresAt: '2026-05-06T00:00:00.000Z',
@@ -106,8 +109,11 @@ describe('runDeletionSweep', () => {
       failures: [],
     })
     expect(deleteOrVerifyS3ObjectMock).toHaveBeenCalledWith({
+      storageProvider: 'r2',
       bucket: 'prizm-uploads-test',
       key: 'user_123/doc_123/May_Statement.pdf',
+      storageBucket: 'prizm-r2-uploads',
+      storageKey: 'user_123/doc_123/May_Statement.pdf',
     })
     expect(markStatementsDeletedForDocumentMock).toHaveBeenCalledWith({
       documentId: 'doc_123',
@@ -130,6 +136,7 @@ describe('runDeletionSweep', () => {
       metadata: {
         trigger: 'test',
         s3_state: 'deleted',
+        storage_provider: 'r2',
         expires_at: '2026-05-06T00:00:00.000Z',
       },
     })

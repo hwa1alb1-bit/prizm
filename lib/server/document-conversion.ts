@@ -38,6 +38,8 @@ export type ConversionDocument = {
   chargeStatus: string | null
   conversionCostCredits: number | null
   failureReason: string | null
+  expiresAt: string
+  deletedAt: string | null
 }
 
 export type ConvertDocumentInput = {
@@ -72,6 +74,7 @@ export type ConvertDocumentFailure = {
     | 'reservation_failed'
     | 'textract_start_failed'
     | 'transition_failed'
+    | 'expired'
   status: number
   code: string
   title: string
@@ -87,6 +90,7 @@ export type DocumentConversionDependencies = {
   getDocument: (documentId: string) => Promise<ConversionDocument | null>
   reserveCredit: (input: ReserveCreditInput) => Promise<ReserveCreditResult>
   releaseCreditReservation: (input: { documentId: string; releasedAt: string }) => Promise<void>
+  claimProcessingStart: (input: ProcessingClaimInput) => Promise<void>
   startExtraction: (input: {
     documentId: string
     s3Bucket: string
@@ -101,6 +105,10 @@ export type DocumentConversionDependencies = {
 
 export type ReserveCreditInput = ConversionAuditInput & {
   costCredits: number
+}
+
+export type ProcessingClaimInput = ConversionAuditInput & {
+  chargeStatus: string
 }
 
 export type ProcessingStartedInput = ConversionAuditInput & {
@@ -144,10 +152,13 @@ type DocumentRow = {
   charge_status: string | null
   conversion_cost_credits: number | null
   failure_reason: string | null
+  expires_at: string
+  deleted_at: string | null
 }
 
 type DocumentUpdateQuery = {
   eq: (column: string, value: string) => DocumentUpdateQuery
+  in: (column: string, values: string[]) => DocumentUpdateQuery
   select: (columns: string) => DocumentUpdateQuery
   maybeSingle: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>
 }
@@ -163,6 +174,7 @@ export async function convertDocument(
   const document = await deps.getDocument(input.documentId)
   if (!document) return conversionProblem('not_found')
   if (document.workspaceId !== profile.workspaceId) return conversionProblem('forbidden')
+  if (document.deletedAt || isExpired(document.expiresAt)) return conversionProblem('expired')
 
   const activeJobId = document.extractionJobId ?? document.textractJobId
   const activeEngine = document.extractionEngine ?? (activeJobId ? 'textract' : null)
@@ -196,6 +208,15 @@ export async function convertDocument(
   })
 
   if (!reservation.ok) return conversionProblem(reservation.reason)
+
+  try {
+    await deps.claimProcessingStart({
+      ...audit,
+      chargeStatus: reservation.chargeStatus,
+    })
+  } catch {
+    return conversionProblem('transition_failed')
+  }
 
   let extraction: ExtractionStartResult
   try {
@@ -267,6 +288,7 @@ function createDocumentConversionDependencies(): DocumentConversionDependencies 
     getDocument: getDocumentForConversion,
     reserveCredit,
     releaseCreditReservation,
+    claimProcessingStart,
     startExtraction,
     markProcessingStarted,
     markProcessingFailed,
@@ -307,6 +329,8 @@ async function getDocumentForConversion(documentId: string): Promise<ConversionD
         'charge_status',
         'conversion_cost_credits',
         'failure_reason',
+        'expires_at',
+        'deleted_at',
       ].join(', '),
     )
     .eq('id', documentId)
@@ -347,6 +371,28 @@ async function startExtraction(input: {
   return createDefaultExtractionEngine().start(input)
 }
 
+async function claimProcessingStart(input: ProcessingClaimInput): Promise<void> {
+  const client = getServiceRoleClient() as unknown as {
+    from: (table: 'document') => {
+      update: (values: Record<string, unknown>) => DocumentUpdateQuery
+    }
+  }
+
+  const { data, error } = await client
+    .from('document')
+    .update({
+      status: 'processing',
+      charge_status: input.chargeStatus,
+      failure_reason: null,
+    })
+    .eq('id', input.documentId)
+    .eq('status', 'verified')
+    .select('id')
+    .maybeSingle()
+
+  if (error || !data) throw new Error('document_processing_claim_failed')
+}
+
 async function markProcessingStarted(input: ProcessingStartedInput): Promise<void> {
   const client = getServiceRoleClient() as unknown as {
     from: (table: 'document') => {
@@ -365,7 +411,7 @@ async function markProcessingStarted(input: ProcessingStartedInput): Promise<voi
       failure_reason: null,
     })
     .eq('id', input.documentId)
-    .eq('status', 'verified')
+    .eq('status', 'processing')
     .select('id')
     .maybeSingle()
 
@@ -404,7 +450,7 @@ async function markProcessingFailed(input: ProcessingFailedInput): Promise<void>
       failure_reason: input.failureReason,
     })
     .eq('id', input.documentId)
-    .eq('status', 'verified')
+    .in('status', ['verified', 'processing'])
     .select('id')
     .maybeSingle()
 
@@ -457,7 +503,13 @@ function documentFromRow(row: DocumentRow): ConversionDocument {
     chargeStatus: row.charge_status,
     conversionCostCredits: row.conversion_cost_credits,
     failureReason: row.failure_reason,
+    expiresAt: row.expires_at,
+    deletedAt: row.deleted_at,
   }
+}
+
+function isExpired(value: string): boolean {
+  return new Date(value).getTime() <= Date.now()
 }
 
 function conversionProblem(reason: ConvertDocumentFailure['reason']): ConvertDocumentFailure {
@@ -533,6 +585,15 @@ function conversionProblem(reason: ConvertDocumentFailure['reason']): ConvertDoc
         code: 'PRZM_INTERNAL_DOCUMENT_TRANSITION_FAILED',
         title: 'Document state could not be recorded',
         detail: 'The conversion state could not be recorded safely.',
+      }
+    case 'expired':
+      return {
+        ok: false,
+        reason,
+        status: 410,
+        code: 'PRZM_DOCUMENT_EXPIRED',
+        title: 'Document expired',
+        detail: 'This document is outside the active retention window.',
       }
   }
 }

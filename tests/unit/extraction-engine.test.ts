@@ -166,6 +166,32 @@ describe('Kotlin worker extraction engine', () => {
     )
   })
 
+  it('fails closed when worker output exceeds the normalized transaction limit', async () => {
+    const worker = workerReturning({
+      ...kotlinBankFixture,
+      statements: [
+        {
+          ...kotlinBankFixture.statements[0],
+          transactions: Array.from({ length: 5001 }, (_, index) => ({
+            date: '2026-05-01',
+            description: `Transaction ${index}`,
+            amount: 1,
+            confidence: 0.99,
+          })),
+        },
+      ],
+    })
+
+    const result = await createKotlinWorkerExtractionEngine({ worker }).poll({
+      jobId: 'worker_large_123',
+    })
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      failureReason: 'Kotlin worker returned invalid normalized statement data.',
+    })
+  })
+
   it('keeps the Cloudflare R2 engine name when worker output is invalid', async () => {
     const worker = workerReturning(null)
 

@@ -1,6 +1,12 @@
 import 'server-only'
 
-import { createRouteContext, getClientIp, jsonResponse, problemResponse } from './http'
+import {
+  createRouteContext,
+  crossOriginMutationProblem,
+  getClientIp,
+  jsonResponse,
+  problemResponse,
+} from './http'
 import { createPrivacyRequest, type PrivacyRequestType } from './privacy-requests'
 import { rateLimit, type RateLimitResult } from './ratelimit'
 import { withRateLimitHeaders } from './route-rate-limit'
@@ -22,6 +28,9 @@ export async function handlePrivacyRequestRoute(
   config: PrivacyRequestRouteConfig,
 ): Promise<Response> {
   const context = createRouteContext(req)
+  const originProblem = crossOriginMutationProblem(req, context)
+  if (originProblem) return problemResponse(context, originProblem)
+
   const auth = await requireOwnerOrAdminUser()
 
   if (!auth.ok) return problemResponse(context, auth.problem)

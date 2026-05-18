@@ -606,7 +606,11 @@ async function xlsxFor(rows: ExportRow[]): Promise<Uint8Array> {
   const worksheet = workbook.addWorksheet('Statement')
   worksheet.addRow(['Date', 'Description', 'Debit', 'Credit', 'Amount', 'Balance'])
   for (const row of rows) {
-    worksheet.addRow([row.date, row.description, row.debit, row.credit, row.amount, row.balance])
+    worksheet.addRow(
+      [row.date, row.description, row.debit, row.credit, row.amount, row.balance].map(
+        spreadsheetSafeCell,
+      ),
+    )
   }
   worksheet.columns = [
     { key: 'date', width: 14 },
@@ -653,8 +657,20 @@ function csv(rows: string[][]): string {
 }
 
 function csvCell(value: string): string {
-  if (!/[",\r\n]/.test(value)) return value
-  return `"${value.replaceAll('"', '""')}"`
+  const safeValue = spreadsheetSafeCell(value)
+  if (!/[",\r\n]/.test(safeValue)) return safeValue
+  return `"${safeValue.replaceAll('"', '""')}"`
+}
+
+function spreadsheetSafeCell(value: string): string {
+  if (value.length === 0) return value
+  const first = value[0]
+  if (first === '-' && isNumericLiteral(value)) return value
+  return first && /^[=+\-@\t\r\n]$/.test(first) ? `'${value}` : value
+}
+
+function isNumericLiteral(value: string): boolean {
+  return /^-\d+(?:\.\d+)?$/.test(value.trim())
 }
 
 function exportRows(value: Json, statementType: string | null | undefined): ExportRow[] {
