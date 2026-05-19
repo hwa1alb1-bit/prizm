@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  absoluteUrl,
   buildBreadcrumbJsonLd,
   buildFaqJsonLd,
   buildOrganizationJsonLd,
   buildPageMetadata,
   buildSoftwareApplicationJsonLd,
   publicSitemapRoutes,
+  siteUrl,
 } from '@/lib/seo/site'
 
 describe('SEO metadata helpers', () => {
@@ -19,7 +21,7 @@ describe('SEO metadata helpers', () => {
 
     expect(metadata.alternates?.canonical).toBe('/bank-statement-converter')
     expect(metadata.openGraph?.title).toBe('Bank Statement Converter to Excel | PrizmView')
-    expect(metadata.openGraph?.url).toBe('https://prizmview.app/bank-statement-converter')
+    expect(metadata.openGraph?.url).toBe(absoluteUrl('/bank-statement-converter'))
     expect(metadata.openGraph?.siteName).toBe('PrizmView')
     expect(metadata.twitter).toMatchObject({ card: 'summary_large_image' })
   })
@@ -37,7 +39,7 @@ describe('SEO metadata helpers', () => {
     expect(buildOrganizationJsonLd()).toMatchObject({
       '@type': 'Organization',
       name: 'PrizmView',
-      url: 'https://prizmview.app',
+      url: siteUrl,
     })
 
     expect(
@@ -52,13 +54,13 @@ describe('SEO metadata helpers', () => {
           '@type': 'ListItem',
           position: 1,
           name: 'Home',
-          item: 'https://prizmview.app/',
+          item: absoluteUrl('/'),
         },
         {
           '@type': 'ListItem',
           position: 2,
           name: 'FAQ',
-          item: 'https://prizmview.app/faq/bank-statement-conversion',
+          item: absoluteUrl('/faq/bank-statement-conversion'),
         },
       ],
     })
