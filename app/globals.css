@@ -17,7 +17,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-product);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -40,11 +40,57 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-product: var(--font-montserrat), Arial, Helvetica, sans-serif;
+  font-family: var(--font-product);
   font-variant-numeric: tabular-nums;
 }
 
 ::selection {
   background: oklch(78% 0.08 185);
   color: oklch(15% 0.012 185);
+}
+
+@keyframes prizm-row-resolve {
+  0% {
+    opacity: 0.35;
+    transform: translateX(-6px);
+  }
+
+  55%,
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes prizm-scan-line {
+  0% {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+}
+
+.processing-row {
+  animation: prizm-row-resolve 1800ms cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  animation-delay: calc(var(--row-index, 0) * 140ms);
+}
+
+.processing-scan-line {
+  animation: prizm-scan-line 2200ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .processing-row,
+  .processing-scan-line {
+    animation: none;
+  }
 }

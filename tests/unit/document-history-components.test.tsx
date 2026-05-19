@@ -33,9 +33,7 @@ describe('DocumentHistoryList', () => {
     render(<DocumentHistoryList documents={[]} />)
 
     expect(screen.getByRole('heading', { name: 'No statements yet' })).toBeInTheDocument()
-    expect(
-      screen.getByText(/Upload a PDF statement to create the first document record/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Upload a PDF statement to start/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Upload statement' })).toHaveAttribute('href', '/app')
   })
 
@@ -50,9 +48,9 @@ describe('DocumentHistoryList', () => {
     expect(screen.getByText('Ready for review')).toBeInTheDocument()
     expect(screen.getByText('Evidence timeline')).toBeInTheDocument()
     expect(screen.getByText('Upload requested')).toBeInTheDocument()
-    expect(screen.getByText('S3 object verified')).toBeInTheDocument()
+    expect(screen.getByText('Document verified')).toBeInTheDocument()
     expect(screen.getByText('Statement extracted')).toBeInTheDocument()
-    expect(screen.getByText('Export generated')).toBeInTheDocument()
+    expect(screen.getByText('Export ready')).toBeInTheDocument()
     expect(screen.getByText('Deletion completed')).toBeInTheDocument()
     expect(screen.getAllByText('Proven').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Waiting').length).toBeGreaterThan(0)
@@ -65,9 +63,9 @@ describe('DocumentHistoryList', () => {
     expect(screen.getByText('Extraction running')).toBeInTheDocument()
     expect(screen.getByText('Extraction completed')).toBeInTheDocument()
     expect(
-      screen.getByText(/PRIZM has proven upload, S3 verification, and extraction start/),
+      screen.getByText(/PRIZM has proven upload, document verification, and conversion start/),
     ).toBeInTheDocument()
-    expect(screen.getByText(/Textract job textract_job_123/)).toBeInTheDocument()
+    expect(screen.getByText(/waiting for the conversion to complete/)).toBeInTheDocument()
     expect(screen.getAllByText('Now').length).toBeGreaterThan(0)
   })
 
@@ -77,7 +75,7 @@ describe('DocumentHistoryList', () => {
     expect(screen.getAllByText('Verified').length).toBeGreaterThan(0)
     expect(screen.getByText('Storage verified')).toBeInTheDocument()
     expect(screen.queryByText('Action needed')).not.toBeInTheDocument()
-    expect(screen.getByText('S3 object verified')).toBeInTheDocument()
+    expect(screen.getByText('Document verified')).toBeInTheDocument()
   })
 
   it('filters the queue by status and keeps counts visible', () => {
@@ -126,37 +124,38 @@ describe('DocumentReview', () => {
 
     expect(screen.getByRole('heading', { name: 'Evidence timeline' })).toBeInTheDocument()
     expect(screen.getByText('Upload requested')).toBeInTheDocument()
-    expect(screen.getByText('S3 object verified')).toBeInTheDocument()
+    expect(screen.getByText('Document verified')).toBeInTheDocument()
     expect(screen.getByText('Extraction completed')).toBeInTheDocument()
     expect(screen.getByText('Statement extracted')).toBeInTheDocument()
-    expect(screen.getByText('Export generated')).toBeInTheDocument()
+    expect(screen.getByText('Export ready')).toBeInTheDocument()
     expect(screen.getByText('Deletion completed')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Statement summary' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Transaction table' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Export readiness' })).toBeInTheDocument()
     expect(
-      screen.getByText(/PRIZM has proven the upload request, S3 object verification/),
+      screen.getByText(/PRIZM has proven the upload request, document verification/),
     ).toBeInTheDocument()
     expect(screen.getByText('Transaction rows pending extraction')).toBeInTheDocument()
-    expect(screen.getAllByText('Textract job ID').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('textract_job_123').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getAllByText('Trace ID').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getAllByText('0123456789abcdef0123456789abcdef').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('document.upload_completed')).toBeInTheDocument()
-    expect(screen.getByText('document.processing_started')).toBeInTheDocument()
+    expect(screen.queryByText('Textract job ID')).not.toBeInTheDocument()
+    expect(screen.queryByText('textract_job_123')).not.toBeInTheDocument()
+    expect(screen.queryByText('Trace ID')).not.toBeInTheDocument()
+    expect(screen.queryByText('0123456789abcdef0123456789abcdef')).not.toBeInTheDocument()
+    expect(screen.getByText('Upload complete')).toBeInTheDocument()
+    expect(screen.getByText('Processing started')).toBeInTheDocument()
     expect(screen.getAllByText('Elapsed time')).toHaveLength(1)
     expect(screen.getAllByText('Retention deadline').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Statement extraction pending')).toBeInTheDocument()
     expect(screen.getAllByText('Export waiting').length).toBeGreaterThan(0)
   })
 
-  it('shows Cloudflare extraction job evidence without Textract job copy', () => {
+  it('shows conversion evidence without vendor extraction job copy', () => {
     render(<DocumentReview document={cloudflareProcessingDocument()} />)
 
-    expect(screen.getAllByText('Cloudflare job ID').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('cf_job_123').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText(/Cloudflare extraction job cf_job_123 is attached/)).toBeInTheDocument()
+    expect(screen.queryByText('Cloudflare job ID')).not.toBeInTheDocument()
+    expect(screen.queryByText('cf_job_123')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Cloudflare extraction job/)).not.toBeInTheDocument()
     expect(screen.queryByText('Textract job ID')).not.toBeInTheDocument()
+    expect(screen.getByText(/Conversion is in progress for this document/)).toBeInTheDocument()
   })
 
   it('polls document status and refreshes once when processing reaches a terminal state', async () => {
@@ -196,6 +195,35 @@ describe('DocumentReview', () => {
     expect(screen.getAllByText('Ready to export').length).toBeGreaterThan(0)
   })
 
+  it('keeps primary sections visible and collapses system-detail behind disclosure', () => {
+    render(<DocumentReview document={historyDocument()} />)
+
+    expect(screen.getByRole('heading', { name: 'Statement summary' }).closest('details')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Transaction table' }).closest('details')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Export readiness' }).closest('details')).toBeNull()
+
+    expect(
+      screen.getByRole('heading', { name: 'Audit trail' }).closest('details'),
+    ).not.toHaveAttribute('open')
+    expect(
+      screen.getByRole('heading', { name: 'Document record' }).closest('details'),
+    ).not.toHaveAttribute('open')
+    expect(
+      screen.getByRole('heading', { name: 'Exceptions' }).closest('details'),
+    ).not.toHaveAttribute('open')
+  })
+
+  it('auto-opens exceptions and reconciliation when they need attention', () => {
+    render(<DocumentReview document={incompleteMismatchDocument()} />)
+
+    expect(screen.getByRole('heading', { name: 'Exceptions' }).closest('details')).toHaveAttribute(
+      'open',
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Reconciliation result' }).closest('details'),
+    ).toHaveAttribute('open')
+  })
+
   it('renders credit-card statement metadata and visible export actions', () => {
     render(<DocumentReview document={creditCardDocument()} />)
 
@@ -209,22 +237,10 @@ describe('DocumentReview', () => {
     expect(screen.getByText('Rewards earned')).toBeInTheDocument()
     expect(screen.getByText('Fees charged')).toBeInTheDocument()
     expect(screen.getByText('Interest charged')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute(
-      'href',
-      '/api/v1/documents/doc_credit_card/export?format=csv',
-    )
-    expect(screen.getByRole('link', { name: 'XLSX' })).toHaveAttribute(
-      'href',
-      '/api/v1/documents/doc_credit_card/export?format=xlsx',
-    )
-    expect(screen.getByRole('link', { name: 'QuickBooks CSV' })).toHaveAttribute(
-      'href',
-      '/api/v1/documents/doc_credit_card/export?format=quickbooks_csv',
-    )
-    expect(screen.getByRole('link', { name: 'Xero CSV' })).toHaveAttribute(
-      'href',
-      '/api/v1/documents/doc_credit_card/export?format=xero_csv',
-    )
+    expect(screen.getByRole('button', { name: 'CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'XLSX' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'QuickBooks CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Xero CSV' })).toBeInTheDocument()
   })
 
   it('blocks visible export actions until statement review is complete', () => {
@@ -234,8 +250,8 @@ describe('DocumentReview', () => {
     expect(
       screen.getByText('Statement review must be completed before export.'),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'CSV' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'XLSX' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'CSV' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'XLSX' })).not.toBeInTheDocument()
   })
 
   it('blocks visible export actions when review status is missing', () => {
@@ -245,18 +261,19 @@ describe('DocumentReview', () => {
     expect(
       screen.getByText('Statement review must be completed before export.'),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'CSV' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'CSV' })).not.toBeInTheDocument()
   })
 
   it('shows distinct recovery for S3 verification failure', () => {
     render(<DocumentReview document={s3VerificationFailedDocument()} />)
 
     expect(screen.getByRole('heading', { name: 'Failure recovery' })).toBeInTheDocument()
-    expect(screen.getAllByText('S3 verification failed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Document verification failed').length).toBeGreaterThan(0)
     expect(
-      screen.getAllByText(/S3 object metadata did not match the pending upload record/).length,
+      screen.getAllByText(/The uploaded document did not match the pending record/).length,
     ).toBeGreaterThan(0)
-    expect(screen.getAllByText('req_failed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('doc_s3_failed').length).toBeGreaterThan(0)
+    expect(screen.queryByText('req_failed')).not.toBeInTheDocument()
     expect(screen.getByText(/Upload the original PDF again/)).toBeInTheDocument()
   })
 
@@ -264,16 +281,16 @@ describe('DocumentReview', () => {
     const { rerender } = render(<DocumentReview document={failedDocument()} />)
 
     expect(screen.getAllByText('Extraction start failed').length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Textract analysis could not be started/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('trace_failed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Conversion could not be started/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('trace_failed')).not.toBeInTheDocument()
 
     rerender(<DocumentReview document={ocrProcessingFailedDocument()} />)
 
     expect(screen.getAllByText('Extraction processing failed').length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Textract job failed during OCR processing/).length).toBeGreaterThan(
-      0,
-    )
-    expect(screen.getAllByText('textract_failed_123').length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/Conversion failed while reading the document/).length,
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText('textract_failed_123')).not.toBeInTheDocument()
   })
 
   it('shows extraction incomplete and reconciliation mismatch recovery before export', () => {

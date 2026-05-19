@@ -31,10 +31,10 @@ export default function PrivacyPage() {
 
       <TrustSection title="User Rights">
         <p>
-          Workspace owners and admins can request account data export through{' '}
-          <code>/api/v1/account/data-export</code> and account deletion through{' '}
-          <code>/api/v1/account/delete</code>. These requests are recorded, audited, and handled as
-          workflows rather than silent background mutations.
+          {/* SECURITY-AUDIT: removed internal /api/v1 export and delete endpoint paths */}
+          Workspace owners and admins can request account data export and account deletion from
+          workspace settings. These requests are recorded, audited, and handled as workflows rather
+          than silent background mutations.
         </p>
         <p className="mt-4">
           See the machine-readable manifest at{' '}

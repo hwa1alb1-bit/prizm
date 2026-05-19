@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { EditableReviewWorkflow } from './editable-review-workflow'
+import { ExportActions } from './export-actions'
 import { ProcessingStatusRefresh } from './processing-status-refresh'
 import {
   documentStateLabel,
@@ -120,8 +121,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
             {document.filename}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            Statement summary, extracted rows, exception work, reconciliation, and export readiness
-            for this record.
+            Summary, transactions, exceptions, reconciliation, and export for this statement.
           </p>
         </div>
         <DocumentStateBadge state={document.state} />
@@ -159,29 +159,40 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
             <TransactionTable document={document} statement={primaryStatement} />
           </EvidenceSection>
 
-          <EvidenceSection title="Exceptions">
-            <ExceptionsPanel exceptions={exceptions} statement={primaryStatement} />
-          </EvidenceSection>
-
-          <EvidenceSection title="Reconciliation result">
-            <ReconciliationResult statement={primaryStatement} />
-          </EvidenceSection>
-
           <EvidenceSection title="Export readiness">
             <ExportReadinessPanel document={document} readiness={exportReadiness} />
           </EvidenceSection>
 
-          <EvidenceSection title="Audit trail">
+          <DisclosureSection
+            title="Exceptions"
+            hint={exceptions.length > 0 ? `${exceptions.length} open` : 'Clear'}
+            defaultOpen={exceptions.length > 0}
+          >
+            <ExceptionsPanel exceptions={exceptions} statement={primaryStatement} />
+          </DisclosureSection>
+
+          <DisclosureSection
+            title="Reconciliation result"
+            hint={reconciliationLabel(primaryStatement?.reconciles ?? null)}
+            defaultOpen={primaryStatement ? primaryStatement.reconciles !== true : false}
+          >
+            <ReconciliationResult statement={primaryStatement} />
+          </DisclosureSection>
+
+          <DisclosureSection title="Audit trail" hint={`${document.auditEvents.length} events`}>
             <AuditTrail events={document.auditEvents} />
-          </EvidenceSection>
+          </DisclosureSection>
         </div>
 
         <aside className="space-y-5">
-          <EvidenceSection title="Document record">
+          <DisclosureSection
+            title="Document record"
+            hint={documentIsDeleted(document) ? 'Removed' : 'Retained'}
+          >
             <DocumentEvidence document={document} />
-          </EvidenceSection>
+          </DisclosureSection>
 
-          <EvidenceSection title="Review position">
+          <DisclosureSection title="Review position">
             <dl className="space-y-3 text-sm">
               <EvidenceRow label="State" value={documentStateLabel(document.state)} />
               <EvidenceRow
@@ -194,7 +205,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
               />
               <EvidenceRow label="Export state" value={exportReadiness.label} />
             </dl>
-          </EvidenceSection>
+          </DisclosureSection>
         </aside>
       </div>
     </div>
@@ -219,8 +230,8 @@ function EmptyHistory() {
       <div className="max-w-xl">
         <h2 className="text-xl font-semibold">No statements yet</h2>
         <p className="mt-2 text-sm leading-6 text-foreground/65">
-          Upload a PDF statement to create the first document record. PRIZM will show processing,
-          review, failure, expiration, and deletion evidence as the workflow advances.
+          Upload a PDF statement to start. PRIZM shows processing, review, failure, expiration, and
+          deletion evidence as the work advances.
         </p>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
           <Link
@@ -337,6 +348,36 @@ function EvidenceSection({ title, children }: { title: string; children: React.R
   )
 }
 
+function DisclosureSection({
+  title,
+  hint,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  hint?: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <details open={defaultOpen} className="group rounded-lg border border-[var(--border-subtle)]">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:p-5 [&::-webkit-details-marker]:hidden">
+        <span className="flex items-baseline gap-2">
+          <h2 className="text-base font-semibold">{title}</h2>
+          {hint && <span className="text-xs text-foreground/55">{hint}</span>}
+        </span>
+        <span
+          aria-hidden="true"
+          className="text-foreground/45 transition-transform duration-150 ease-out group-open:rotate-180 motion-reduce:transition-none"
+        >
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-[var(--border-subtle)] p-4 sm:p-5">{children}</div>
+    </details>
+  )
+}
+
 function EvidenceGrid({ children }: { children: React.ReactNode }) {
   return <dl className="grid gap-3 text-sm sm:grid-cols-2">{children}</dl>
 }
@@ -419,11 +460,7 @@ function StatementSummary({
   }
 
   if (document.state !== 'processing') {
-    return (
-      <p className="text-sm text-foreground/60">
-        Statement extraction has not produced review data for this document.
-      </p>
-    )
+    return <p className="text-sm text-foreground/60">No statement data has been extracted yet.</p>
   }
 
   return (
@@ -431,15 +468,16 @@ function StatementSummary({
       <div>
         <p className="text-sm font-semibold">Statement extraction pending</p>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/60">
-          PRIZM has proven the upload request, S3 object verification, and extraction start. It is
-          waiting on {extractionJobLabel(document)}{' '}
-          <span className="font-mono text-foreground">{displayExtractionJobId(document)}</span>{' '}
-          before showing balances, transactions, and reconciliation evidence.
+          {/* SECURITY-AUDIT: removed S3 object verification + extraction job id from processing copy */}
+          PRIZM has proven the upload request, document verification, and conversion start. It is
+          waiting on the conversion to finish before showing balances, transactions, and
+          reconciliation evidence.
         </p>
       </div>
       <EvidenceGrid>
         <EvidenceRow label="Current state" value="Processing" />
-        <EvidenceRow label="Expected next event" value="document.ready" />
+        {/* SECURITY-AUDIT: removed raw audit event type document.ready */}
+        <EvidenceRow label="Expected next event" value="Ready for review" />
         <EvidenceRow
           label="Elapsed time"
           value={formatElapsedSince(processingAudit?.createdAt ?? document.createdAt)}
@@ -601,14 +639,12 @@ function evidenceTimelineFor(
       status: 'complete',
       detail: 'PRIZM created a pending document record for secure browser upload.',
       timestamp: uploadRequestedAudit?.createdAt ?? document.createdAt,
-      evidence: [
-        { label: 'Document ID', value: document.id },
-        { label: 'Request', value: uploadRequestedAudit?.requestId ?? 'Not recorded' },
-      ],
+      // SECURITY-AUDIT: removed Request id evidence row; kept opaque document id as Support reference
+      evidence: [{ label: 'Support reference', value: document.id }],
     },
     {
       id: 's3_verified',
-      label: 'S3 object verified',
+      label: 'Document verified',
       status:
         recoveryKind === 's3_verification_failed'
           ? 'blocked'
@@ -619,15 +655,13 @@ function evidenceTimelineFor(
               : 'waiting',
       detail:
         recoveryKind === 's3_verification_failed'
-          ? (document.failureReason ?? 'S3 object verification failed.')
+          ? redactInfra(document.failureReason ?? 'Document verification failed.')
           : hasVerifiedS3
-            ? 'PRIZM verified the uploaded S3 object against the pending document record.'
-            : 'PRIZM is waiting for the browser upload to finish and for S3 metadata verification.',
+            ? 'PRIZM verified the uploaded document against the pending record.'
+            : 'PRIZM is waiting for the upload to finish and for document verification.',
       timestamp: uploadCompletedAudit?.createdAt ?? null,
-      evidence: [
-        { label: 'Bucket', value: document.s3Bucket },
-        { label: 'S3 key', value: document.s3Key },
-      ],
+      // SECURITY-AUDIT: removed Bucket + S3 key evidence rows
+      evidence: [],
     },
     {
       id: 'ocr_started',
@@ -642,19 +676,15 @@ function evidenceTimelineFor(
               : 'waiting',
       detail:
         recoveryKind === 'ocr_start_failed'
-          ? (document.failureReason ?? 'Extraction could not start for this document.')
+          ? redactInfra(document.failureReason ?? 'Conversion could not start for this document.')
           : hasOcrStarted
-            ? `${extractionJobLabel(document)} ${displayExtractionJobId(
-                document,
-              )} is attached to this document.`
+            ? 'Conversion is in progress for this document.'
             : hasVerifiedS3
-              ? 'PRIZM has proven storage and is waiting to start statement extraction.'
-              : 'Extraction waits until the S3 object is verified.',
+              ? 'PRIZM has proven storage and is waiting to start the conversion.'
+              : 'Conversion waits until the document is verified.',
       timestamp: processingStartedAudit?.createdAt ?? null,
-      evidence: [
-        { label: extractionJobEvidenceLabel(document), value: displayExtractionJobId(document) },
-        { label: 'Trace ID', value: processingStartedAudit?.traceId ?? 'Not recorded' },
-      ],
+      // SECURITY-AUDIT: removed Conversion reference (job id) + Trace ID evidence rows
+      evidence: [],
     },
     {
       id: 'ocr_completed',
@@ -669,13 +699,14 @@ function evidenceTimelineFor(
               : 'waiting',
       detail:
         recoveryKind === 'ocr_processing_failed'
-          ? (document.failureReason ?? 'Extraction started, but processing did not complete.')
+          ? redactInfra(
+              document.failureReason ?? 'Extraction started, but processing did not complete.',
+            )
           : hasOcrCompleted
             ? 'Extraction has produced reviewable output for this document.'
             : document.state === 'processing'
-              ? `PRIZM has proven upload, S3 verification, and extraction start. It is waiting for ${extractionJobLabel(
-                  document,
-                )} ${displayExtractionJobId(document)} to complete.`
+              ? // SECURITY-AUDIT: removed S3 verification + extraction job id from processing copy
+                'PRIZM has proven upload, document verification, and conversion start. It is waiting for the conversion to complete.'
               : 'Extraction completion waits on a running job.',
       timestamp: ocrCompletedAudit?.createdAt ?? statement?.createdAt ?? null,
       evidence: [{ label: 'Pages', value: document.pages?.toString() ?? 'Not counted' }],
@@ -703,7 +734,7 @@ function evidenceTimelineFor(
     },
     {
       id: 'export_generated',
-      label: 'Export generated',
+      label: 'Export ready',
       status: exportGeneratedAudit
         ? 'complete'
         : exportReadiness.label === 'Ready to export'
@@ -712,16 +743,14 @@ function evidenceTimelineFor(
             ? 'blocked'
             : 'waiting',
       detail: exportGeneratedAudit
-        ? 'A ledger-ready export event is recorded for this document.'
+        ? 'Your export is ready for download.'
         : exportReadiness.label === 'Ready to export'
           ? 'Statement evidence is ready. PRIZM is waiting for a generated export event.'
           : exportReadiness.cause,
       timestamp: exportGeneratedAudit?.createdAt ?? null,
+      // SECURITY-AUDIT: removed Request id evidence row; kept opaque audit event id as Support reference
       evidence: exportGeneratedAudit
-        ? [
-            { label: 'Audit event', value: exportGeneratedAudit.id },
-            { label: 'Request', value: exportGeneratedAudit.requestId ?? 'Not recorded' },
-          ]
+        ? [{ label: 'Support reference', value: exportGeneratedAudit.id }]
         : [{ label: 'Export state', value: exportReadiness.label }],
     },
     {
@@ -926,7 +955,7 @@ function TransactionTable({
 
     return (
       <p className="text-sm text-foreground/60">
-        Transaction rows will appear after extraction produces a statement record.
+        Transactions appear once the statement is extracted.
       </p>
     )
   }
@@ -934,8 +963,7 @@ function TransactionTable({
   if (statement.transactions.length === 0) {
     return (
       <p className="text-sm text-foreground/60">
-        No transaction rows were extracted. Treat this statement as incomplete until the source PDF
-        is checked.
+        No transactions were extracted. Check the source PDF before relying on this statement.
       </p>
     )
   }
@@ -1117,17 +1145,7 @@ function ExportReadinessPanel({
         <span className="font-medium text-foreground">Next action:</span> {readiness.nextAction}
       </p>
       {readiness.actions.length > 0 && (
-        <div className="flex flex-wrap gap-2" aria-label="Export actions">
-          {readiness.actions.map((action) => (
-            <Link
-              key={action.format}
-              href={`/api/v1/documents/${document.id}/export?format=${action.format}`}
-              className="inline-flex min-h-9 items-center justify-center rounded-md border border-[var(--border-subtle)] px-3 text-sm font-medium hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
-              {action.label}
-            </Link>
-          ))}
-        </div>
+        <ExportActions documentId={document.id} actions={readiness.actions} />
       )}
     </div>
   )
@@ -1136,24 +1154,28 @@ function ExportReadinessPanel({
 function DocumentEvidence({ document }: { document: HistoryDocumentView }) {
   return (
     <EvidenceGrid>
-      <EvidenceRow label="Document ID" value={document.id} />
+      {/* SECURITY-AUDIT: relabeled Document ID to Support reference; removed raw mime Content type row */}
+      <EvidenceRow label="Support reference" value={document.id} />
       <EvidenceRow label="Uploaded" value={formatDateTime(document.createdAt)} />
       <EvidenceRow label="Expires" value={formatDateTime(document.expiresAt)} />
       <EvidenceRow label="Deletion" value={deletionStateCopy(document)} />
       <EvidenceRow label="Size" value={formatBytes(document.sizeBytes)} />
       <EvidenceRow label="Pages" value={document.pages?.toString() ?? 'Not counted'} />
-      <EvidenceRow label="Content type" value={document.contentType} />
     </EvidenceGrid>
   )
 }
 
-function deletionStateCopy(document: HistoryDocumentView): string {
-  if (
+function documentIsDeleted(document: HistoryDocumentView): boolean {
+  return Boolean(
     document.deletedAt ||
     document.deletionEvidence?.deletionAuditedAt ||
     document.deletionEvidence?.receiptSentAt ||
-    document.deletionEvidence?.receiptStatus === 'sent'
-  ) {
+    document.deletionEvidence?.receiptStatus === 'sent',
+  )
+}
+
+function deletionStateCopy(document: HistoryDocumentView): string {
+  if (documentIsDeleted(document)) {
     return 'Deleted'
   }
 
@@ -1174,17 +1196,37 @@ function AuditTrail({ events }: { events: AuditEventEvidenceView[] }) {
   )
 }
 
+function auditEventLabel(eventType: string): string {
+  const map: Record<string, string> = {
+    'document.upload_requested': 'Upload requested',
+    'document.upload_completed': 'Upload complete',
+    'document.processing_started': 'Processing started',
+    'document.ocr_completed': 'Document read',
+    'document.processing_completed': 'Document read',
+    'document.ready': 'Ready for review',
+    'document.export_generated': 'Export ready',
+    'statement.export_generated': 'Export ready',
+    'export.generated': 'Export ready',
+    'document.deleted': 'Document deleted',
+    'document.processing_failed': 'Processing failed',
+    'document.failed': 'Failed',
+  }
+  if (map[eventType]) return map[eventType]
+  const words = eventType.replace(/[._]/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 function AuditEventItem({ event }: { event: AuditEventEvidenceView }) {
   return (
     <li className="py-3 first:pt-0 last:pb-0">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-medium">{event.eventType}</p>
+        {/* SECURITY-AUDIT: humanized raw audit event type for users */}
+        <p className="font-medium">{auditEventLabel(event.eventType)}</p>
         <p className="text-xs text-foreground/55">{formatDateTime(event.createdAt)}</p>
       </div>
-      <dl className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
-        <EvidenceRow label="Request" value={event.requestId ?? 'Not recorded'} />
-        <EvidenceRow label="Trace ID" value={event.traceId ?? 'Not recorded'} />
-        <EvidenceRow label="Actor" value={event.actorUserId ?? 'System'} />
+      <dl className="mt-2 grid gap-2 text-xs">
+        {/* SECURITY-AUDIT: removed Request/Trace ID/Actor rows; kept opaque audit event id as Support reference */}
+        <EvidenceRow label="Support reference" value={event.id} />
       </dl>
     </li>
   )
@@ -1280,9 +1322,9 @@ function recoveryCardsFor(
         ? 'Required statement fields or transaction evidence are missing from extraction output.'
         : 'The document is ready, but no statement record is attached.',
       evidence: [
-        { label: 'Document ID', value: document.id },
+        // SECURITY-AUDIT: relabeled Document ID to Support reference; removed Conversion-reference job id row
+        { label: 'Support reference', value: document.id },
         statement ? { label: 'Statement ID', value: statement.id } : null,
-        extractionJobEvidence(document),
       ].filter((item): item is ReviewEvidence => item !== null),
       nextAction:
         'Check the source PDF and resolve missing statement fields or rows before export.',
@@ -1312,22 +1354,13 @@ function recoveryCardsFor(
 
 function failedRecoveryCard(document: HistoryDocumentView): RecoveryCardData {
   const kind = recoveryKindFromDocument(document)
-  const failureAudit =
-    findAuditEvent(document.auditEvents, 'document.processing_failed') ??
-    findAuditEvent(document.auditEvents, 'document.failed') ??
-    document.auditEvents[0]
 
   return {
     kind,
     title: recoveryTitle(kind),
-    cause: document.failureReason ?? recoveryFallbackCause(kind),
-    evidence: [
-      { label: 'Document ID', value: document.id },
-      extractionJobEvidence(document),
-      failureAudit?.id ? { label: 'Audit event ID', value: failureAudit.id } : null,
-      failureAudit?.requestId ? { label: 'Request ID', value: failureAudit.requestId } : null,
-      failureAudit?.traceId ? { label: 'Trace ID', value: failureAudit.traceId } : null,
-    ].filter((item): item is ReviewEvidence => item !== null),
+    cause: redactInfra(document.failureReason ?? recoveryFallbackCause(kind)),
+    // SECURITY-AUDIT: removed Conversion reference + Audit event ID + Request ID + Trace ID; kept opaque document id as Support reference
+    evidence: [{ label: 'Support reference', value: document.id }],
     nextAction: recoveryNextAction(kind),
     tone: 'danger',
   }
@@ -1363,7 +1396,8 @@ function recoveryTitle(kind: RecoveryKind): string {
     case 'upload_failed':
       return 'Upload failed'
     case 's3_verification_failed':
-      return 'S3 verification failed'
+      // SECURITY-AUDIT: removed S3 from recovery title
+      return 'Document verification failed'
     case 'ocr_start_failed':
       return 'Extraction start failed'
     case 'ocr_processing_failed':
@@ -1380,7 +1414,8 @@ function recoveryFallbackCause(kind: RecoveryKind): string {
     case 'upload_failed':
       return 'The document did not complete the upload intake flow.'
     case 's3_verification_failed':
-      return 'PRIZM could not verify that the S3 object matched the document record.'
+      // SECURITY-AUDIT: removed S3 object reference from recovery cause
+      return 'PRIZM could not verify the uploaded document.'
     case 'ocr_start_failed':
       return 'The file reached storage, but extraction did not start.'
     case 'ocr_processing_failed':
@@ -1397,7 +1432,8 @@ function recoveryNextAction(kind: RecoveryKind): string {
     case 'upload_failed':
       return 'Upload the original PDF again. If it repeats, export a fresh PDF from the issuer portal.'
     case 's3_verification_failed':
-      return 'Upload the original PDF again so PRIZM can create a new verified storage object.'
+      // SECURITY-AUDIT: removed storage object reference from recovery next action
+      return 'Upload the original PDF again so PRIZM can verify it again.'
     case 'ocr_start_failed':
       return 'Keep the document ID, then upload again or retry extraction when a retry action is available.'
     case 'ocr_processing_failed':
@@ -1413,22 +1449,34 @@ function displayExtractionJobId(document: HistoryDocumentView): string {
   return document.extractionJobId ?? document.textractJobId ?? 'Not assigned'
 }
 
-function extractionJobLabel(document: HistoryDocumentView): string {
-  if (document.extractionEngine === 'cloudflare-r2') return 'Cloudflare extraction job'
-  if (document.extractionEngine === 'kotlin_worker') return 'Kotlin extraction job'
-  return 'Textract job'
-}
-
-function extractionJobEvidenceLabel(document: HistoryDocumentView): string {
-  if (document.extractionEngine === 'cloudflare-r2') return 'Cloudflare job ID'
-  if (document.extractionEngine === 'kotlin_worker') return 'Kotlin job ID'
-  return 'Textract job ID'
-}
-
-function extractionJobEvidence(document: HistoryDocumentView): ReviewEvidence | null {
-  const jobId = displayExtractionJobId(document)
-  if (jobId === 'Not assigned') return null
-  return { label: extractionJobEvidenceLabel(document), value: jobId }
+// SECURITY-AUDIT: redact internal vendor/storage/correlation terms from server-supplied failure text before display
+function redactInfra(text: string): string {
+  return text
+    .replace(
+      /S3 object metadata did not match the pending upload record/gi,
+      'The uploaded document did not match the pending record',
+    )
+    .replace(/S3 object verification failed/gi, 'Document verification failed')
+    .replace(/S3 object verification/gi, 'document verification')
+    .replace(/S3 object verified/gi, 'Document verified')
+    .replace(/S3 metadata verification/gi, 'document verification')
+    .replace(/S3 verification failed/gi, 'Document verification failed')
+    .replace(
+      /Textract analysis could not be started for the verified upload\./gi,
+      'Conversion could not be started for the verified upload.',
+    )
+    .replace(
+      /Textract job failed during OCR processing\./gi,
+      'Conversion failed while reading the document.',
+    )
+    .replace(
+      /(?:Textract|Cloudflare extraction|Kotlin extraction) job ID/gi,
+      'Conversion reference',
+    )
+    .replace(/(?:Textract|Cloudflare extraction|Kotlin extraction) job/gi, 'Conversion')
+    .replace(/OCR processing/gi, 'document reading')
+    .replace(/\bOCR\b/gi, 'document reading')
+    .replace(/\bS3\b/gi, 'document')
 }
 
 function exportReadinessFor(
@@ -1441,7 +1489,8 @@ function exportReadinessFor(
       label: 'Export blocked',
       tone: 'danger',
       cause: 'Document recovery is required before ledger output can be trusted.',
-      evidence: [{ label: 'Document ID', value: document.id }],
+      // SECURITY-AUDIT: relabeled Document ID to Support reference
+      evidence: [{ label: 'Support reference', value: document.id }],
       nextAction: 'Resolve the failure recovery item above before export.',
       actions: [],
     }
@@ -1463,10 +1512,8 @@ function exportReadinessFor(
       label: 'Export waiting',
       tone: 'info',
       cause: 'Extraction has not produced statement rows yet.',
-      evidence: [
-        { label: 'Document state', value: documentStateLabel(document.state) },
-        { label: extractionJobEvidenceLabel(document), value: displayExtractionJobId(document) },
-      ],
+      // SECURITY-AUDIT: removed Conversion-reference (job id) evidence row
+      evidence: [{ label: 'Document state', value: documentStateLabel(document.state) }],
       nextAction: 'Wait for extraction to finish, then review exceptions before export.',
       actions: [],
     }

@@ -1,0 +1,133 @@
+import type { Metadata } from 'next'
+
+export type PageMetadataInput = {
+  title: string
+  description: string
+  path: string
+}
+
+export type BreadcrumbItem = {
+  name: string
+  path: string
+}
+
+export type FaqItem = {
+  question: string
+  answer: string
+}
+
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://prizmview.app'
+
+export const siteUrl = rawSiteUrl.replace(/\/$/, '')
+export const siteName = 'PrizmView'
+
+export const seoRoutes = [
+  '/bank-statement-converter',
+  '/bank-statement-to-excel',
+  '/bank-statement-to-csv',
+  '/convert-scanned-bank-statements',
+  '/faq/bank-statement-conversion',
+] as const
+
+export const trustRoutes = [
+  '/security',
+  '/security/policy',
+  '/security/subprocessors',
+  '/privacy',
+  '/terms',
+  '/status',
+  '/docs/errors',
+  '/docs/rate-limits',
+] as const
+
+export const publicSitemapRoutes = ['/', ...seoRoutes, ...trustRoutes] as const
+
+export function absoluteUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${siteUrl}${normalizedPath}`
+}
+
+export function buildPageMetadata(input: PageMetadataInput): Metadata {
+  const url = absoluteUrl(input.path)
+
+  return {
+    title: {
+      absolute: input.title,
+    },
+    description: input.description,
+    alternates: {
+      canonical: input.path,
+    },
+    openGraph: {
+      title: input.title,
+      description: input.description,
+      url,
+      siteName,
+      type: 'website',
+      locale: 'en_US',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: input.title,
+      description: input.description,
+    },
+  }
+}
+
+export function buildOrganizationJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: siteName,
+    url: siteUrl,
+    email: 'support@prizmview.app',
+    sameAs: [absoluteUrl('/security'), absoluteUrl('/privacy')],
+  }
+}
+
+export function buildSoftwareApplicationJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: siteName,
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    url: siteUrl,
+    description:
+      'PrizmView converts PDF bank statements into reviewable Excel and CSV-ready transaction data.',
+    featureList: [
+      'PDF bank statement upload',
+      'Transaction review before export',
+      'Excel and CSV export',
+      '24-hour document retention window',
+    ],
+  }
+}
+
+export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: absoluteUrl(item.path),
+    })),
+  }
+}
+
+export function buildFaqJsonLd(items: FaqItem[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  }
+}

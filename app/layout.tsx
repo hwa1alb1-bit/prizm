@@ -1,26 +1,45 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist_Mono, Montserrat } from 'next/font/google'
 import './globals.css'
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 })
 
+const montserrat = Montserrat({
+  variable: '--font-montserrat',
+  subsets: ['latin'],
+  display: 'swap',
+})
+
+const description =
+  'Convert PDF bank statements into clean Excel or CSV files with secure processing, clear exports, and reconciliation-ready review.'
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://prizmview.app'),
   title: {
-    default: 'PRIZM - PDF bank statement converter',
-    template: '%s · PRIZM',
+    default: 'Bank Statement Converter to Excel | PrizmView',
+    template: '%s | PrizmView',
   },
-  description:
-    'Convert PDF bank statements into clean Excel and CSV files with review, export, 24-hour deletion evidence, and trust controls.',
-  applicationName: 'PRIZM',
+  description,
+  applicationName: 'PrizmView',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Bank Statement Converter to Excel | PrizmView',
+    description,
+    url: 'https://prizmview.app',
+    siteName: 'PrizmView',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Bank Statement Converter to Excel | PrizmView',
+    description,
+  },
   robots: { index: true, follow: true },
 }
 
@@ -35,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" className={`${montserrat.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   )

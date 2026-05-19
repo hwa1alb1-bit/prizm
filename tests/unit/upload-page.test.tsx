@@ -15,7 +15,7 @@ describe('UploadPage', () => {
     push.mockReset()
   })
 
-  it('preflights with a client SHA-256, requires quote confirmation, then converts toward preview', async () => {
+  it('preflights with a client document hash, requires quote confirmation, then converts toward preview', async () => {
     mockSha256([0xab, 0xc1, 0x23])
     const fetchMock = vi
       .fn()
@@ -78,6 +78,11 @@ describe('UploadPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Drop a PDF statement here')).toBeInTheDocument()
     expect(screen.getByText(/Choose a bank or credit-card statement PDF/)).toBeInTheDocument()
+    expect(screen.getByText('Reading document')).toBeInTheDocument()
+    expect(screen.getByText('Detecting transactions')).toBeInTheDocument()
+    expect(screen.getByText('Checking balances')).toBeInTheDocument()
+    expect(screen.getByText('Preparing export')).toBeInTheDocument()
+    expect(screen.getAllByText(/extraction record/).length).toBeGreaterThan(0)
 
     await userEvent.upload(
       input,
@@ -131,7 +136,9 @@ describe('UploadPage', () => {
     ])
     expect(fetchMock.mock.calls[5]?.[0]).toBe('/api/v1/documents/doc_123/status')
     expect(await screen.findByText('Conversion started.')).toBeInTheDocument()
-    expect(screen.getByText(/Textract job textract_job_123/)).toBeInTheDocument()
+    expect(screen.queryByText(/Textract job/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/textract_job_123/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Conversion is in progress for document/)).toBeInTheDocument()
     expect(push).toHaveBeenCalledWith('/app/history/doc_123')
   })
 
@@ -197,12 +204,14 @@ describe('UploadPage', () => {
       screen.getByText(/browser upload to secure storage returned HTTP 403/),
     ).toBeInTheDocument()
     expect(screen.getByText('doc_123')).toBeInTheDocument()
-    expect(screen.getByText('req_presign')).toBeInTheDocument()
+    expect(screen.queryByText('req_presign')).not.toBeInTheDocument()
+    expect(screen.queryByText('Trace ID')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Support reference').length).toBeGreaterThan(0)
     expect(screen.getByText(/Upload the same PDF again/)).toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('keeps presign evidence when the browser PUT to S3 cannot be fetched', async () => {
+  it('keeps presign evidence when the browser PUT to storage cannot be fetched', async () => {
     mockSha256([0xab, 0xc1, 0x23])
     const fetchMock = vi
       .fn()
@@ -231,15 +240,16 @@ describe('UploadPage', () => {
     expect((await screen.findAllByText('Upload failed')).length).toBeGreaterThan(0)
     expect(screen.getByText(/browser could not reach secure storage/)).toBeInTheDocument()
     expect(screen.getByText('doc_123')).toBeInTheDocument()
-    expect(screen.getByText('req_presign')).toBeInTheDocument()
-    expect(screen.getByText(/active storage provider/)).toBeInTheDocument()
+    expect(screen.queryByText('req_presign')).not.toBeInTheDocument()
+    expect(screen.getByText(/upload the same PDF again/)).toBeInTheDocument()
     expect(screen.queryByText(/S3 browser-upload CORS/)).not.toBeInTheDocument()
-    expect(screen.getByText('0123456789abcdef0123456789abcdef')).toBeInTheDocument()
+    expect(screen.queryByText('0123456789abcdef0123456789abcdef')).not.toBeInTheDocument()
+    expect(screen.queryByText('Trace ID')).not.toBeInTheDocument()
     expect(screen.queryByText('local-upload-validation')).not.toBeInTheDocument()
     expect(push).not.toHaveBeenCalled()
   })
 
-  it('shows S3 verification recovery when completion cannot prove the uploaded object', async () => {
+  it('shows document verification recovery when completion cannot prove the uploaded document', async () => {
     mockSha256([0xab, 0xc1, 0x23])
     const fetchMock = vi
       .fn()
@@ -274,14 +284,17 @@ describe('UploadPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm conversion' }))
 
-    expect((await screen.findAllByText('S3 verification failed')).length).toBeGreaterThan(0)
-    expect(screen.getByText(/uploaded object size did not match/)).toBeInTheDocument()
+    expect((await screen.findAllByText('Document verification failed')).length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(/uploaded document did not match the pending record/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/uploaded object/)).not.toBeInTheDocument()
     expect(screen.getByText('PRZM_DOCUMENT_UPLOAD_METADATA_MISMATCH')).toBeInTheDocument()
-    expect(screen.getByText('req_complete')).toBeInTheDocument()
-    expect(screen.getByText(/create a new verified object/)).toBeInTheDocument()
+    expect(screen.queryByText('req_complete')).not.toBeInTheDocument()
+    expect(screen.getByText(/verify it again before conversion starts/)).toBeInTheDocument()
   })
 
-  it('shows OCR start recovery when completion cannot start Textract', async () => {
+  it('shows conversion start recovery when completion cannot start the conversion', async () => {
     mockSha256([0xab, 0xc1, 0x23])
     const fetchMock = vi
       .fn()
@@ -316,8 +329,9 @@ describe('UploadPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm conversion' }))
 
-    expect((await screen.findAllByText('OCR start failed')).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Textract could not start analysis/)).toBeInTheDocument()
+    expect((await screen.findAllByText('Conversion start failed')).length).toBeGreaterThan(0)
+    expect(screen.getByText(/conversion could not be started for this PDF/)).toBeInTheDocument()
+    expect(screen.queryByText(/Textract/)).not.toBeInTheDocument()
     expect(screen.getByText('PRZM_TEXTRACT_START_FAILED')).toBeInTheDocument()
     expect(screen.getByText(/upload again if no retry action is available/)).toBeInTheDocument()
   })
