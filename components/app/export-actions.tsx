@@ -33,9 +33,7 @@ export function ExportActions({
     setFailedFormat(null)
 
     try {
-      const response = await fetch(
-        `/api/v1/documents/${documentId}/export?format=${action.format}`,
-      )
+      const response = await fetch(`/api/v1/documents/${documentId}/export?format=${action.format}`)
       if (!response.ok) {
         setFailedFormat(action.format)
         return

@@ -584,7 +584,9 @@ function UploadMessage({
   pendingPreflight: PendingPreflight | null
 }) {
   if (state === 'hashing') {
-    {/* SECURITY-AUDIT: removed SHA-256 hash mention */}
+    {
+      /* SECURITY-AUDIT: removed SHA-256 hash mention */
+    }
     return <p className="text-sm text-foreground/65">Verifying document...</p>
   }
   if (state === 'preflighting') {
@@ -749,9 +751,18 @@ function redactInfra(text: string): string {
       /Textract could not start analysis for this PDF\./gi,
       'The conversion could not be started for this PDF.',
     )
-    .replace(/S3 object metadata did not match the pending upload record/gi, 'The uploaded document did not match the pending record')
-    .replace(/Textract analysis could not be started for the verified upload\./gi, 'Conversion could not be started for the verified upload.')
-    .replace(/Textract job failed during OCR processing\./gi, 'Conversion failed while reading the document.')
+    .replace(
+      /S3 object metadata did not match the pending upload record/gi,
+      'The uploaded document did not match the pending record',
+    )
+    .replace(
+      /Textract analysis could not be started for the verified upload\./gi,
+      'Conversion could not be started for the verified upload.',
+    )
+    .replace(
+      /Textract job failed during OCR processing\./gi,
+      'Conversion failed while reading the document.',
+    )
     .replace(/\buploaded object\b/gi, 'uploaded document')
     .replace(/\bTextract\b/gi, 'the conversion')
     .replace(/OCR processing/gi, 'document reading')

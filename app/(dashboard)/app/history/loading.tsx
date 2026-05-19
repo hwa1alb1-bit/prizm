@@ -42,48 +42,50 @@ export default function HistoryLoading() {
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {/* SECURITY-AUDIT: renamed OCR evidence pending to Conversion evidence pending */}
-                {['Conversion evidence pending', 'Audit records pending', 'Retention proof pending'].map(
-                  (status, index) => (
-                    <tr key={status}>
-                      <td className="px-4 py-4 align-top">
-                        <SkeletonLine className={index === 1 ? 'w-44' : 'w-56'} />
-                        <SkeletonLine className="mt-2 w-32" muted />
-                      </td>
-                      <td className="px-4 py-4 align-top">
-                        <span className="inline-flex min-h-7 items-center rounded-full bg-[var(--surface-muted)] px-2.5 text-xs font-semibold text-foreground/60">
-                          {status}
-                        </span>
-                        <SkeletonLine className="mt-3 w-36" muted />
-                      </td>
-                      <td className="px-4 py-4 align-top">
-                        <div className="space-y-2" aria-label="Evidence timeline loading">
-                          {/* SECURITY-AUDIT: redacted S3/OCR/Export-generated skeleton timeline labels */}
-                          {[
-                            'Upload requested',
-                            'Document verified',
-                            'Reading document',
-                            'Document read',
-                            'Statement extracted',
-                            'Export ready',
-                            'Deletion completed',
-                          ].map((label, stepIndex) => (
-                            <div
-                              key={`${status}:${label}`}
-                              className="grid grid-cols-[0.75rem_minmax(0,8.5rem)_minmax(0,1fr)] gap-2 text-xs"
-                            >
-                              <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--surface-strong)]" />
-                              <span className="font-medium text-foreground">{label}</span>
-                              <SkeletonLine
-                                className={stepIndex < index + 2 ? 'w-28' : 'w-44'}
-                                muted={stepIndex >= index + 2}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ),
-                )}
+                {[
+                  'Conversion evidence pending',
+                  'Audit records pending',
+                  'Retention proof pending',
+                ].map((status, index) => (
+                  <tr key={status}>
+                    <td className="px-4 py-4 align-top">
+                      <SkeletonLine className={index === 1 ? 'w-44' : 'w-56'} />
+                      <SkeletonLine className="mt-2 w-32" muted />
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <span className="inline-flex min-h-7 items-center rounded-full bg-[var(--surface-muted)] px-2.5 text-xs font-semibold text-foreground/60">
+                        {status}
+                      </span>
+                      <SkeletonLine className="mt-3 w-36" muted />
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-2" aria-label="Evidence timeline loading">
+                        {/* SECURITY-AUDIT: redacted S3/OCR/Export-generated skeleton timeline labels */}
+                        {[
+                          'Upload requested',
+                          'Document verified',
+                          'Reading document',
+                          'Document read',
+                          'Statement extracted',
+                          'Export ready',
+                          'Deletion completed',
+                        ].map((label, stepIndex) => (
+                          <div
+                            key={`${status}:${label}`}
+                            className="grid grid-cols-[0.75rem_minmax(0,8.5rem)_minmax(0,1fr)] gap-2 text-xs"
+                          >
+                            <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--surface-strong)]" />
+                            <span className="font-medium text-foreground">{label}</span>
+                            <SkeletonLine
+                              className={stepIndex < index + 2 ? 'w-28' : 'w-44'}
+                              muted={stepIndex >= index + 2}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

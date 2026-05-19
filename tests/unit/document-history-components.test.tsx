@@ -33,9 +33,7 @@ describe('DocumentHistoryList', () => {
     render(<DocumentHistoryList documents={[]} />)
 
     expect(screen.getByRole('heading', { name: 'No statements yet' })).toBeInTheDocument()
-    expect(
-      screen.getByText(/Upload a PDF statement to start/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Upload a PDF statement to start/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Upload statement' })).toHaveAttribute('href', '/app')
   })
 
@@ -200,15 +198,9 @@ describe('DocumentReview', () => {
   it('keeps primary sections visible and collapses system-detail behind disclosure', () => {
     render(<DocumentReview document={historyDocument()} />)
 
-    expect(
-      screen.getByRole('heading', { name: 'Statement summary' }).closest('details'),
-    ).toBeNull()
-    expect(
-      screen.getByRole('heading', { name: 'Transaction table' }).closest('details'),
-    ).toBeNull()
-    expect(
-      screen.getByRole('heading', { name: 'Export readiness' }).closest('details'),
-    ).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Statement summary' }).closest('details')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Transaction table' }).closest('details')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Export readiness' }).closest('details')).toBeNull()
 
     expect(
       screen.getByRole('heading', { name: 'Audit trail' }).closest('details'),
@@ -224,9 +216,9 @@ describe('DocumentReview', () => {
   it('auto-opens exceptions and reconciliation when they need attention', () => {
     render(<DocumentReview document={incompleteMismatchDocument()} />)
 
-    expect(
-      screen.getByRole('heading', { name: 'Exceptions' }).closest('details'),
-    ).toHaveAttribute('open')
+    expect(screen.getByRole('heading', { name: 'Exceptions' }).closest('details')).toHaveAttribute(
+      'open',
+    )
     expect(
       screen.getByRole('heading', { name: 'Reconciliation result' }).closest('details'),
     ).toHaveAttribute('open')

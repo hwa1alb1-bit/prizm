@@ -179,10 +179,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
             <ReconciliationResult statement={primaryStatement} />
           </DisclosureSection>
 
-          <DisclosureSection
-            title="Audit trail"
-            hint={`${document.auditEvents.length} events`}
-          >
+          <DisclosureSection title="Audit trail" hint={`${document.auditEvents.length} events`}>
             <AuditTrail events={document.auditEvents} />
           </DisclosureSection>
         </div>
@@ -363,10 +360,7 @@ function DisclosureSection({
   children: React.ReactNode
 }) {
   return (
-    <details
-      open={defaultOpen}
-      className="group rounded-lg border border-[var(--border-subtle)]"
-    >
+    <details open={defaultOpen} className="group rounded-lg border border-[var(--border-subtle)]">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:p-5 [&::-webkit-details-marker]:hidden">
         <span className="flex items-baseline gap-2">
           <h2 className="text-base font-semibold">{title}</h2>
@@ -466,11 +460,7 @@ function StatementSummary({
   }
 
   if (document.state !== 'processing') {
-    return (
-      <p className="text-sm text-foreground/60">
-        No statement data has been extracted yet.
-      </p>
-    )
+    return <p className="text-sm text-foreground/60">No statement data has been extracted yet.</p>
   }
 
   return (
@@ -709,7 +699,9 @@ function evidenceTimelineFor(
               : 'waiting',
       detail:
         recoveryKind === 'ocr_processing_failed'
-          ? redactInfra(document.failureReason ?? 'Extraction started, but processing did not complete.')
+          ? redactInfra(
+              document.failureReason ?? 'Extraction started, but processing did not complete.',
+            )
           : hasOcrCompleted
             ? 'Extraction has produced reviewable output for this document.'
             : document.state === 'processing'
@@ -1176,9 +1168,9 @@ function DocumentEvidence({ document }: { document: HistoryDocumentView }) {
 function documentIsDeleted(document: HistoryDocumentView): boolean {
   return Boolean(
     document.deletedAt ||
-      document.deletionEvidence?.deletionAuditedAt ||
-      document.deletionEvidence?.receiptSentAt ||
-      document.deletionEvidence?.receiptStatus === 'sent',
+    document.deletionEvidence?.deletionAuditedAt ||
+    document.deletionEvidence?.receiptSentAt ||
+    document.deletionEvidence?.receiptStatus === 'sent',
   )
 }
 
@@ -1460,15 +1452,27 @@ function displayExtractionJobId(document: HistoryDocumentView): string {
 // SECURITY-AUDIT: redact internal vendor/storage/correlation terms from server-supplied failure text before display
 function redactInfra(text: string): string {
   return text
-    .replace(/S3 object metadata did not match the pending upload record/gi, 'The uploaded document did not match the pending record')
+    .replace(
+      /S3 object metadata did not match the pending upload record/gi,
+      'The uploaded document did not match the pending record',
+    )
     .replace(/S3 object verification failed/gi, 'Document verification failed')
     .replace(/S3 object verification/gi, 'document verification')
     .replace(/S3 object verified/gi, 'Document verified')
     .replace(/S3 metadata verification/gi, 'document verification')
     .replace(/S3 verification failed/gi, 'Document verification failed')
-    .replace(/Textract analysis could not be started for the verified upload\./gi, 'Conversion could not be started for the verified upload.')
-    .replace(/Textract job failed during OCR processing\./gi, 'Conversion failed while reading the document.')
-    .replace(/(?:Textract|Cloudflare extraction|Kotlin extraction) job ID/gi, 'Conversion reference')
+    .replace(
+      /Textract analysis could not be started for the verified upload\./gi,
+      'Conversion could not be started for the verified upload.',
+    )
+    .replace(
+      /Textract job failed during OCR processing\./gi,
+      'Conversion failed while reading the document.',
+    )
+    .replace(
+      /(?:Textract|Cloudflare extraction|Kotlin extraction) job ID/gi,
+      'Conversion reference',
+    )
     .replace(/(?:Textract|Cloudflare extraction|Kotlin extraction) job/gi, 'Conversion')
     .replace(/OCR processing/gi, 'document reading')
     .replace(/\bOCR\b/gi, 'document reading')

@@ -285,7 +285,9 @@ describe('UploadPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm conversion' }))
 
     expect((await screen.findAllByText('Document verification failed')).length).toBeGreaterThan(0)
-    expect(screen.getByText(/uploaded document did not match the pending record/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/uploaded document did not match the pending record/),
+    ).toBeInTheDocument()
     expect(screen.queryByText(/uploaded object/)).not.toBeInTheDocument()
     expect(screen.getByText('PRZM_DOCUMENT_UPLOAD_METADATA_MISMATCH')).toBeInTheDocument()
     expect(screen.queryByText('req_complete')).not.toBeInTheDocument()
@@ -328,9 +330,7 @@ describe('UploadPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm conversion' }))
 
     expect((await screen.findAllByText('Conversion start failed')).length).toBeGreaterThan(0)
-    expect(
-      screen.getByText(/conversion could not be started for this PDF/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/conversion could not be started for this PDF/)).toBeInTheDocument()
     expect(screen.queryByText(/Textract/)).not.toBeInTheDocument()
     expect(screen.getByText('PRZM_TEXTRACT_START_FAILED')).toBeInTheDocument()
     expect(screen.getByText(/upload again if no retry action is available/)).toBeInTheDocument()
