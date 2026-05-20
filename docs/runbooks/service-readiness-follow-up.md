@@ -47,6 +47,7 @@ Do not use accepted-gray to bypass the Cloudflare R2 extractor proof for launch.
 
 Required proof:
 
+- Live Stripe cutover follows `docs/runbooks/stripe-live-cutover.md`; Production uses `sk_live_`, `pk_live_`, and the live webhook signing secret.
 - Webhook endpoint exists at `https://prizmview.app/api/v1/webhooks/stripe`.
 - Subscribed events include `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
 - Recent Stripe event delivery has `delivery_success=true`.
