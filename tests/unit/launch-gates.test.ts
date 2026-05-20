@@ -351,6 +351,24 @@ describe('launch readiness gates', () => {
     })
   })
 
+  it('rejects Stripe test-mode API keys in production launch gates', () => {
+    const result = evaluateLaunchReadiness({
+      target: 'production',
+      env: {
+        ...completeProductionEnv(),
+        STRIPE_SECRET_KEY: 'sk_test_123',
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
+      },
+    })
+
+    expect(result.failures).toContainEqual({
+      id: 'stripe-live-mode-configured',
+      title: 'Stripe production credentials use live-mode API keys',
+      envKeys: ['STRIPE_SECRET_KEY', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY'],
+      reason: 'invalid',
+    })
+  })
+
   it('rejects non-HTTPS staging and production site URLs', () => {
     const result = evaluateLaunchReadiness({
       target: 'staging',
