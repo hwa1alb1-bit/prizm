@@ -10,6 +10,8 @@ import java.util.Locale
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.text.PDFTextStripper
 
+private const val MISMATCHED_TRANSACTION_CONFIDENCE = 0.89
+
 class PdfStatementExtractor {
   fun extract(path: Path, jobId: String = "local-${path.fileName}"): WorkerPollResponse {
     val text = extractSelectableText(path)
@@ -59,14 +61,17 @@ class PdfStatementExtractor {
     val feeTotal = requireMoney(collapsed, """Fees Charged""")
     val interestTotal = requireMoney(collapsed, """Interest Charged""")
     val reportedTotal = money(purchaseTotal + paymentTotal + feeTotal + interestTotal)
+    val accountLast4 = last4(collapsed)
     val transactions = parseChaseTransactions(lines, period)
     val computedTotal = computeCreditCardActivity(transactions)
     val reconciles = computedTotal == reportedTotal
+    val transactionConfidence = transactionConfidenceFor(transactions, reconciles)
+    val scoredTransactions = transactions.withConfidence(transactionConfidence)
 
     return ParsedStatement(
       statementType = "credit_card",
       bankName = "Chase",
-      accountLast4 = last4(collapsed),
+      accountLast4 = accountLast4,
       periodStart = period.start.toString(),
       periodEnd = period.end.toString(),
       openingBalance = previousBalance,
@@ -75,7 +80,18 @@ class PdfStatementExtractor {
       computedTotal = computedTotal,
       reconciles = reconciles,
       ready = transactions.isNotEmpty() && reconciles,
-      confidence = confidenceFor(transactions),
+      confidence = confidenceFor(
+        requiredFields = listOf(
+          accountLast4,
+          period.start,
+          period.end,
+          previousBalance,
+          newBalance,
+          reportedTotal,
+        ),
+        transactionConfidence = transactionConfidence,
+        reconciles = reconciles,
+      ),
       reviewFlags = reviewFlagsFor(transactions, reconciles),
       metadata = mapOf(
         "issuer" to "Chase",
@@ -88,7 +104,7 @@ class PdfStatementExtractor {
         "feeTotal" to feeTotal,
         "interestTotal" to interestTotal,
       ).filterValues { it != null },
-      transactions = transactions,
+      transactions = scoredTransactions,
     )
   }
 
@@ -107,14 +123,17 @@ class PdfStatementExtractor {
     val feeTotal = requireMoney(collapsed, """Fees Charged""")
     val interestTotal = requireMoney(collapsed, """Interest Charged""")
     val reportedTotal = money(purchaseTotal + paymentTotal + feeTotal + interestTotal)
+    val accountLast4 = last4(collapsed)
     val transactions = parseBankOfAmericaTransactions(collapsed, period)
     val computedTotal = computeCreditCardActivity(transactions)
     val reconciles = computedTotal == reportedTotal
+    val transactionConfidence = transactionConfidenceFor(transactions, reconciles)
+    val scoredTransactions = transactions.withConfidence(transactionConfidence)
 
     return ParsedStatement(
       statementType = "credit_card",
       bankName = "Bank of America",
-      accountLast4 = last4(collapsed),
+      accountLast4 = accountLast4,
       periodStart = period.start.toString(),
       periodEnd = period.end.toString(),
       openingBalance = previousBalance,
@@ -123,7 +142,18 @@ class PdfStatementExtractor {
       computedTotal = computedTotal,
       reconciles = reconciles,
       ready = transactions.isNotEmpty() && reconciles,
-      confidence = confidenceFor(transactions),
+      confidence = confidenceFor(
+        requiredFields = listOf(
+          accountLast4,
+          period.start,
+          period.end,
+          previousBalance,
+          newBalance,
+          reportedTotal,
+        ),
+        transactionConfidence = transactionConfidence,
+        reconciles = reconciles,
+      ),
       reviewFlags = reviewFlagsFor(transactions, reconciles),
       metadata = mapOf(
         "issuer" to "Bank of America",
@@ -136,7 +166,7 @@ class PdfStatementExtractor {
         "feeTotal" to feeTotal,
         "interestTotal" to interestTotal,
       ).filterValues { it != null },
-      transactions = transactions,
+      transactions = scoredTransactions,
     )
   }
 
@@ -219,7 +249,7 @@ class PdfStatementExtractor {
       amount = if (isCredit) normalized else -normalized,
       debit = if (isCredit) null else normalized,
       credit = if (isCredit) normalized else null,
-      confidence = 0.94,
+      confidence = 0.0,
       statement_section = section,
       reference = reference,
     )
@@ -236,15 +266,34 @@ class PdfStatementExtractor {
       },
     )
 
-  private fun confidenceFor(transactions: List<ParsedTransaction>): Confidence {
-    val transactionConfidence = if (transactions.isEmpty()) 0.0 else 0.94
-    val fields = 0.93
+  private fun confidenceFor(
+    requiredFields: List<Any?>,
+    transactionConfidence: Double,
+    reconciles: Boolean,
+  ): Confidence {
+    val fields = fieldConfidenceFor(requiredFields)
+    val reconciliationConfidence = if (reconciles) 1.0 else 0.0
     return Confidence(
-      overall = money((fields + transactionConfidence) / 2),
+      overall = money((fields + transactionConfidence + reconciliationConfidence) / 3),
       fields = fields,
       transactions = transactionConfidence,
     )
   }
+
+  private fun fieldConfidenceFor(requiredFields: List<Any?>): Double {
+    if (requiredFields.isEmpty()) return 0.0
+    return money(requiredFields.count { it != null }.toDouble() / requiredFields.size)
+  }
+
+  private fun transactionConfidenceFor(transactions: List<ParsedTransaction>, reconciles: Boolean): Double =
+    when {
+      transactions.isEmpty() -> 0.0
+      reconciles -> 1.0
+      else -> MISMATCHED_TRANSACTION_CONFIDENCE
+    }
+
+  private fun List<ParsedTransaction>.withConfidence(confidence: Double): List<ParsedTransaction> =
+    map { transaction -> transaction.copy(confidence = confidence) }
 
   private fun reviewFlagsFor(transactions: List<ParsedTransaction>, reconciles: Boolean): List<String> {
     val flags = mutableListOf<String>()

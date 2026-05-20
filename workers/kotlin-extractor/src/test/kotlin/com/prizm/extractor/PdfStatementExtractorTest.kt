@@ -6,6 +6,7 @@ import java.time.LocalDate
 import kotlin.io.path.div
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -57,7 +58,48 @@ class PdfStatementExtractorTest {
     assertMoney(50.0, statement.computedTotal)
     assertTrue(statement.reconciles)
     assertTrue(statement.ready)
+    assertMoney(1.0, statement.confidence.overall)
+    assertMoney(1.0, statement.confidence.fields)
+    assertMoney(1.0, statement.confidence.transactions)
     assertEquals(3, statement.transactions.size)
+    assertTrue(statement.transactions.all { it.confidence == 1.0 })
+  }
+
+  @Test
+  fun `keeps confidence below perfect when generated activity does not reconcile`(@TempDir tempDir: Path) {
+    val fixture = tempDir / "generated-mismatched-chase-statement.pdf"
+    writeTextPdf(
+      fixture,
+      listOf(
+        "chase.com",
+        "Account Number 1111 2222 3333 4242",
+        "Opening/Closing Date 04/01/26 - 04/30/26",
+        "Payment Due Date: 05/25/26",
+        "Minimum Payment Due: \$35.00",
+        "Previous Balance \$1,000.00",
+        "New Balance: \$1,051.00",
+        "Payment, Credits -$200.00",
+        "Purchases $251.00",
+        "Fees Charged $0.00",
+        "Interest Charged $0.00",
+        "Transaction Description $ Amount",
+        "04/03 Coffee Shop 50.00",
+        "04/18 Payment Thank You -200.00",
+        "04/22 AMAZON MKTPL 200.00",
+        "Total fees charged",
+      ),
+    )
+
+    val result = PdfStatementExtractor().extract(fixture)
+
+    assertEquals("succeeded", result.status)
+    val statement = assertNotNull(result.statements.singleOrNull())
+    assertFalse(statement.reconciles)
+    assertFalse(statement.ready)
+    assertTrue(statement.reviewFlags.contains("reconciliation_mismatch"))
+    assertTrue(statement.confidence.overall < 1.0)
+    assertMoney(0.89, statement.confidence.transactions)
+    assertTrue(statement.transactions.all { it.confidence == 0.89 })
   }
 
   @Test
@@ -113,7 +155,11 @@ class PdfStatementExtractorTest {
     assertTrue(statement.reconciles)
     assertTrue(statement.ready)
     assertTrue(statement.reviewFlags.isEmpty())
-    assertTrue(statement.transactions.size >= expectation.minimumTransactions)
+    assertMoney(1.0, statement.confidence.overall)
+    assertMoney(1.0, statement.confidence.fields)
+    assertMoney(1.0, statement.confidence.transactions)
+    assertEquals(expectation.expectedTransactions, statement.transactions.size)
+    assertTrue(statement.transactions.all { it.confidence == 1.0 })
   }
 
   @Test
@@ -173,7 +219,7 @@ class PdfStatementExtractorTest {
   data class FixtureExpectation(
     val fileName: String,
     val bankName: String,
-    val minimumTransactions: Int,
+    val expectedTransactions: Int,
   ) {
     override fun toString(): String = fileName
   }
@@ -184,22 +230,22 @@ class PdfStatementExtractorTest {
       FixtureExpectation(
         fileName = "27BBC972-C930-4FA2-9CB5-016B380ABDE3-list.pdf",
         bankName = "Chase",
-        minimumTransactions = 15,
+        expectedTransactions = 15,
       ),
       FixtureExpectation(
         fileName = "E2EDA9E3-BEB2-4DC2-B3BA-F4F6C71CA6DD-list.pdf",
         bankName = "Chase",
-        minimumTransactions = 8,
+        expectedTransactions = 8,
       ),
       FixtureExpectation(
         fileName = "eStmt_2026-04-14.pdf",
         bankName = "Bank of America",
-        minimumTransactions = 4,
+        expectedTransactions = 4,
       ),
       FixtureExpectation(
         fileName = "eStmt_2026-04-28.pdf",
         bankName = "Bank of America",
-        minimumTransactions = 6,
+        expectedTransactions = 6,
       ),
     )
   }

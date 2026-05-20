@@ -61,7 +61,7 @@ describe('statement export service', () => {
     expect(recordAudit).not.toHaveBeenCalled()
   })
 
-  it('streams XLSX with the canonical statement columns', async () => {
+  it('streams XLSX with the customer-facing conversion columns', async () => {
     const result = await buildStatementExport({
       documentId: 'doc_123',
       format: 'xlsx',
@@ -69,7 +69,30 @@ describe('statement export service', () => {
       actorIp: null,
       actorUserAgent: null,
       routeContext: routeContext(),
-      store: exportStore(),
+      store: exportStore({
+        statement: {
+          statement_type: 'credit_card',
+          transactions: [
+            {
+              id: 'cc_payment',
+              posted_at: '2026-01-19',
+              description: 'Payment Thank You-Mobile',
+              debit: null,
+              credit: 1013,
+              needs_review: false,
+            },
+            {
+              id: 'cc_purchase',
+              posted_at: '2026-01-06',
+              merchant: 'AMAZON MKTPL*V76D36OJ3 Amzn.com/bill WA',
+              description: 'AMAZON MKTPL*V76D36OJ3 Amzn.com/bill WA',
+              debit: 6.84,
+              credit: null,
+              needs_review: false,
+            },
+          ],
+        },
+      }),
     })
 
     expect(result).toMatchObject({
@@ -88,21 +111,16 @@ describe('statement export service', () => {
     const worksheet = workbook.getWorksheet('Statement')
     expect(worksheet?.getRow(1).values).toEqual([
       ,
-      'Date',
-      'Description',
-      'Debit',
-      'Credit',
-      'Amount',
-      'Balance',
+      'Date ofTransaction',
+      'Merchant Name or Transaction Description',
+      '$ Amount',
     ])
-    expect(worksheet?.getRow(2).values).toEqual([
+    expect(worksheet?.getRow(2).values).toEqual([, '01/19', 'Payment Thank You-Mobile', -1013])
+    expect(worksheet?.getRow(3).values).toEqual([
       ,
-      '2026-05-01',
-      'ACH Payroll',
-      '',
-      '2500',
-      '2500',
-      '3500',
+      '01/06',
+      'AMAZON MKTPL*V76D36OJ3 Amzn.com/bill WA',
+      6.84,
     ])
   })
 
