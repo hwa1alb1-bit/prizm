@@ -604,25 +604,50 @@ async function xlsxFor(rows: ExportRow[]): Promise<Uint8Array> {
   workbook.creator = 'PRIZM'
   workbook.created = new Date()
   const worksheet = workbook.addWorksheet('Statement')
-  worksheet.addRow(['Date', 'Description', 'Debit', 'Credit', 'Amount', 'Balance'])
+  worksheet.addRow(['Date ofTransaction', 'Merchant Name or Transaction Description', '$ Amount'])
   for (const row of rows) {
-    worksheet.addRow(
-      [row.date, row.description, row.debit, row.credit, row.amount, row.balance].map(
-        spreadsheetSafeCell,
-      ),
-    )
+    worksheet.addRow([
+      xlsxDate(row.date),
+      spreadsheetSafeCell(row.payee || row.description),
+      xlsxAmount(row),
+    ])
   }
   worksheet.columns = [
     { key: 'date', width: 14 },
-    { key: 'description', width: 40 },
-    { key: 'debit', width: 12 },
-    { key: 'credit', width: 12 },
-    { key: 'amount', width: 12 },
-    { key: 'balance', width: 12 },
+    { key: 'description', width: 56 },
+    { key: 'amount', width: 14 },
   ]
   worksheet.getRow(1).font = { bold: true }
   const buffer = await workbook.xlsx.writeBuffer()
   return new Uint8Array(buffer)
+}
+
+function xlsxDate(value: string): string {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  if (iso) return `${iso[2]}/${iso[3]}`
+
+  const slash = /^(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?$/.exec(value.trim())
+  if (slash) return `${slash[1].padStart(2, '0')}/${slash[2].padStart(2, '0')}`
+
+  return spreadsheetSafeCell(value)
+}
+
+function xlsxAmount(row: ExportRow): number | string {
+  const debit = numericAmount(row.debit)
+  if (debit !== null) return Math.abs(debit)
+
+  const credit = numericAmount(row.credit)
+  if (credit !== null) return -Math.abs(credit)
+
+  const amount = numericAmount(row.amount)
+  return amount ?? spreadsheetSafeCell(row.amount)
+}
+
+function numericAmount(value: string): number | null {
+  const normalized = value.trim().replaceAll(',', '')
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(normalized)) return null
+  const amount = Number(normalized)
+  return Number.isFinite(amount) ? amount : null
 }
 
 function csvFor(format: Exclude<StatementExportFormat, 'xlsx'>, rows: ExportRow[]): string {
