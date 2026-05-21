@@ -124,6 +124,61 @@ describe('statement export service', () => {
     ])
   })
 
+  it('uses the same XLSX conversion format for bank statements', async () => {
+    const result = await buildStatementExport({
+      documentId: 'doc_123',
+      format: 'xlsx',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      store: exportStore({
+        statement: {
+          statement_type: 'bank',
+          transactions: [
+            {
+              id: 'bank_debit',
+              posted_at: '2026-01-08',
+              description: 'Client supplies',
+              debit: 42.5,
+              credit: null,
+              amount: -42.5,
+              needs_review: false,
+            },
+            {
+              id: 'bank_credit',
+              posted_at: '2026-01-10',
+              description: 'Client deposit',
+              debit: null,
+              credit: 250,
+              amount: 250,
+              needs_review: false,
+            },
+          ],
+        },
+      }),
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    if (!result.ok || !(result.body instanceof Uint8Array)) {
+      throw new Error('expected xlsx export bytes')
+    }
+
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(
+      result.body.buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
+    )
+    const worksheet = workbook.getWorksheet('Statement')
+    expect(worksheet?.getRow(1).values).toEqual([
+      ,
+      'Date ofTransaction',
+      'Merchant Name or Transaction Description',
+      '$ Amount',
+    ])
+    expect(worksheet?.getRow(2).values).toEqual([, '01/08', 'Client supplies', 42.5])
+    expect(worksheet?.getRow(3).values).toEqual([, '01/10', 'Client deposit', -250])
+  })
+
   it.each([
     [
       'csv' as const,
