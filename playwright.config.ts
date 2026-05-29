@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const chromiumChannel = process.env.CI ? 'chrome' : undefined
+const videoMode = process.env.CI ? 'off' : 'retain-on-failure'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -13,7 +14,7 @@ export default defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3030',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: videoMode,
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'], channel: chromiumChannel } },
