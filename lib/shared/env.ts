@@ -69,6 +69,8 @@ const serverSchema = z.object({
   AWS_SES_INBOUND_BUCKET: z.string().optional(),
 
   CRON_SECRET: z.string().optional(),
+
+  OPS_ADMIN_EMAIL_ALLOWLIST: z.string().optional(),
 })
 
 const publicResult = publicSchema.safeParse({
