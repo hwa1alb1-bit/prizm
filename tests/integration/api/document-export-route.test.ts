@@ -72,6 +72,44 @@ describe('direct document export route', () => {
     )
   })
 
+  it.each([
+    ['quickbooks_csv', 'statement.quickbooks-csv', 'text/csv; charset=utf-8'],
+    ['xero_csv', 'statement.xero-csv', 'text/csv; charset=utf-8'],
+    ['xlsx', 'statement.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ])(
+    'dispatches format=%s to buildStatementExport and surfaces the matching filename',
+    async (format, filename, contentType) => {
+      buildStatementExportMock.mockResolvedValueOnce({
+        ok: true,
+        body: 'body',
+        contentType,
+        filename,
+        requestId: 'req_export',
+        traceId: '0123456789abcdef0123456789abcdef',
+      })
+
+      const response = await GET(request({}, format) as never, routeParams('doc_123'))
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('content-disposition')).toBe(`attachment; filename="${filename}"`)
+      expect(response.headers.get('content-type')).toBe(contentType)
+      expect(buildStatementExportMock).toHaveBeenCalledWith(
+        expect.objectContaining({ documentId: 'doc_123', format }),
+      )
+    },
+  )
+
+  it('rejects unknown export formats with a 400 before calling buildStatementExport', async () => {
+    const response = await GET(request({}, 'pdf') as never, routeParams('doc_123'))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      status: 400,
+      code: 'PRZM_VALIDATION_EXPORT_FORMAT',
+    })
+    expect(buildStatementExportMock).not.toHaveBeenCalled()
+  })
+
   it('rate-limits direct exports before generating files', async () => {
     rateLimitMock.mockResolvedValueOnce({
       success: false,
@@ -92,8 +130,8 @@ describe('direct document export route', () => {
   })
 })
 
-function request(headers: Record<string, string> = {}): Request {
-  return new Request('http://localhost/api/v1/documents/doc_123/export?format=csv', {
+function request(headers: Record<string, string> = {}, format = 'csv'): Request {
+  return new Request(`http://localhost/api/v1/documents/doc_123/export?format=${format}`, {
     method: 'GET',
     headers,
   })
