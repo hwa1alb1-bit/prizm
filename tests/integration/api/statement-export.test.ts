@@ -244,6 +244,71 @@ describe('statement export service', () => {
       'Date,Description,Amount\r\n2026-05-02,Bank service fee,10\r\n',
     )
   })
+
+  it.each([
+    [
+      'csv' as const,
+      'Date,Description,Debit,Credit,Amount,Balance\r\n2026-05-01,ACH Payroll,,2500,2500,3500\r\n2026-05-03,Bank service fee,12.5,,-12.5,3487.5\r\n2026-05-05,Utility bill,87.25,,-87.25,\r\n',
+    ],
+    [
+      'quickbooks_csv' as const,
+      'Date,Description,Amount\r\n2026-05-01,ACH Payroll,2500\r\n2026-05-03,Bank service fee,-12.5\r\n2026-05-05,Utility bill,-87.25\r\n',
+    ],
+    [
+      'xero_csv' as const,
+      'Date,Amount,Payee,Description,Reference\r\n2026-05-01,2500,,ACH Payroll,txn_1\r\n2026-05-03,-12.5,,Bank service fee,txn_2\r\n2026-05-05,-87.25,Power Co,Utility bill,txn_3\r\n',
+    ],
+  ])(
+    'streams %s for bank statements with debits negative, credits positive, and payee blank unless explicit',
+    async (format, body) => {
+      const result = await buildStatementExport({
+        documentId: 'doc_123',
+        format,
+        actorUserId: 'user_123',
+        actorIp: null,
+        actorUserAgent: null,
+        routeContext: routeContext(),
+        store: exportStore({
+          statement: {
+            statement_type: 'bank',
+            transactions: [
+              {
+                id: 'txn_1',
+                posted_at: '2026-05-01',
+                description: 'ACH Payroll',
+                amount: 2500,
+                debit: null,
+                credit: 2500,
+                balance: 3500,
+                needs_review: false,
+              },
+              {
+                id: 'txn_2',
+                posted_at: '2026-05-03',
+                description: 'Bank service fee',
+                debit: 12.5,
+                credit: null,
+                balance: 3487.5,
+                needs_review: false,
+              },
+              {
+                id: 'txn_3',
+                posted_at: '2026-05-05',
+                description: 'Utility bill',
+                payee: 'Power Co',
+                debit: 87.25,
+                credit: null,
+                needs_review: false,
+              },
+            ],
+          },
+        }),
+      })
+
+      expect(result).toMatchObject({ ok: true })
+      expect(result.ok && result.body).toBe(body)
+    },
+  )
 })
 
 describe('statement export artifacts', () => {

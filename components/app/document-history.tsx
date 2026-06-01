@@ -1563,7 +1563,7 @@ function exportReadinessFor(
   }
 }
 
-function exportActionsFor(statement: StatementEvidenceView): ExportAction[] {
+export function exportActionsFor(statement: StatementEvidenceView): ExportAction[] {
   const reviewStatus = statementReviewStatus(statement)
   if (reviewStatus !== 'reviewed') return []
   return [

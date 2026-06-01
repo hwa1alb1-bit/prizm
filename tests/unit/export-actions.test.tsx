@@ -15,6 +15,8 @@ vi.mock('next/navigation', () => ({
 const actions = [
   { format: 'csv', label: 'CSV' },
   { format: 'xlsx', label: 'XLSX' },
+  { format: 'quickbooks_csv', label: 'QuickBooks CSV' },
+  { format: 'xero_csv', label: 'Xero CSV' },
 ]
 
 beforeEach(() => {
@@ -45,6 +47,42 @@ function exportResponse(): Response {
 }
 
 describe('ExportActions', () => {
+  it('renders one button per supported export format', () => {
+    render(<ExportActions documentId="doc_ready" actions={actions} />)
+
+    expect(screen.getByRole('button', { name: 'CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'XLSX' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'QuickBooks CSV' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Xero CSV' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['QuickBooks CSV', 'quickbooks_csv', 'statement.quickbooks-csv'],
+    ['Xero CSV', 'xero_csv', 'statement.xero-csv'],
+  ])(
+    'requests %s using the matching format query and downloads with the server-provided filename',
+    async (label, format, filename) => {
+      fetchMock.mockResolvedValue(
+        new Response('date,amount\n2026-01-01,10', {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/csv',
+            'content-disposition': `attachment; filename="${filename}"`,
+          },
+        }),
+      )
+      const user = userEvent.setup()
+
+      render(<ExportActions documentId="doc_ready" actions={actions} />)
+
+      await user.click(screen.getByRole('button', { name: label }))
+
+      expect(fetchMock).toHaveBeenCalledWith(`/api/v1/documents/doc_ready/export?format=${format}`)
+      await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+      expect(screen.getByRole('status')).toHaveTextContent('Export downloaded.')
+    },
+  )
+
   it('downloads the export then refreshes so the timeline can flip to complete', async () => {
     fetchMock.mockResolvedValue(exportResponse())
     const user = userEvent.setup()
