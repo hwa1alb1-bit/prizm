@@ -10,7 +10,7 @@ describe('launch readiness gates', () => {
     const result = evaluateLaunchReadiness({
       target: 'staging',
       env: {
-        NEXT_PUBLIC_SITE_URL: 'https://staging.prizmview.app',
+        NEXT_PUBLIC_SITE_URL: 'https://staging.pdftoexcelstatementconverter.com',
       },
     })
 
@@ -33,7 +33,7 @@ describe('launch readiness gates', () => {
     const result = evaluateLaunchReadiness({
       target: 'staging',
       env: {
-        NEXT_PUBLIC_SITE_URL: 'https://staging.prizmview.app',
+        NEXT_PUBLIC_SITE_URL: 'https://staging.pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
@@ -48,7 +48,7 @@ describe('launch readiness gates', () => {
         STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
         STRIPE_PRICE_PRO_ANNUAL: 'price_pro_annual',
         RESEND_API_KEY: 're_123',
-        RESEND_FROM_EMAIL: 'noreply@prizmview.app',
+        RESEND_FROM_EMAIL: 'noreply@pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1',
         SENTRY_AUTH_TOKEN: 'sentry-token',
         SENTRY_ORG: 'prizm',
@@ -67,7 +67,7 @@ describe('launch readiness gates', () => {
       target: 'staging',
       env: {
         ...completeProductionEnv(),
-        NEXT_PUBLIC_SITE_URL: 'https://staging.prizmview.app',
+        NEXT_PUBLIC_SITE_URL: 'https://staging.pdftoexcelstatementconverter.com',
       },
     })
 
@@ -300,7 +300,7 @@ describe('launch readiness gates', () => {
     const result = evaluateLaunchReadiness({
       target: 'production',
       env: {
-        NEXT_PUBLIC_SITE_URL: 'https://prizmview.app',
+        NEXT_PUBLIC_SITE_URL: 'https://pdftoexcelstatementconverter.com',
         STRIPE_SECRET_KEY: 'sk_live_secret_should_not_print',
       },
     })
@@ -316,7 +316,7 @@ describe('launch readiness gates', () => {
     const result = evaluateLaunchReadiness({
       target: 'production',
       env: {
-        NEXT_PUBLIC_SITE_URL: 'https://prizmview.app',
+        NEXT_PUBLIC_SITE_URL: 'https://pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
@@ -327,7 +327,7 @@ describe('launch readiness gates', () => {
         STRIPE_WEBHOOK_SECRET: 'whsec_123',
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_live_123',
         RESEND_API_KEY: 're_123',
-        RESEND_FROM_EMAIL: 'noreply@prizmview.app',
+        RESEND_FROM_EMAIL: 'noreply@pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1',
         SENTRY_AUTH_TOKEN: 'sentry-token',
         SENTRY_ORG: 'prizm',
@@ -373,7 +373,7 @@ describe('launch readiness gates', () => {
     const result = evaluateLaunchReadiness({
       target: 'staging',
       env: {
-        NEXT_PUBLIC_SITE_URL: 'http://staging.prizmview.app',
+        NEXT_PUBLIC_SITE_URL: 'http://staging.pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
@@ -388,7 +388,7 @@ describe('launch readiness gates', () => {
         STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
         STRIPE_PRICE_PRO_ANNUAL: 'price_pro_annual',
         RESEND_API_KEY: 're_123',
-        RESEND_FROM_EMAIL: 'noreply@prizmview.app',
+        RESEND_FROM_EMAIL: 'noreply@pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1',
         SENTRY_AUTH_TOKEN: 'sentry-token',
         SENTRY_ORG: 'prizm',
@@ -411,7 +411,7 @@ describe('launch readiness gates', () => {
     const result = evaluateLaunchReadiness({
       target: 'production',
       env: {
-        NEXT_PUBLIC_SITE_URL: 'https://prizmview.app',
+        NEXT_PUBLIC_SITE_URL: 'https://pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role',
@@ -428,7 +428,7 @@ describe('launch readiness gates', () => {
         STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
         STRIPE_PRICE_PRO_ANNUAL: 'price_pro_annual',
         RESEND_API_KEY: 're_123',
-        RESEND_FROM_EMAIL: 'noreply@prizmview.app',
+        RESEND_FROM_EMAIL: 'noreply@pdftoexcelstatementconverter.com',
         NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1',
         SENTRY_AUTH_TOKEN: 'sentry-token',
         SENTRY_ORG: 'prizm',
@@ -470,7 +470,7 @@ function completeProductionEnv(): Record<string, string> {
 
 function completeProductionBaseEnv(): Record<string, string> {
   return {
-    NEXT_PUBLIC_SITE_URL: 'https://prizmview.app',
+    NEXT_PUBLIC_SITE_URL: 'https://pdftoexcelstatementconverter.com',
     NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
     SUPABASE_SERVICE_ROLE_KEY: 'service-role',
@@ -482,7 +482,7 @@ function completeProductionBaseEnv(): Record<string, string> {
     STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
     STRIPE_PRICE_PRO_ANNUAL: 'price_pro_annual',
     RESEND_API_KEY: 're_123',
-    RESEND_FROM_EMAIL: 'noreply@prizmview.app',
+    RESEND_FROM_EMAIL: 'noreply@pdftoexcelstatementconverter.com',
     NEXT_PUBLIC_SENTRY_DSN: 'https://public@sentry.example/1',
     SENTRY_AUTH_TOKEN: 'sentry-token',
     SENTRY_ORG: 'prizm',

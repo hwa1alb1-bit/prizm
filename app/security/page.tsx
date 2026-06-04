@@ -45,8 +45,11 @@ export default function SecurityPage() {
         <h2 className="text-xl font-semibold">Disclosure</h2>
         <p className="mt-4 max-w-3xl text-sm leading-6 text-foreground/70">
           Report vulnerabilities to{' '}
-          <a className="font-medium underline" href="mailto:security@prizmview.app">
-            security@prizmview.app
+          <a
+            className="font-medium underline"
+            href="mailto:security@pdftoexcelstatementconverter.com"
+          >
+            security@pdftoexcelstatementconverter.com
           </a>
           . Do not include live bank statements, credentials, or regulated customer data in the
           initial report.

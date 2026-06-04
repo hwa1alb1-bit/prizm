@@ -46,7 +46,7 @@ const from = vi.fn((table: string) => {
 
 describe('ops login route', () => {
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_SITE_URL = 'https://prizmview.app'
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://pdftoexcelstatementconverter.com'
     process.env.OPS_ADMIN_EMAIL_ALLOWLIST = 'oneoddbob@gmail.com,heinrich.willem@gmail.com'
     rateLimitMock.mockResolvedValue({ success: true, limit: 5, remaining: 4, resetSeconds: 60 })
     recordAuditEventMock.mockResolvedValue({ ok: true, id: 'audit_ops_login' })
@@ -113,7 +113,7 @@ describe('ops login route', () => {
     expect(signInWithOtp).toHaveBeenCalledWith({
       email: 'oneoddbob@gmail.com',
       options: {
-        emailRedirectTo: 'https://prizmview.app/auth/callback?next=%2Fops',
+        emailRedirectTo: 'https://pdftoexcelstatementconverter.com/auth/callback?next=%2Fops',
         shouldCreateUser: false,
       },
     })

@@ -17,7 +17,11 @@ export function getStripeClient(): Stripe {
   cached = new Stripe(key, {
     apiVersion: '2026-04-22.dahlia',
     typescript: true,
-    appInfo: { name: 'prizm', version: '0.1.0', url: 'https://prizmview.app' },
+    appInfo: {
+      name: 'prizm',
+      version: '0.1.0',
+      url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com',
+    },
   })
   return cached
 }

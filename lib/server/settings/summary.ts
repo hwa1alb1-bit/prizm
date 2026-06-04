@@ -100,7 +100,7 @@ export async function getSettingsSummaryForUser(
       retentionHours: 24,
       maxPdfSizeMb: 50,
       exportFormats: ['CSV', 'XLSX'],
-      securityEmail: 'security@prizmview.app',
+      securityEmail: 'security@pdftoexcelstatementconverter.com',
     },
   }
 }

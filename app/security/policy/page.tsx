@@ -14,9 +14,13 @@ export default function SecurityPolicyPage() {
     >
       <TrustSection title="Reporting">
         <p>
-          Email <a href="mailto:security@prizmview.app">security@prizmview.app</a> with a concise
-          description, affected route or asset, reproduction steps, and any non-sensitive evidence.
-          Do not attach customer bank statements, secrets, access tokens, or regulated data.
+          Email{' '}
+          <a href="mailto:security@pdftoexcelstatementconverter.com">
+            security@pdftoexcelstatementconverter.com
+          </a>{' '}
+          with a concise description, affected route or asset, reproduction steps, and any
+          non-sensitive evidence. Do not attach customer bank statements, secrets, access tokens, or
+          regulated data.
         </p>
       </TrustSection>
 

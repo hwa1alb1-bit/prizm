@@ -16,7 +16,7 @@ export type FaqItem = {
   answer: string
 }
 
-const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://prizmview.app'
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
 
 export const siteUrl = rawSiteUrl.replace(/\/$/, '')
 export const siteName = 'PrizmView'
@@ -80,7 +80,7 @@ export function buildOrganizationJsonLd() {
     '@type': 'Organization',
     name: siteName,
     url: siteUrl,
-    email: 'support@prizmview.app',
+    email: 'support@pdftoexcelstatementconverter.com',
     sameAs: [absoluteUrl('/security'), absoluteUrl('/privacy')],
   }
 }

@@ -17,6 +17,12 @@ $AccountId = aws sts get-caller-identity --query Account --output text
 $Bucket = "prizm-ses-receipts-${AccountId}-${Region}"
 
 $Recipients = @(
+    "dmarc@pdftoexcelstatementconverter.com",
+    "dpo@pdftoexcelstatementconverter.com",
+    "legal@pdftoexcelstatementconverter.com",
+    "privacy@pdftoexcelstatementconverter.com",
+    "security@pdftoexcelstatementconverter.com",
+    "support@pdftoexcelstatementconverter.com",
     "dmarc@prizmview.app",
     "dpo@prizmview.app",
     "legal@prizmview.app",

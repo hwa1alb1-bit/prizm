@@ -13,7 +13,7 @@ const signInWithOtp = vi.fn()
 
 describe('LoginPage', () => {
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_SITE_URL = 'https://prizmview.app'
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://pdftoexcelstatementconverter.com'
     window.history.pushState({}, '', '/login?next=%2Fapp%2Fbilling')
     signInWithOtp.mockResolvedValue({ error: null })
     createClientMock.mockReturnValue({
@@ -38,7 +38,8 @@ describe('LoginPage', () => {
       expect(signInWithOtp).toHaveBeenCalledWith({
         email: 'owner@example.com',
         options: {
-          emailRedirectTo: 'https://prizmview.app/auth/callback?next=%2Fapp%2Fbilling',
+          emailRedirectTo:
+            'https://pdftoexcelstatementconverter.com/auth/callback?next=%2Fapp%2Fbilling',
         },
       })
     })

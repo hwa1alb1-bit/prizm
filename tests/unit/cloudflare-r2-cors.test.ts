@@ -29,6 +29,8 @@ describe('Cloudflare R2 browser upload CORS policy', () => {
     const [rule] = config.rules ?? []
 
     expect(rule.allowed?.origins).toEqual([
+      'https://pdftoexcelstatementconverter.com',
+      'https://www.pdftoexcelstatementconverter.com',
       'https://prizmview.app',
       'https://www.prizmview.app',
       'https://*.vercel.app',

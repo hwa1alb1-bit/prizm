@@ -11,8 +11,10 @@ describe('security disclosure metadata', () => {
       'utf8',
     )
 
-    expect(securityTxt).toContain('Contact: mailto:security@prizmview.app')
-    expect(securityTxt).toContain('Policy: https://prizmview.app/security/policy')
+    expect(securityTxt).toContain('Contact: mailto:security@pdftoexcelstatementconverter.com')
+    expect(securityTxt).toContain(
+      'Policy: https://pdftoexcelstatementconverter.com/security/policy',
+    )
     expect(securityTxt).not.toContain('/.well-known/pgp-key.txt')
     expect(securityTxt).not.toContain('/security/acknowledgments')
     expect(securityTxt).not.toContain('/careers')

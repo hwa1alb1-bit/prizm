@@ -1,6 +1,11 @@
 import 'server-only'
 
-export const REQUIRED_RELEASE_HOSTS = ['prizmview.app', 'www.prizmview.app'] as const
+export const REQUIRED_RELEASE_HOSTS = [
+  'pdftoexcelstatementconverter.com',
+  'www.pdftoexcelstatementconverter.com',
+  'prizmview.app',
+  'www.prizmview.app',
+] as const
 
 export type ReleaseEvidence = {
   localHead: string

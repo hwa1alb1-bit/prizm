@@ -201,7 +201,7 @@ describe('launch operations controls', () => {
     }
 
     for (const phrase of [
-      'https://prizmview.app/api/v1/webhooks/stripe',
+      'https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe',
       'checkout.session.completed',
       'customer.subscription.created',
       'customer.subscription.updated',
@@ -325,7 +325,7 @@ function validStagingRehearsalEvidence() {
     rehearsalDate: '2026-05-14',
     releaseSha: '5a6b2351b500024ab74b2f7c53b12e0afb478306',
     vercelDeploymentUrl: 'https://prizm-git-main-plknokos-projects.vercel.app',
-    stagingHost: 'staging.prizmview.app',
+    stagingHost: 'staging.pdftoexcelstatementconverter.com',
     launchGateOutput: 'Launch gate passed for staging',
     liveConnectorSmokeOutput: 'supabase: ok\nstripe: ok\ns3: ok\nredis: ok',
     uploadRequestId: 'req_upload_123',

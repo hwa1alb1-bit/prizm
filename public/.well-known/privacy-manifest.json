@@ -1,11 +1,11 @@
 {
-  "$schema": "https://prizmview.app/schemas/privacy-manifest-v1.json",
+  "$schema": "https://pdftoexcelstatementconverter.com/schemas/privacy-manifest-v1.json",
   "version": "1",
   "product": "PRIZM",
   "controller": {
     "name": "PRIZM",
-    "contact": "privacy@prizmview.app",
-    "dpo": "dpo@prizmview.app"
+    "contact": "privacy@pdftoexcelstatementconverter.com",
+    "dpo": "dpo@pdftoexcelstatementconverter.com"
   },
   "lawful_bases": {
     "account_profile": "GDPR Article 6(1)(b) contract",
@@ -64,8 +64,8 @@
     "deletion": "POST /api/v1/account/delete creates an audited account deletion workflow due within 10 days",
     "portability": "data export is JSON",
     "rectification": "self-service in /app/settings",
-    "objection": "email privacy@prizmview.app",
-    "withdraw_consent": "delete account or contact privacy@prizmview.app"
+    "objection": "email privacy@pdftoexcelstatementconverter.com",
+    "withdraw_consent": "delete account or contact privacy@pdftoexcelstatementconverter.com"
   },
   "data_residency": {
     "default_region": "us-east-1",
@@ -77,7 +77,7 @@
     "analytics": "Vercel Analytics (cookieless)",
     "marketing_cookies": []
   },
-  "subprocessors_url": "https://prizmview.app/security/subprocessors",
-  "policy_url": "https://prizmview.app/privacy",
+  "subprocessors_url": "https://pdftoexcelstatementconverter.com/security/subprocessors",
+  "policy_url": "https://pdftoexcelstatementconverter.com/privacy",
   "last_updated": "2026-05-05"
 }

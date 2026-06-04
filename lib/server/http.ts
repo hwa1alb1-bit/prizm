@@ -48,9 +48,13 @@ export function jsonResponse(
   })
 }
 
+const PROBLEM_TYPE_BASE = (
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
+).replace(/\/$/, '')
+
 export function problemResponse(context: RouteContext, problem: ProblemInit): Response {
   const body: ProblemDocument = {
-    type: problem.type ?? `https://prizmview.app/errors/${problem.code}`,
+    type: problem.type ?? `${PROBLEM_TYPE_BASE}/errors/${problem.code}`,
     title: problem.title,
     status: problem.status,
     detail: problem.detail,
