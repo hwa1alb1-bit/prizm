@@ -22,13 +22,7 @@ $Recipients = @(
     "legal@pdftoexcelstatementconverter.com",
     "privacy@pdftoexcelstatementconverter.com",
     "security@pdftoexcelstatementconverter.com",
-    "support@pdftoexcelstatementconverter.com",
-    "dmarc@prizmview.app",
-    "dpo@prizmview.app",
-    "legal@prizmview.app",
-    "privacy@prizmview.app",
-    "security@prizmview.app",
-    "support@prizmview.app"
+    "support@pdftoexcelstatementconverter.com"
 )
 
 Write-Host "Account: $AccountId  Region: $Region"
