@@ -48,9 +48,9 @@ export function jsonResponse(
   })
 }
 
-const PROBLEM_TYPE_BASE = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
-).replace(/\/$/, '')
+// RFC 7807 problem-type URIs are stable identifiers, not site URLs.
+// Keep this hardcoded so the URI does not move with deploy environment.
+const PROBLEM_TYPE_BASE = 'https://pdftoexcelstatementconverter.com'
 
 export function problemResponse(context: RouteContext, problem: ProblemInit): Response {
   const body: ProblemDocument = {
