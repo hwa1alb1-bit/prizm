@@ -13,16 +13,16 @@ import {
 describe('SEO metadata helpers', () => {
   it('builds canonical, Open Graph, and Twitter metadata for a public route', () => {
     const metadata = buildPageMetadata({
-      title: 'Bank Statement Converter to Excel | PrizmView',
+      title: 'Bank Statement Converter to Excel | StatementStudio',
       description:
         'Convert PDF bank statements into clean Excel or CSV files with secure processing and review.',
       path: '/bank-statement-converter',
     })
 
     expect(metadata.alternates?.canonical).toBe('/bank-statement-converter')
-    expect(metadata.openGraph?.title).toBe('Bank Statement Converter to Excel | PrizmView')
+    expect(metadata.openGraph?.title).toBe('Bank Statement Converter to Excel | StatementStudio')
     expect(metadata.openGraph?.url).toBe(absoluteUrl('/bank-statement-converter'))
-    expect(metadata.openGraph?.siteName).toBe('PrizmView')
+    expect(metadata.openGraph?.siteName).toBe('StatementStudio')
     expect(metadata.twitter).toMatchObject({ card: 'summary_large_image' })
   })
 
@@ -31,14 +31,15 @@ describe('SEO metadata helpers', () => {
     const serialized = JSON.stringify(schema)
 
     expect(schema['@type']).toBe('SoftwareApplication')
-    expect(schema.name).toBe('PrizmView')
+    expect(schema.name).toBe('StatementStudio')
     expect(serialized).not.toMatch(/SOC 2 compliant|100% accuracy|bank-level encryption/i)
+    expect(serialized).not.toMatch(/PrizmView/)
   })
 
   it('builds organization, breadcrumb, and FAQ schema for public pages', () => {
     expect(buildOrganizationJsonLd()).toMatchObject({
       '@type': 'Organization',
-      name: 'PrizmView',
+      name: 'StatementStudio',
       url: siteUrl,
     })
 

@@ -9,7 +9,7 @@ import {
 } from '@/lib/seo/site'
 
 export const metadata = buildPageMetadata({
-  title: 'Bank Statement Converter to Excel | PrizmView',
+  title: 'Bank Statement Converter to Excel | StatementStudio',
   description:
     'Convert PDF bank statements into clean Excel or CSV files with secure processing, clear exports, and reconciliation-ready review.',
   path: '/',
@@ -64,14 +64,14 @@ export default function Home() {
       <section className="mx-auto grid w-full max-w-7xl gap-10 px-6 py-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(26rem,1fr)] lg:items-center lg:px-8 lg:py-18">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/50">
-            PrizmView bank statement converter
+            StatementStudio bank statement converter
           </p>
           <h1 className="mt-5 max-w-4xl text-4xl font-semibold leading-tight tracking-normal text-foreground sm:text-5xl">
             Convert Bank Statements to Excel, CSV, or Google Sheets
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-foreground/70 sm:text-lg">
             Upload a PDF statement, review extracted transaction rows, then export spreadsheet data
-            your accounting workflow can use. PrizmView keeps conversion evidence visible from
+            your accounting workflow can use. StatementStudio keeps conversion evidence visible from
             upload to retention.
           </p>
 

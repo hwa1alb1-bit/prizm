@@ -14,32 +14,32 @@ const montserrat = Montserrat({
 })
 
 const description =
-  'Convert PDF bank statements into clean Excel or CSV files with secure processing, clear exports, and reconciliation-ready review.'
+  'Fast, accurate, and secure conversion of bank and credit card statements. Get clean data you trust in seconds.'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'Bank Statement Converter to Excel | PrizmView',
-    template: '%s | PrizmView',
+    default: 'Bank Statement Converter to Excel and CSV | StatementStudio',
+    template: '%s | StatementStudio',
   },
   description,
-  applicationName: 'PrizmView',
+  applicationName: 'StatementStudio',
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Bank Statement Converter to Excel | PrizmView',
+    title: 'Bank Statement Converter to Excel and CSV | StatementStudio',
     description,
     url: siteUrl,
-    siteName: 'PrizmView',
+    siteName: 'StatementStudio',
     type: 'website',
     locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Bank Statement Converter to Excel | PrizmView',
+    title: 'Bank Statement Converter to Excel and CSV | StatementStudio',
     description,
   },
   robots: { index: true, follow: true },
