@@ -106,7 +106,7 @@ Resolve-DnsName pdftoexcelstatementconverter.com -Type DS
 vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 
-The Cloudflare template at `infra/cloudflare/prizmview-app.zone` remains the repo-owned desired state. Live Cloudflare dashboard changes are not accepted until public DNS agrees.
+The Cloudflare template at `infra/cloudflare/pdftoexcelstatementconverter-com.zone` remains the repo-owned desired state. Live Cloudflare dashboard changes are not accepted until public DNS agrees.
 
 ## GitHub Governance
 

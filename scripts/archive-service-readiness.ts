@@ -79,7 +79,7 @@ function readConfig(): ReadinessConfig {
       process.env.SERVICE_READINESS_STRIPE_WEBHOOK_URL ?? `${siteUrl}/api/v1/webhooks/stripe`,
     cloudflareZonePath:
       process.env.SERVICE_READINESS_CLOUDFLARE_ZONE_PATH ??
-      resolve(process.cwd(), 'infra', 'cloudflare', 'prizmview-app.zone'),
+      resolve(process.cwd(), 'infra', 'cloudflare', 'pdftoexcelstatementconverter-com.zone'),
   }
 }
 

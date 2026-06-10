@@ -61,5 +61,4 @@ supabase/.temp
 # Turbopack cache
 .turbo
 
-.vercel
 .env*.local
