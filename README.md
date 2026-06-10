@@ -88,7 +88,7 @@ PRIZM depends on six external accounts. Provisioning details live in `docs/specs
 
 | Service       | Status                                               | Notes                                                                                            |
 | ------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Cloudflare    | Domain `pdftoexcelstatementconverter.com` registered | Zone import file at `infra/cloudflare/prizmview-app.zone`                                        |
+| Cloudflare    | Domain `pdftoexcelstatementconverter.com` registered | Zone import file at `infra/cloudflare/pdftoexcelstatementconverter-com.zone`                     |
 | Supabase      | Project `dcirauvtuvvokvcwczft` (us-east-1) live      | Migrations through 2026-05-08 are represented in `lib/shared/db-types.ts`.                       |
 | Stripe        | Sandbox account `acct_1TRZG9KKeaydfVMo`              | Products, subscription prices, webhook, portal, `STRIPE_METER_OVERAGE`, and overage price wired. |
 | Resend        | Account exists                                       | Domain DKIM pending DNS import                                                                   |
