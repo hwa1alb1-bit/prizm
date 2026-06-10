@@ -31,5 +31,7 @@ test('sitemap and robots resolve', async ({ request }) => {
 
   const robots = await request.get('/robots.txt')
   expect(robots.ok()).toBe(true)
-  await expect(robots.text()).resolves.toContain('Sitemap: https://prizmview.app/sitemap.xml')
+  await expect(robots.text()).resolves.toContain(
+    'Sitemap: https://pdftoexcelstatementconverter.com/sitemap.xml',
+  )
 })

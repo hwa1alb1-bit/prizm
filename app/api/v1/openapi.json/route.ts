@@ -32,6 +32,8 @@ const exportId = {
 
 const authenticated = [{ cookieAuth: [] }]
 
+const apiServerUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
+
 const openApiDocument = {
   openapi: '3.1.0',
   info: {
@@ -40,7 +42,7 @@ const openApiDocument = {
     description:
       'Public PRIZM API routes for document conversion, export, billing, and privacy workflows.',
   },
-  servers: [{ url: 'https://prizmview.app' }],
+  servers: [{ url: apiServerUrl }],
   paths: {
     '/api/v1/documents/preflight': {
       post: {

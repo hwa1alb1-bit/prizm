@@ -1,5 +1,6 @@
-// Resend transactional email wrapper. Domain prizmview.app must be verified
-// in Resend with SPF, DKIM, and DMARC records before sending in production.
+// Resend transactional email wrapper. Sending domain (configured via
+// RESEND_FROM_EMAIL) must be verified in Resend with SPF, DKIM, and DMARC
+// records before sending in production.
 
 import 'server-only'
 

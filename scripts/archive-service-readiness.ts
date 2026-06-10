@@ -26,7 +26,7 @@ const execFileAsync = promisify(execFile)
 
 type JsonRecord = Record<string, unknown>
 
-const DEFAULT_SITE_URL = 'https://prizmview.app'
+const DEFAULT_SITE_URL = 'https://pdftoexcelstatementconverter.com'
 const PUBLIC_DNS_SERVERS = ['1.1.1.1', '8.8.8.8']
 const REQUIRED_STRIPE_WEBHOOK_EVENTS = [
   'checkout.session.completed',

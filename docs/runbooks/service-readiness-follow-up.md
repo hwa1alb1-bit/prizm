@@ -2,7 +2,7 @@
 
 Owner: Ops
 
-This runbook proves the production stack is operable, not merely deployed. It is the Branch 4 readiness gate for `prizmview.app`.
+This runbook proves the production stack is operable, not merely deployed. It is the Branch 4 readiness gate for `pdftoexcelstatementconverter.com`.
 
 ## Evidence Collection
 
@@ -48,7 +48,7 @@ Do not use accepted-gray to bypass the Cloudflare R2 extractor proof for launch.
 Required proof:
 
 - Live Stripe cutover follows `docs/runbooks/stripe-live-cutover.md`; Production uses `sk_live_`, `pk_live_`, and the live webhook signing secret.
-- Webhook endpoint exists at `https://prizmview.app/api/v1/webhooks/stripe`.
+- Webhook endpoint exists at `https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe`.
 - Subscribed events include `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
 - Recent Stripe event delivery has `delivery_success=true`.
 - An active Billing Customer Portal configuration exists.
@@ -95,14 +95,14 @@ vercel env run -e production --scope plknokos-projects -- pnpm verify:service-re
 
 Required proof:
 
-- `prizmview.app` has a public DS record.
+- `pdftoexcelstatementconverter.com` has a public DS record.
 - Cloudflare DNS import template no longer contains placeholder DKIM.
 - Live DNS matches the Vercel apex, Vercel `www`, Resend bounce MX, Resend SPF, and DMARC expectations.
 
 If DS is missing, enable DNSSEC in Cloudflare, copy the DS values to the registrar, wait for propagation, and rerun:
 
 ```powershell
-Resolve-DnsName prizmview.app -Type DS
+Resolve-DnsName pdftoexcelstatementconverter.com -Type DS
 vercel env run -e production --scope plknokos-projects -- pnpm verify:service-readiness
 ```
 

@@ -16,8 +16,10 @@ const montserrat = Montserrat({
 const description =
   'Convert PDF bank statements into clean Excel or CSV files with secure processing, clear exports, and reconciliation-ready review.'
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://prizmview.app'),
+  metadataBase: new URL(siteUrl),
   title: {
     default: 'Bank Statement Converter to Excel | PrizmView',
     template: '%s | PrizmView',
@@ -30,7 +32,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Bank Statement Converter to Excel | PrizmView',
     description,
-    url: 'https://prizmview.app',
+    url: siteUrl,
     siteName: 'PrizmView',
     type: 'website',
     locale: 'en_US',

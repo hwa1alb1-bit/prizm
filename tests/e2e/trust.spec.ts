@@ -21,13 +21,15 @@ for (const { path, heading } of trustPages) {
 test('well-known privacy and security documents resolve', async ({ request }) => {
   const security = await request.get('/.well-known/security.txt')
   expect(security.ok()).toBe(true)
-  await expect(security.text()).resolves.toContain('Contact: mailto:security@prizmview.app')
+  await expect(security.text()).resolves.toContain(
+    'Contact: mailto:security@pdftoexcelstatementconverter.com',
+  )
 
   const manifest = await request.get('/.well-known/privacy-manifest.json')
   expect(manifest.ok()).toBe(true)
   await expect(manifest.json()).resolves.toMatchObject({
     product: 'PRIZM',
-    policy_url: 'https://prizmview.app/privacy',
-    subprocessors_url: 'https://prizmview.app/security/subprocessors',
+    policy_url: 'https://pdftoexcelstatementconverter.com/privacy',
+    subprocessors_url: 'https://pdftoexcelstatementconverter.com/security/subprocessors',
   })
 })

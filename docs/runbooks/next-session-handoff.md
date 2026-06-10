@@ -36,7 +36,7 @@ First read docs/runbooks/next-session-handoff.md. Then verify:
 - Current production deployment before this branch is merged:
   - `prizm-9o1q0gpp7-plknokos-projects.vercel.app`
   - commit `ced1524ad033b434b3ed100bcb9a4a440258fac7`
-  - custom domains `prizmview.app` and `www.prizmview.app` point to that deployment.
+  - custom domains `pdftoexcelstatementconverter.com` and `www.pdftoexcelstatementconverter.com` point to that deployment.
 
 ## What This Branch Changes
 
@@ -79,8 +79,8 @@ First read docs/runbooks/next-session-handoff.md. Then verify:
 
 - `pnpm verify:release` no longer trusts Vercel deployment aliases alone.
 - It also inspects required custom hosts directly:
-  - `prizmview.app`
-  - `www.prizmview.app`
+  - `pdftoexcelstatementconverter.com`
+  - `www.pdftoexcelstatementconverter.com`
 - Each host must point to the verified production deployment URL and be `READY`/`production`.
 
 ### Docs And Evidence
