@@ -63,7 +63,9 @@ describe('DocumentHistoryList', () => {
     expect(screen.getByText('Extraction running')).toBeInTheDocument()
     expect(screen.getByText('Extraction completed')).toBeInTheDocument()
     expect(
-      screen.getByText(/PRIZM has proven upload, document verification, and conversion start/),
+      screen.getByText(
+        /StatementStudio has proven upload, document verification, and conversion start/,
+      ),
     ).toBeInTheDocument()
     expect(screen.getByText(/waiting for the conversion to complete/)).toBeInTheDocument()
     expect(screen.getAllByText('Now').length).toBeGreaterThan(0)
@@ -133,7 +135,7 @@ describe('DocumentReview', () => {
     expect(screen.getByRole('heading', { name: 'Transaction table' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Export readiness' })).toBeInTheDocument()
     expect(
-      screen.getByText(/PRIZM has proven the upload request, document verification/),
+      screen.getByText(/StatementStudio has proven the upload request, document verification/),
     ).toBeInTheDocument()
     expect(screen.getByText('Transaction rows pending extraction')).toBeInTheDocument()
     expect(screen.queryByText('Textract job ID')).not.toBeInTheDocument()

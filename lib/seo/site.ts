@@ -19,7 +19,7 @@ export type FaqItem = {
 const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
 
 export const siteUrl = rawSiteUrl.replace(/\/$/, '')
-export const siteName = 'PrizmView'
+export const siteName = 'StatementStudio'
 
 export const seoRoutes = [
   '/bank-statement-converter',
@@ -94,7 +94,7 @@ export function buildSoftwareApplicationJsonLd() {
     operatingSystem: 'Web',
     url: siteUrl,
     description:
-      'PrizmView converts PDF bank statements into reviewable Excel and CSV-ready transaction data.',
+      'StatementStudio converts PDF bank statements into reviewable Excel and CSV-ready transaction data.',
     featureList: [
       'PDF bank statement upload',
       'Transaction review before export',

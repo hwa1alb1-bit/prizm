@@ -28,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <header className="border-b border-[var(--border-subtle)] bg-[var(--background)] px-4 py-3 md:hidden">
         <div className="flex items-center justify-between gap-4">
           <Link href="/app" className="text-sm font-semibold tracking-tight">
-            PRIZM
+            StatementStudio
           </Link>
           <span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs font-medium text-foreground/70">
             Workspace
@@ -51,7 +51,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <aside className="hidden w-64 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-5 md:block">
           <div className="mb-8">
             <Link href="/app" className="text-base font-semibold tracking-tight">
-              PRIZM
+              StatementStudio
             </Link>
             <p className="mt-1 text-xs leading-5 text-foreground/55">
               Bank statement conversion with deletion evidence.

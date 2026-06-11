@@ -108,7 +108,7 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024
 const workflowSteps = [
   {
     label: 'Check PDF',
-    detail: 'PRIZM hashes the PDF, checks duplicates, and quotes one conversion credit.',
+    detail: 'StatementStudio hashes the PDF, checks duplicates, and quotes one conversion credit.',
   },
   {
     label: 'Upload securely',
@@ -215,7 +215,7 @@ export default function UploadPage() {
             kind: 'upload_failed',
             title: 'Preflight failed',
             problem,
-            fallbackCause: 'PRIZM could not quote this PDF before upload.',
+            fallbackCause: 'StatementStudio could not quote this PDF before upload.',
             // SECURITY-AUDIT: removed SHA-256 hash row from preflight failure evidence
             fallbackEvidence: [{ label: 'File', value: file.name }],
             nextAction:
@@ -236,7 +236,7 @@ export default function UploadPage() {
               err instanceof Error
                 ? err.message
                 : // SECURITY-AUDIT: removed OCR mention from preflight error fallback
-                  'PRIZM could not finish the upload preflight before the conversion started.',
+                  'StatementStudio could not finish the upload preflight before the conversion started.',
               'Upload the PDF again and use the support reference shown here if the failure repeats.',
               file,
             ),
@@ -275,7 +275,7 @@ export default function UploadPage() {
             kind: 'upload_failed',
             title: 'Upload setup failed',
             problem,
-            fallbackCause: 'PRIZM could not create a secure upload URL for this PDF.',
+            fallbackCause: 'StatementStudio could not create a secure upload URL for this PDF.',
             // SECURITY-AUDIT: removed SHA-256 hash row from upload-setup failure evidence
             fallbackEvidence: [
               { label: 'File', value: file.name },
@@ -371,7 +371,7 @@ export default function UploadPage() {
               err instanceof Error
                 ? err.message
                 : // SECURITY-AUDIT: removed OCR mention from upload-flow error fallback
-                  'PRIZM could not finish the upload flow before the conversion started.',
+                  'StatementStudio could not finish the upload flow before the conversion started.',
               'Upload the PDF again and use the support reference shown here if the failure repeats.',
               file,
             ),
@@ -420,8 +420,8 @@ export default function UploadPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
             {/* SECURITY-AUDIT: removed OCR term from intake copy */}
-            Upload one bank or credit-card statement PDF. PRIZM checks the file, quotes the
-            conversion, starts the conversion, and opens a review record for spreadsheet export.
+            Upload one bank or credit-card statement PDF. StatementStudio checks the file, quotes
+            the conversion, starts the conversion, and opens a review record for spreadsheet export.
           </p>
         </div>
         <Link
@@ -469,7 +469,7 @@ export default function UploadPage() {
                   <p className="mt-1 text-sm text-foreground/60">
                     {selectedFile
                       ? `${formatBytes(selectedFile.size)} selected`
-                      : 'PRIZM checks the file hash before the secure upload starts.'}
+                      : 'StatementStudio checks the file hash before the secure upload starts.'}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
@@ -638,7 +638,8 @@ function UploadMessage({
         recovery={{
           kind: 'upload_failed',
           title: 'Upload failed',
-          plainCause: 'The upload flow stopped before PRIZM received a verified document.',
+          plainCause:
+            'The upload flow stopped before StatementStudio received a verified document.',
           // SECURITY-AUDIT: relabeled Evidence ID to Support reference; removed OCR from next action
           evidence: [{ label: 'Support reference', value: 'client-upload-flow' }],
           nextAction: 'Upload the PDF again and keep this screen open until the conversion starts.',
@@ -829,10 +830,10 @@ function recoveryFromCompletionProblem(
       title: 'Document verification failed',
       plainCause: problem.detail
         ? redactInfra(problem.detail)
-        : 'PRIZM could not verify that the uploaded document matched the pending record.',
+        : 'StatementStudio could not verify that the uploaded document matched the pending record.',
       evidence,
       nextAction:
-        'Upload the original PDF again so PRIZM can verify it again before conversion starts.',
+        'Upload the original PDF again so StatementStudio can verify it again before conversion starts.',
     }
   }
 
@@ -842,7 +843,7 @@ function recoveryFromCompletionProblem(
     title: 'Conversion start failed',
     plainCause: problem.detail
       ? redactInfra(problem.detail)
-      : 'The PDF reached storage, but PRIZM could not start the conversion.',
+      : 'The PDF reached storage, but StatementStudio could not start the conversion.',
     evidence,
     nextAction:
       'Open the review record, keep the support reference, and upload again if no retry action is available.',

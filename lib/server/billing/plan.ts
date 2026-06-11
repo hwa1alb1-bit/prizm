@@ -29,7 +29,7 @@ export type BillingGateResult =
       detail: string
     }
 
-const PLAN_ALLOWANCES: Record<BillingPlan, PlanAllowance> = {
+export const PLAN_ALLOWANCES: Record<BillingPlan, PlanAllowance> = {
   free: {
     plan: 'free',
     monthlyCredits: 5,

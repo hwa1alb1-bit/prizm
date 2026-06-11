@@ -7,7 +7,7 @@ export function SettingsDashboard({ summary }: { summary: SettingsSummary }) {
       <header className="border-b border-foreground/10 pb-5">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-1 text-sm text-foreground/60">
-          Account, workspace, and conversion controls for this PRIZM workspace.
+          Account, workspace, and conversion controls for this StatementStudio workspace.
         </p>
       </header>
 
