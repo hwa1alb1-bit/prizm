@@ -94,8 +94,9 @@ function CheckBullet({ children }: { children: React.ReactNode }) {
 export function PricingSection({ isAuthenticated }: PricingSectionProps) {
   return (
     <section
+      id="pricing"
       aria-labelledby="pricing-heading"
-      className="border-t border-[var(--border)] bg-[var(--surface-soft)]"
+      className="scroll-mt-24 border-t border-[var(--border)] bg-[var(--surface-soft)]"
     >
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between">
