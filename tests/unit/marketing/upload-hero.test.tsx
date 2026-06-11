@@ -30,7 +30,10 @@ describe('UploadHero', () => {
     render(<UploadHero isAuthenticated={false} />)
     expect(screen.getByText(/BANK & CREDIT CARD STATEMENT CONVERTER/)).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { level: 1, name: /Convert PDF statements to CSV and Excel/i }),
+      screen.getByRole('heading', {
+        level: 1,
+        name: /Turn PDF Statements into QuickBooks and Xero.*Ready Files/i,
+      }),
     ).toBeInTheDocument()
   })
 

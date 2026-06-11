@@ -1,23 +1,11 @@
-const OUTPUTS = ['CSV', 'Excel (XLSX)', 'QuickBooks CSV', 'Xero CSV'] as const
+type Format = { label: string; icon: string; alt: string }
 
-function CheckMark() {
-  return (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]">
-      <svg
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        className="h-3.5 w-3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M5 12l4.5 4.5L19 7" />
-      </svg>
-    </span>
-  )
-}
+const OUTPUTS: Format[] = [
+  { label: 'CSV', icon: '/marketing/logos/excel.png', alt: 'Microsoft Excel CSV' },
+  { label: 'Excel (XLSX)', icon: '/marketing/logos/excel.png', alt: 'Microsoft Excel XLSX' },
+  { label: 'QuickBooks CSV', icon: '/marketing/logos/quickbooks.png', alt: 'QuickBooks' },
+  { label: 'Xero CSV', icon: '/marketing/logos/xero.png', alt: 'Xero' },
+]
 
 export function SupportedOutputs() {
   return (
@@ -33,9 +21,16 @@ export function SupportedOutputs() {
       </h3>
       <ul className="mt-4 flex-1 space-y-3 text-sm">
         {OUTPUTS.map((format) => (
-          <li key={format} className="flex items-center gap-3">
-            <CheckMark />
-            <span className="font-medium text-[var(--text-primary)]">{format}</span>
+          <li key={format.label} className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={format.icon}
+              alt={format.alt}
+              width={24}
+              height={24}
+              className="h-6 w-6 shrink-0 rounded-sm object-contain"
+            />
+            <span className="font-medium text-[var(--text-primary)]">{format.label}</span>
           </li>
         ))}
       </ul>

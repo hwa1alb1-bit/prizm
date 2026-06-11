@@ -9,7 +9,7 @@ test.describe('Home — StatementStudio', () => {
     await expect(page.getByRole('link', { name: 'Register' })).toBeVisible()
 
     // Hero: H1 + dropzone + Choose PDF button
-    await expect(page.getByRole('heading', { level: 1 })).toContainText(/Convert PDF statements/i)
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/Turn PDF Statements/i)
     await expect(page.getByRole('button', { name: /Choose PDF/i })).toBeVisible()
 
     // Anchor link to pricing exists

@@ -24,8 +24,9 @@ describe('Root layout metadata', () => {
 
   it('uses the mockup-aligned description and matching OG/Twitter copy', () => {
     expect(metadata.description).toMatch(
-      /Fast, accurate, and secure conversion of bank and credit card statements/,
+      /Convert bank, credit card, and financial statements into clean transaction files/,
     )
+    expect(metadata.description).toMatch(/QuickBooks, Xero, CSV, and Excel/)
     expect(metadata.openGraph?.siteName).toBe('StatementStudio')
     expect(metadata.openGraph?.title).not.toMatch(/PrizmView/)
     expect((metadata.twitter as { title?: string } | undefined)?.title).not.toMatch(/PrizmView/)

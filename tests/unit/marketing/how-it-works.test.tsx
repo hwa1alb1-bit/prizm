@@ -5,7 +5,9 @@ import { HowItWorks } from '@/components/marketing/how-it-works'
 describe('HowItWorks', () => {
   it('renders the heading', () => {
     render(<HowItWorks />)
-    expect(screen.getByRole('heading', { level: 2, name: /How it works/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 2, name: /From PDF to clean spreadsheet/i }),
+    ).toBeInTheDocument()
   })
 
   it('renders four numbered steps in order', () => {

@@ -1,8 +1,15 @@
 import Link from 'next/link'
+import { PLAN_ALLOWANCES } from '@/lib/server/billing/plan'
 
 type PricingSectionProps = {
   isAuthenticated: boolean
 }
+
+const PAGES = {
+  free: PLAN_ALLOWANCES.free.monthlyCredits.toLocaleString('en-US'),
+  starter: PLAN_ALLOWANCES.starter.monthlyCredits.toLocaleString('en-US'),
+  pro: PLAN_ALLOWANCES.pro.monthlyCredits.toLocaleString('en-US'),
+} as const
 
 type Tier = {
   key: 'free' | 'starter' | 'pro'
@@ -22,7 +29,11 @@ const TIERS: Tier[] = [
     price: '$0',
     cadence: 'after email signup',
     blurb: 'Perfect for trying out',
-    features: ['1 conversion every 24 hours', 'XLSX, CSV, QuickBooks CSV, Xero CSV'],
+    features: [
+      `${PAGES.free} pages per month`,
+      'XLSX, CSV, QuickBooks CSV, Xero CSV',
+      'No overage, no credit card required',
+    ],
     ctaLabel: 'Get started',
   },
   {
@@ -31,7 +42,12 @@ const TIERS: Tier[] = [
     price: '$19',
     cadence: '/ mo',
     blurb: 'Great for regular use',
-    features: ['Monthly conversion credits', 'Priority extraction queue', 'Email support'],
+    features: [
+      `${PAGES.starter} pages per month`,
+      'Priority extraction queue',
+      'Overage billing for additional pages',
+      'Email support',
+    ],
     ctaLabel: 'Subscribe',
     popular: true,
   },
@@ -41,7 +57,11 @@ const TIERS: Tier[] = [
     price: '$49',
     cadence: '/ mo',
     blurb: 'For teams and high volume',
-    features: ['Higher monthly credits', 'Overage billing per page', 'Priority support'],
+    features: [
+      `${PAGES.pro} pages per month`,
+      'Overage billing for additional pages',
+      'Priority support',
+    ],
     ctaLabel: 'Subscribe',
   },
 ]
@@ -80,14 +100,17 @@ export function PricingSection({ isAuthenticated }: PricingSectionProps) {
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
+              Pricing
+            </p>
             <h2
               id="pricing-heading"
-              className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]"
+              className="mt-2 text-3xl font-bold leading-[1.1] tracking-[-0.02em] text-[var(--text-primary)] sm:text-4xl"
             >
               Simple pricing. No surprises.
             </h2>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Start for free. Upgrade anytime for more conversions.
+            <p className="mt-3 max-w-xl text-base text-[var(--text-secondary)]">
+              Start free. Move up when you need more pages.
             </p>
           </div>
         </div>

@@ -16,7 +16,9 @@ describe('PricingSection', () => {
     expect(screen.getAllByText(/\$0/).length).toBeGreaterThan(0)
     expect(screen.getByText(/\$19/)).toBeInTheDocument()
     expect(screen.getByText(/\$49/)).toBeInTheDocument()
-    expect(screen.getByText(/1 conversion every 24 hours/i)).toBeInTheDocument()
+    expect(screen.getByText(/5 pages per month/i)).toBeInTheDocument()
+    expect(screen.getByText(/200 pages per month/i)).toBeInTheDocument()
+    expect(screen.getByText(/1,000 pages per month/i)).toBeInTheDocument()
   })
 
   it('marks Starter as Most popular', () => {

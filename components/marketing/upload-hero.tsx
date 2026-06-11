@@ -42,48 +42,14 @@ function CheckCircle() {
 
 function PdfGlyph() {
   return (
-    <svg viewBox="0 0 96 80" aria-hidden="true" className="h-20 w-24" fill="none">
-      {/* Soft lavender cloud silhouette */}
-      <path
-        d="M20 56c-7 0-12-5-12-12 0-6 4-11 10-12 1-9 9-16 18-16 8 0 14 4 17 11 2-1 4-1 6-1 8 0 14 6 14 14 0 8-6 14-14 14H20z"
-        fill="#EEF0FF"
-      />
-      {/* White document, folded corner top-right */}
-      <g transform="translate(28 14)">
-        <path
-          d="M4 0h26l10 10v44a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z"
-          fill="#FFFFFF"
-          stroke="#C9C2FF"
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M30 0v10h10"
-          fill="#F3F1FF"
-          stroke="#C9C2FF"
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-        />
-        {/* Stylized red Acrobat-like mark */}
-        <path
-          d="M14 22c0-1 1-2 2-2h6c2 0 4 1 4 4 0 3-2 5-5 5h-3v4h-4V22z M18 26h3c0.7 0 1-0.4 1-1 0-0.6-0.3-1-1-1h-3v2z"
-          fill="#DC2626"
-        />
-        <rect x="6" y="40" width="28" height="9" rx="2" fill="#DC2626" />
-        <text
-          x="20"
-          y="46.8"
-          textAnchor="middle"
-          fontSize="6.4"
-          fontWeight="800"
-          fill="#FFFFFF"
-          fontFamily="sans-serif"
-          letterSpacing="0.5"
-        >
-          PDF
-        </text>
-      </g>
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/marketing/icons/pdf.png"
+      alt="PDF document"
+      width={64}
+      height={64}
+      className="h-16 w-16 object-contain"
+    />
   )
 }
 
@@ -218,15 +184,16 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
           BANK &amp; CREDIT CARD STATEMENT CONVERTER
         </p>
 
-        <h1 className="mt-6 font-semibold leading-[1.1] tracking-tight text-[var(--text-primary)] text-[clamp(2rem,5vw,4rem)]">
-          Convert PDF statements
-          <br className="hidden sm:block" /> to{' '}
-          <span className="text-[var(--primary)]">CSV and Excel</span>
+        <h1 className="mt-6 font-bold leading-[1.04] tracking-[-0.03em] text-[var(--text-primary)] text-[clamp(2.25rem,5.5vw,4.25rem)]">
+          Turn PDF Statements into{' '}
+          <span className="text-[var(--primary)]">QuickBooks and Xero</span>
+          <wbr />
+          -Ready Files
         </h1>
 
         <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--text-secondary)] sm:text-lg">
-          Fast, accurate, and secure conversion of bank and credit card statements. Get clean data
-          you can trust in seconds.
+          Convert bank, credit card, and financial statements into clean transaction files for
+          QuickBooks, Xero, CSV, and Excel, without manual data entry.
         </p>
 
         <ul className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-medium text-[var(--text-secondary)]">

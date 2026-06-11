@@ -2,23 +2,23 @@ import Link from 'next/link'
 
 function Wordmark() {
   return (
-    <span className="inline-flex items-center gap-2">
-      <svg
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-        className="h-6 w-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M7 3h7l4 4v14H7z" fill="color-mix(in oklch, var(--accent) 10%, transparent)" />
-        <path d="M14 3v4h4" />
-        <path d="M9 13h6" />
-        <path d="M9 17h6" />
-      </svg>
-      <span className="text-lg font-semibold tracking-tight">StatementStudio</span>
+    <span className="inline-flex items-center gap-2.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/marketing/logos/statementstudio-mark.png"
+        alt=""
+        width={72}
+        height={72}
+        className="h-[72px] w-[72px] object-contain mix-blend-multiply"
+      />
+      <span className="inline-flex flex-col leading-none">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
+          PDF to spreadsheet
+        </span>
+        <span className="mt-1.5 text-[28px] font-extrabold tracking-[-0.025em] text-[var(--text-primary)]">
+          Statement<span className="text-[var(--primary)]">Studio</span>
+        </span>
+      </span>
     </span>
   )
 }
@@ -29,7 +29,7 @@ export function SiteHeader() {
       className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-background/90 backdrop-blur"
       role="banner"
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-6 lg:px-8">
+      <div className="mx-auto flex h-24 max-w-7xl items-center justify-between gap-4 px-6 lg:px-8">
         <Link
           href="/"
           aria-label="StatementStudio home"

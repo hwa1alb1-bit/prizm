@@ -14,14 +14,16 @@ const montserrat = Montserrat({
 })
 
 const description =
-  'Fast, accurate, and secure conversion of bank and credit card statements. Get clean data you trust in seconds.'
+  'Convert bank, credit card, and financial statements into clean transaction files for QuickBooks, Xero, CSV, and Excel. No manual data entry.'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
+
+const homeTitle = 'Bank Statement Converter for QuickBooks, Xero, Excel, CSV | StatementStudio'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'Bank Statement Converter to Excel and CSV | StatementStudio',
+    default: homeTitle,
     template: '%s | StatementStudio',
   },
   description,
@@ -30,7 +32,7 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'Bank Statement Converter to Excel and CSV | StatementStudio',
+    title: homeTitle,
     description,
     url: siteUrl,
     siteName: 'StatementStudio',
@@ -39,7 +41,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Bank Statement Converter to Excel and CSV | StatementStudio',
+    title: homeTitle,
     description,
   },
   robots: { index: true, follow: true },
