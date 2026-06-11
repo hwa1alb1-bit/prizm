@@ -49,7 +49,7 @@ export default function RegisterPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold">Create your PRIZM account</h1>
+        <h1 className="text-2xl font-semibold">Create your StatementStudio account</h1>
         <p className="text-sm text-foreground/60">
           Start converting bank statements with trust built in
         </p>

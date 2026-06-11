@@ -51,7 +51,7 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold">Sign in to PRIZM</h1>
+        <h1 className="text-2xl font-semibold">Sign in to StatementStudio</h1>
         <p className="text-sm text-foreground/60">Enter your email to receive a magic link</p>
       </div>
 

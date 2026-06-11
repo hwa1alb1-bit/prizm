@@ -6,7 +6,6 @@ import { PricingSection } from '@/components/marketing/pricing-section'
 import { SiteFooter } from '@/components/marketing/site-footer'
 import { SiteHeader } from '@/components/marketing/site-header'
 import { SupportedOutputs } from '@/components/marketing/supported-outputs'
-import { TrustAndSecurityCard } from '@/components/marketing/trust-and-security-card'
 import { TrustCards } from '@/components/marketing/trust-cards'
 import { UploadHero } from '@/components/marketing/upload-hero'
 import {
@@ -51,15 +50,7 @@ export default async function Home() {
 
       <main className="flex-1 bg-[var(--background)] text-[var(--text-primary)]">
         <Suspense fallback={null}>
-          <UploadHero
-            isAuthenticated={isAuthenticated}
-            rightRailExtras={
-              <>
-                <SupportedOutputs />
-                <TrustAndSecurityCard />
-              </>
-            }
-          />
+          <UploadHero isAuthenticated={isAuthenticated} rightRailExtras={<SupportedOutputs />} />
         </Suspense>
         <HowItWorks />
         <TrustCards />

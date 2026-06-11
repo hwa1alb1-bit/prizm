@@ -42,35 +42,47 @@ function CheckCircle() {
 
 function PdfGlyph() {
   return (
-    <svg
-      viewBox="0 0 56 64"
-      aria-hidden="true"
-      className="h-14 w-12"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg viewBox="0 0 96 80" aria-hidden="true" className="h-20 w-24" fill="none">
+      {/* Soft lavender cloud silhouette */}
       <path
-        d="M10 4h26l12 12v40a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z"
-        fill="#FFFFFF"
-        stroke="#E4E1F5"
+        d="M20 56c-7 0-12-5-12-12 0-6 4-11 10-12 1-9 9-16 18-16 8 0 14 4 17 11 2-1 4-1 6-1 8 0 14 6 14 14 0 8-6 14-14 14H20z"
+        fill="#EEF0FF"
       />
-      <path d="M36 4v12h12" stroke="#E4E1F5" />
-      <rect x="6" y="34" width="36" height="16" rx="2" fill="#DC2626" stroke="none" />
-      <text
-        x="24"
-        y="46"
-        textAnchor="middle"
-        fontSize="9"
-        fontWeight="700"
-        fill="#FFFFFF"
-        stroke="none"
-        fontFamily="sans-serif"
-      >
-        PDF
-      </text>
+      {/* White document, folded corner top-right */}
+      <g transform="translate(28 14)">
+        <path
+          d="M4 0h26l10 10v44a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z"
+          fill="#FFFFFF"
+          stroke="#C9C2FF"
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M30 0v10h10"
+          fill="#F3F1FF"
+          stroke="#C9C2FF"
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+        {/* Stylized red Acrobat-like mark */}
+        <path
+          d="M14 22c0-1 1-2 2-2h6c2 0 4 1 4 4 0 3-2 5-5 5h-3v4h-4V22z M18 26h3c0.7 0 1-0.4 1-1 0-0.6-0.3-1-1-1h-3v2z"
+          fill="#DC2626"
+        />
+        <rect x="6" y="40" width="28" height="9" rx="2" fill="#DC2626" />
+        <text
+          x="20"
+          y="46.8"
+          textAnchor="middle"
+          fontSize="6.4"
+          fontWeight="800"
+          fill="#FFFFFF"
+          fontFamily="sans-serif"
+          letterSpacing="0.5"
+        >
+          PDF
+        </text>
+      </g>
     </svg>
   )
 }
@@ -368,7 +380,7 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
         </div>
       </div>
 
-      <div className="space-y-5 lg:sticky lg:top-24">
+      <div className="flex flex-col gap-5 lg:self-stretch">
         <ConversionStatusCard
           variant={pillVariant(status)}
           filename={
@@ -382,7 +394,7 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
               : undefined
           }
         />
-        {rightRailExtras}
+        {rightRailExtras ? <div className="flex flex-1 flex-col">{rightRailExtras}</div> : null}
       </div>
     </section>
   )

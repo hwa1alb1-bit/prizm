@@ -37,10 +37,10 @@ const apiServerUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstat
 const openApiDocument = {
   openapi: '3.1.0',
   info: {
-    title: 'PRIZM API',
+    title: 'StatementStudio API',
     version: 'v1',
     description:
-      'Public PRIZM API routes for document conversion, export, billing, and privacy workflows.',
+      'Public StatementStudio API routes for document conversion, export, billing, and privacy workflows.',
   },
   servers: [{ url: apiServerUrl }],
   paths: {

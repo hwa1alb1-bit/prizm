@@ -54,4 +54,24 @@ describe('Brand sweep guard', () => {
       `Found PrizmView wordmark in:\n${offenders.map((o) => `  ${o.path}:${o.line} -> ${o.text}`).join('\n')}`,
     ).toEqual([])
   })
+
+  it('contains no PRIZM all-caps codename in user-facing source', () => {
+    const files = SCAN_DIRS.flatMap((d) => walk(join(repoRoot, d), []))
+    const wordBoundary = /\bPRIZM\b/
+
+    const offenders: { path: string; line: number; text: string }[] = []
+    for (const file of files) {
+      const content = readFileSync(file, 'utf8')
+      content.split(/\r?\n/).forEach((line, index) => {
+        if (wordBoundary.test(line)) {
+          offenders.push({ path: relative(repoRoot, file), line: index + 1, text: line.trim() })
+        }
+      })
+    }
+
+    expect(
+      offenders,
+      `Found PRIZM wordmark in:\n${offenders.map((o) => `  ${o.path}:${o.line} -> ${o.text}`).join('\n')}`,
+    ).toEqual([])
+  })
 })

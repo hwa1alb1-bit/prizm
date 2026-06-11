@@ -3,7 +3,7 @@ import { TrustPage, TrustSection } from '@/components/trust/trust-page'
 
 export const metadata = {
   title: 'Security Policy',
-  description: 'PRIZM vulnerability disclosure and security reporting policy.',
+  description: 'StatementStudio vulnerability disclosure and security reporting policy.',
 }
 
 export default function SecurityPolicyPage() {
@@ -26,7 +26,7 @@ export default function SecurityPolicyPage() {
 
       <TrustSection title="Handling">
         <ul className="space-y-3">
-          <li>PRIZM triages security reports before normal support requests.</li>
+          <li>StatementStudio triages security reports before normal support requests.</li>
           <li>
             Reports that indicate active abuse, credential exposure, or data access risk become
             incidents.
@@ -41,8 +41,8 @@ export default function SecurityPolicyPage() {
 
       <TrustSection title="Scope">
         <p>
-          In-scope assets are PRIZM application routes, API routes, dashboard controls, public trust
-          pages, and documented provider integrations. See{' '}
+          In-scope assets are StatementStudio application routes, API routes, dashboard controls,
+          public trust pages, and documented provider integrations. See{' '}
           <Link className="font-medium underline" href="/security">
             Security
           </Link>{' '}

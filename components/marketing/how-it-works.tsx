@@ -1,8 +1,20 @@
 const STEPS = [
-  { title: 'Upload PDF', body: 'Securely upload your statement PDF.' },
-  { title: 'We extract data', body: 'Our parser identifies and understands the data.' },
-  { title: 'Review & verify', body: 'We validate and organize the rows into structured data.' },
-  { title: 'Export', body: 'Download your data in CSV or Excel.' },
+  {
+    title: 'Securely upload your PDF',
+    body: 'Upload bank statements, credit card statements, transaction reports, or other financial PDFs through an encrypted TLS 1.2+ connection.',
+  },
+  {
+    title: 'We extract the data',
+    body: 'Our parser identifies transaction dates, descriptions, debits, credits, balances, fees, deposits, withdrawals, and other key statement details.',
+  },
+  {
+    title: 'Review and verify',
+    body: 'Check your extracted rows before export, make adjustments where needed, and stay in control of the final spreadsheet output.',
+  },
+  {
+    title: 'Export clean files',
+    body: 'Download structured CSV or Excel files ready for bookkeeping, reconciliation, reporting, tax prep, or financial analysis.',
+  },
 ] as const
 
 function Chevron() {

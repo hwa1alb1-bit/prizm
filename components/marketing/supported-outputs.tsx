@@ -23,7 +23,7 @@ export function SupportedOutputs() {
   return (
     <section
       aria-labelledby="supported-outputs-heading"
-      className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--elevation-card)]"
+      className="flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--elevation-card)]"
     >
       <h3
         id="supported-outputs-heading"
@@ -31,7 +31,7 @@ export function SupportedOutputs() {
       >
         Supported outputs
       </h3>
-      <ul className="mt-4 space-y-3 text-sm">
+      <ul className="mt-4 flex-1 space-y-3 text-sm">
         {OUTPUTS.map((format) => (
           <li key={format} className="flex items-center gap-3">
             <CheckMark />
@@ -39,6 +39,9 @@ export function SupportedOutputs() {
           </li>
         ))}
       </ul>
+      <p className="mt-4 text-xs text-[var(--text-muted)]">
+        Pick the format your accounting workflow expects after review.
+      </p>
     </section>
   )
 }

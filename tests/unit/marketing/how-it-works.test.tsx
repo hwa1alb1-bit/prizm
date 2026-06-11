@@ -13,7 +13,12 @@ describe('HowItWorks', () => {
     const list = screen.getByRole('list')
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(4)
-    const titles = ['Upload PDF', 'We extract data', 'Review & verify', 'Export']
+    const titles = [
+      'Securely upload your PDF',
+      'We extract the data',
+      'Review and verify',
+      'Export clean files',
+    ]
     titles.forEach((title, index) => {
       expect(items[index]).toHaveTextContent(title)
     })
