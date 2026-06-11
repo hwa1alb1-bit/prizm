@@ -8,13 +8,11 @@ describe('SiteHeader', () => {
     expect(screen.getByRole('link', { name: /StatementStudio/i })).toBeInTheDocument()
   })
 
-  it('exposes Pricing, Features, and Security anchor links', () => {
+  it('does not expose middle nav anchors', () => {
     render(<SiteHeader />)
-    const anchors = ['Pricing', 'Features', 'Security']
-    for (const label of anchors) {
-      const link = screen.getByRole('link', { name: label })
-      expect(link).toHaveAttribute('href', `#${label.toLowerCase()}`)
-    }
+    expect(screen.queryByRole('link', { name: 'Pricing' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Features' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Security' })).not.toBeInTheDocument()
   })
 
   it('provides Login and Register entry points', () => {
@@ -26,10 +24,8 @@ describe('SiteHeader', () => {
     expect(register).toHaveAttribute('href', '/register')
   })
 
-  it('uses a banner landmark with a primary navigation', () => {
+  it('uses a banner landmark', () => {
     render(<SiteHeader />)
-    const banner = screen.getByRole('banner')
-    expect(banner).toBeInTheDocument()
-    expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
   })
 })

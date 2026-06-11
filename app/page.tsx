@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createServerSupabaseClient } from '@/lib/server/supabase-middleware'
 import { JsonLd } from '@/components/marketing/json-ld'
 import { HowItWorks } from '@/components/marketing/how-it-works'
@@ -22,12 +23,23 @@ export const metadata = buildPageMetadata({
   path: '/',
 })
 
+async function detectIsAuthenticated(): Promise<boolean> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return false
+  }
+  try {
+    const supabase = await createServerSupabaseClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    return Boolean(user)
+  } catch {
+    return false
+  }
+}
+
 export default async function Home() {
-  const supabase = await createServerSupabaseClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const isAuthenticated = Boolean(user)
+  const isAuthenticated = await detectIsAuthenticated()
 
   return (
     <>
@@ -37,16 +49,18 @@ export default async function Home() {
 
       <SiteHeader />
 
-      <main className="flex-1 bg-background text-foreground">
-        <UploadHero
-          isAuthenticated={isAuthenticated}
-          rightRailExtras={
-            <>
-              <SupportedOutputs />
-              <TrustAndSecurityCard />
-            </>
-          }
-        />
+      <main className="flex-1 bg-[var(--background)] text-[var(--text-primary)]">
+        <Suspense fallback={null}>
+          <UploadHero
+            isAuthenticated={isAuthenticated}
+            rightRailExtras={
+              <>
+                <SupportedOutputs />
+                <TrustAndSecurityCard />
+              </>
+            }
+          />
+        </Suspense>
         <HowItWorks />
         <TrustCards />
         <PricingSection isAuthenticated={isAuthenticated} />

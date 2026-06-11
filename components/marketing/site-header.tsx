@@ -1,7 +1,5 @@
 import Link from 'next/link'
 
-const NAV_ANCHORS = ['Pricing', 'Features', 'Security'] as const
-
 function Wordmark() {
   return (
     <span className="inline-flex items-center gap-2">
@@ -39,21 +37,6 @@ export function SiteHeader() {
         >
           <Wordmark />
         </Link>
-
-        <nav
-          aria-label="Primary"
-          className="hidden items-center gap-6 text-sm font-medium text-foreground/80 md:flex"
-        >
-          {NAV_ANCHORS.map((label) => (
-            <Link
-              key={label}
-              href={`#${label.toLowerCase()}`}
-              className="rounded-sm transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
 
         <div className="flex items-center gap-2">
           <Link
