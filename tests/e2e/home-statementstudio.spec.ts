@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Home — StatementStudio', () => {
-  test('exposes the upload entry funnel with anchors and pricing', async ({ page }) => {
+  test('exposes the upload entry funnel and the pricing section', async ({ page }) => {
     await page.goto('/')
 
-    // Header: wordmark + Login + Register
+    // Header: wordmark + Login + Register (no middle nav after the second rework)
     await expect(page.getByRole('link', { name: 'Login' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Register' })).toBeVisible()
 
@@ -12,15 +12,12 @@ test.describe('Home — StatementStudio', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(/Turn PDF Statements/i)
     await expect(page.getByRole('button', { name: /Choose PDF/i })).toBeVisible()
 
-    // Anchor link to pricing exists
-    const pricingAnchor = page.getByRole('link', { name: 'Pricing' }).first()
-    await expect(pricingAnchor).toHaveAttribute('href', '#pricing')
-
-    // Pricing section shows real Stripe prices
-    await pricingAnchor.click()
-    await expect(page.getByText('$19')).toBeVisible()
-    await expect(page.getByText('$49')).toBeVisible()
-    await expect(page.getByText('Most popular')).toBeVisible()
+    // Pricing section renders on the same page with real Stripe prices
+    const pricingSection = page.locator('#pricing')
+    await expect(pricingSection).toBeVisible()
+    await expect(pricingSection.getByText('$19')).toBeVisible()
+    await expect(pricingSection.getByText('$49')).toBeVisible()
+    await expect(pricingSection.getByText('Most popular')).toBeVisible()
   })
 
   test('routes anonymous file selection to /register', async ({ page }) => {
@@ -36,7 +33,8 @@ test.describe('Home — StatementStudio', () => {
     ])
 
     expect(request.url()).toContain('/register')
-    expect(request.url()).toContain('next=%2Fapp')
+    // Next.js router does not URL-encode `/` in query values, so accept either form.
+    expect(request.url()).toMatch(/next=(%2F|\/)app/)
   })
 
   test('renders exactly one h1', async ({ page }) => {
