@@ -2,11 +2,11 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/server/supabase-middleware'
 import { AppHeader } from '@/components/layout/app-header'
+import { getBillingSummaryForUser } from '@/lib/server/billing/summary'
 
 const navItems = [
   { href: '/app', label: 'Upload' },
-  { href: '/app/billing', label: 'Billing' },
-  { href: '/app/settings', label: 'Settings' },
+  { href: '/app/account', label: 'Account' },
 ]
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +17,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect('/login')
 
+  let credits: { used: number; included: number } | undefined
+  try {
+    const billing = await getBillingSummaryForUser({ userId: user.id })
+    credits = { used: billing.usedCredits, included: billing.monthlyCredits }
+  } catch {
+    credits = undefined
+  }
+
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <a
@@ -26,7 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         Skip to main content
       </a>
 
-      <AppHeader authed accountHref="/app/settings" />
+      <AppHeader authed accountHref="/app/account" credits={credits} />
 
       <nav
         className="border-b border-[var(--border-subtle)] bg-[var(--background)] px-4 py-3 md:hidden"

@@ -32,4 +32,21 @@ describe('AppHeader', () => {
     render(<AppHeader authed={false} />)
     expect(screen.getByRole('banner')).toBeInTheDocument()
   })
+
+  it('renders a credits chip when authed and credits are provided', () => {
+    render(<AppHeader authed credits={{ used: 57, included: 200 }} />)
+    expect(screen.getByText('57')).toBeInTheDocument()
+    expect(screen.getByText('/200')).toBeInTheDocument()
+    expect(screen.getByText(/Pages/i)).toBeInTheDocument()
+  })
+
+  it('omits the credits chip when credits are not provided', () => {
+    render(<AppHeader authed />)
+    expect(screen.queryByText(/Pages/i)).toBeNull()
+  })
+
+  it('does not render the credits chip for unauthenticated visitors', () => {
+    render(<AppHeader authed={false} credits={{ used: 1, included: 5 }} />)
+    expect(screen.queryByText(/Pages/i)).toBeNull()
+  })
 })

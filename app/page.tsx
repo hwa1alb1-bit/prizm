@@ -5,6 +5,7 @@ import { PricingSection } from '@/components/marketing/pricing-section'
 import { SiteFooter } from '@/components/marketing/site-footer'
 import { AppHeader } from '@/components/layout/app-header'
 import { TrustCards } from '@/components/marketing/trust-cards'
+import { getBillingSummaryForUser } from '@/lib/server/billing/summary'
 import {
   buildBreadcrumbJsonLd,
   buildOrganizationJsonLd,
@@ -19,23 +20,37 @@ export const metadata = buildPageMetadata({
   path: '/',
 })
 
-async function detectIsAuthenticated(): Promise<boolean> {
+type Visitor = {
+  authenticated: boolean
+  credits?: { used: number; included: number }
+}
+
+async function detectVisitor(): Promise<Visitor> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return false
+    return { authenticated: false }
   }
   try {
     const supabase = await createServerSupabaseClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    return Boolean(user)
+    if (!user) return { authenticated: false }
+    try {
+      const billing = await getBillingSummaryForUser({ userId: user.id })
+      return {
+        authenticated: true,
+        credits: { used: billing.usedCredits, included: billing.monthlyCredits },
+      }
+    } catch {
+      return { authenticated: true }
+    }
   } catch {
-    return false
+    return { authenticated: false }
   }
 }
 
 export default async function Home() {
-  const isAuthenticated = await detectIsAuthenticated()
+  const visitor = await detectVisitor()
 
   return (
     <>
@@ -43,7 +58,7 @@ export default async function Home() {
       <JsonLd data={buildSoftwareApplicationJsonLd()} />
       <JsonLd data={buildBreadcrumbJsonLd([{ name: 'Home', path: '/' }])} />
 
-      <AppHeader authed={isAuthenticated} accountHref="/app/settings" />
+      <AppHeader authed={visitor.authenticated} credits={visitor.credits} />
 
       <main className="flex-1 bg-[var(--background)] text-[var(--text-primary)]">
         <section aria-labelledby="hero-heading" className="border-b border-[var(--border)]">
@@ -65,7 +80,7 @@ export default async function Home() {
         </section>
         <HowItWorks />
         <TrustCards />
-        <PricingSection isAuthenticated={isAuthenticated} />
+        <PricingSection isAuthenticated={visitor.authenticated} />
       </main>
 
       <SiteFooter />

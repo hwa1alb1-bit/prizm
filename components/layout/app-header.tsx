@@ -4,6 +4,24 @@ type AppHeaderProps = {
   authed: boolean
   accountHref?: string
   displayName?: string
+  credits?: { used: number; included: number }
+}
+
+function CreditsChip({ used, included }: { used: number; included: number }) {
+  const safeIncluded = Math.max(0, included)
+  const safeUsed = Math.max(0, Math.min(used, safeIncluded))
+  return (
+    <span
+      aria-label={`${safeUsed} of ${safeIncluded} pages used this period`}
+      className="hidden h-10 items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-3 text-sm sm:inline-flex"
+    >
+      <span className="font-semibold tabular-nums text-[var(--text-primary)]">{safeUsed}</span>
+      <span className="tabular-nums text-foreground/55">{`/${safeIncluded}`}</span>
+      <span className="ml-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/55">
+        Pages
+      </span>
+    </span>
+  )
 }
 
 function Wordmark() {
@@ -29,7 +47,7 @@ function Wordmark() {
   )
 }
 
-export function AppHeader({ authed, accountHref = '/app/account' }: AppHeaderProps) {
+export function AppHeader({ authed, accountHref = '/app/account', credits }: AppHeaderProps) {
   return (
     <header
       className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-background/90 backdrop-blur"
@@ -45,6 +63,7 @@ export function AppHeader({ authed, accountHref = '/app/account' }: AppHeaderPro
         </Link>
 
         <div className="flex items-center gap-2">
+          {authed && credits ? <CreditsChip used={credits.used} included={credits.included} /> : null}
           {authed ? (
             <Link
               href={accountHref}
