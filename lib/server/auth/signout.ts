@@ -22,9 +22,7 @@ export async function signOutFromCookies(): Promise<SignOutResult> {
       },
       setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          )
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
         } catch {
           // Server Components cannot mutate cookies. Route handlers can.
         }

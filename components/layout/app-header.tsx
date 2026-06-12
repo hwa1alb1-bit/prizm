@@ -63,7 +63,9 @@ export function AppHeader({ authed, accountHref = '/app/account', credits }: App
         </Link>
 
         <div className="flex items-center gap-2">
-          {authed && credits ? <CreditsChip used={credits.used} included={credits.included} /> : null}
+          {authed && credits ? (
+            <CreditsChip used={credits.used} included={credits.included} />
+          ) : null}
           {authed ? (
             <Link
               href={accountHref}

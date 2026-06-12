@@ -14,10 +14,11 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
   const [fullName, setFullName] = useState<string>(settings.account.fullName ?? '')
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = useState<string>(settings.workspace.name)
-  const canEditWorkspace =
-    settings.account.role === 'owner' || settings.account.role === 'admin'
+  const canEditWorkspace = settings.account.role === 'owner' || settings.account.role === 'admin'
 
-  async function saveFullName(value: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  async function saveFullName(
+    value: string,
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
     const response = await fetch('/api/v1/account/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -656,9 +657,7 @@ function SignOutRow() {
 }
 
 async function readProblem(response: Response): Promise<{ ok: false; message: string }> {
-  const problem = (await response
-    .json()
-    .catch(() => ({}))) as { detail?: string; title?: string }
+  const problem = (await response.json().catch(() => ({}))) as { detail?: string; title?: string }
   return { ok: false, message: problem.detail ?? problem.title ?? 'Save failed' }
 }
 
