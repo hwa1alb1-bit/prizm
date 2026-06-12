@@ -147,6 +147,47 @@ describe('AccountForm — editable full name', () => {
     )
   })
 
+  it('renders an Edit workspace button for owner and admin roles', () => {
+    render(<AccountForm settings={buildSettings({ role: 'owner' })} billing={buildBilling()} />)
+    expect(screen.getByRole('button', { name: /Edit workspace name/i })).toBeInTheDocument()
+  })
+
+  it('does not render an Edit workspace button for member or viewer roles', () => {
+    render(<AccountForm settings={buildSettings({ role: 'member' })} billing={buildBilling()} />)
+    expect(screen.queryByRole('button', { name: /Edit workspace name/i })).toBeNull()
+    expect(screen.getByText('Benchmark')).toBeInTheDocument()
+  })
+
+  it('PATCHes /api/v1/account/workspace on save', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ name: 'New Workspace' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    )
+
+    render(<AccountForm settings={buildSettings({ role: 'admin' })} billing={buildBilling()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Edit workspace name/i }))
+    const input = screen.getByLabelText(/Workspace name/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'New Workspace')
+    await userEvent.click(screen.getByRole('button', { name: /Save/i }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/v1/account/workspace',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ name: 'New Workspace' }),
+        }),
+      )
+    })
+    expect(await screen.findByText('New Workspace')).toBeInTheDocument()
+  })
+
   it('expands a password change form when Change password is clicked', async () => {
     render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
     await userEvent.click(screen.getByRole('button', { name: /Change password/i }))

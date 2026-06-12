@@ -13,6 +13,9 @@ type AccountFormProps = {
 export function AccountForm({ settings, billing }: AccountFormProps) {
   const [fullName, setFullName] = useState<string>(settings.account.fullName ?? '')
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
+  const [workspaceName, setWorkspaceName] = useState<string>(settings.workspace.name)
+  const canEditWorkspace =
+    settings.account.role === 'owner' || settings.account.role === 'admin'
 
   async function saveFullName(value: string): Promise<{ ok: true } | { ok: false; message: string }> {
     const response = await fetch('/api/v1/account/profile', {
@@ -35,6 +38,20 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
     if (!response.ok) return readProblem(response)
     const body = (await response.json().catch(() => ({}))) as { pending_email?: string }
     if (body.pending_email) setPendingEmail(body.pending_email)
+    return { ok: true }
+  }
+
+  async function saveWorkspaceName(
+    value: string,
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    const response = await fetch('/api/v1/account/workspace', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: value }),
+    })
+    if (!response.ok) return readProblem(response)
+    const body = (await response.json().catch(() => ({}))) as { name?: string }
+    if (body.name) setWorkspaceName(body.name)
     return { ok: true }
   }
 
@@ -79,7 +96,19 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
             onSave={saveEmail}
             editButtonLabel="Edit email"
           />
-          <ReadOnlyRow label="Workspace" value={settings.workspace.name} />
+          {canEditWorkspace ? (
+            <EditableRow
+              label="Workspace name"
+              displayValue={workspaceName}
+              initialEditValue={workspaceName}
+              inputType="text"
+              inputProps={{ maxLength: 120, autoComplete: 'organization' }}
+              onSave={saveWorkspaceName}
+              editButtonLabel="Edit workspace name"
+            />
+          ) : (
+            <ReadOnlyRow label="Workspace" value={workspaceName} />
+          )}
           <ReadOnlyRow label="Role" value={settings.account.role} />
         </dl>
         <div className="mt-6 border-t border-foreground/5 pt-4">
