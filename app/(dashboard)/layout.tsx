@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/server/supabase-middleware'
 import Link from 'next/link'
+import { createServerSupabaseClient } from '@/lib/server/supabase-middleware'
+import { AppHeader } from '@/components/layout/app-header'
 
 const navItems = [
   { href: '/app', label: 'Upload' },
@@ -24,16 +25,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
       >
         Skip to main content
       </a>
-      <header className="border-b border-[var(--border-subtle)] bg-[var(--background)] px-4 py-3 md:hidden">
-        <div className="flex items-center justify-between gap-4">
-          <Link href="/app" className="text-sm font-semibold tracking-tight">
-            StatementStudio
-          </Link>
+
+      <AppHeader authed accountHref="/app/settings" />
+
+      <nav
+        className="border-b border-[var(--border-subtle)] bg-[var(--background)] px-4 py-3 md:hidden"
+        aria-label="Primary"
+      >
+        <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-xs font-medium text-foreground/70">
             Workspace
           </span>
         </div>
-        <nav className="mt-3 flex gap-2 overflow-x-auto" aria-label="Primary">
+        <div className="mt-3 flex gap-2 overflow-x-auto">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -43,19 +47,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {item.label}
             </Link>
           ))}
-        </nav>
-      </header>
+        </div>
+      </nav>
 
-      <div className="flex min-h-screen md:min-h-0">
+      <div className="flex md:min-h-0">
         <aside className="hidden w-64 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--surface-muted)] px-4 py-5 md:block">
-          <div className="mb-8">
-            <Link href="/app" className="text-base font-semibold tracking-tight">
-              StatementStudio
-            </Link>
-            <p className="mt-1 text-xs leading-5 text-foreground/55">
-              Bank statement conversion with deletion evidence.
-            </p>
-          </div>
+          <p className="mb-6 text-xs leading-5 text-foreground/55">
+            Bank statement conversion with deletion evidence.
+          </p>
           <nav className="space-y-1" aria-label="Primary">
             {navItems.map((item) => (
               <Link

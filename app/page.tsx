@@ -3,7 +3,7 @@ import { JsonLd } from '@/components/marketing/json-ld'
 import { HowItWorks } from '@/components/marketing/how-it-works'
 import { PricingSection } from '@/components/marketing/pricing-section'
 import { SiteFooter } from '@/components/marketing/site-footer'
-import { SiteHeader } from '@/components/marketing/site-header'
+import { AppHeader } from '@/components/layout/app-header'
 import { TrustCards } from '@/components/marketing/trust-cards'
 import {
   buildBreadcrumbJsonLd,
@@ -43,7 +43,7 @@ export default async function Home() {
       <JsonLd data={buildSoftwareApplicationJsonLd()} />
       <JsonLd data={buildBreadcrumbJsonLd([{ name: 'Home', path: '/' }])} />
 
-      <SiteHeader />
+      <AppHeader authed={isAuthenticated} accountHref="/app/settings" />
 
       <main className="flex-1 bg-[var(--background)] text-[var(--text-primary)]">
         <section aria-labelledby="hero-heading" className="border-b border-[var(--border)]">
