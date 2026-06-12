@@ -1,19 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/client/supabase'
-import { buildAuthCallbackUrl } from '@/lib/shared/auth-redirect'
 import { PASSWORD_HINT, validatePassword } from '@/lib/auth/password'
 
-export default function RegisterPage() {
-  const [email, setEmail] = useState('')
+type SessionStatus = 'checking' | 'authenticated' | 'expired'
+
+export default function ResetPage() {
+  const router = useRouter()
+  const [status, setStatus] = useState<SessionStatus>('checking')
   const [password, setPassword] = useState('')
   const [revealPassword, setRevealPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    try {
+      const supabase = createClient()
+      supabase.auth
+        .getUser()
+        .then(({ data }) => {
+          if (!mounted) return
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setStatus(data.user ? 'authenticated' : 'expired')
+        })
+        .catch(() => {
+          if (!mounted) return
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setStatus('expired')
+        })
+    } catch {
+      // Supabase client failed to initialize (e.g. missing env vars).
+      // Treat as an expired link so the user can request a new one.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatus('expired')
+    }
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -28,38 +57,43 @@ export default function RegisterPage() {
 
     setLoading(true)
     const supabase = createClient()
-    const { error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: buildAuthCallbackUrl({
-          siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
-          fallbackOrigin: window.location.origin,
-        }),
-      },
-    })
-
+    const { error: authError } = await supabase.auth.updateUser({ password })
     setLoading(false)
+
     if (authError) {
       setFormError(authError.message)
       return
     }
-    setSent(true)
+    router.push('/app')
   }
 
-  if (sent) {
+  if (status === 'checking') {
+    return (
+      <div className="space-y-4 text-center">
+        <p className="text-sm text-foreground/60">Checking reset link...</p>
+      </div>
+    )
+  }
+
+  if (status === 'expired') {
     return (
       <div className="space-y-4 text-center">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/50">
-          Verify email
+          Reset password
         </p>
-        <h1 className="text-3xl font-bold leading-[1.1] tracking-[-0.02em]">Check your email</h1>
+        <h1 className="text-3xl font-bold leading-[1.1] tracking-[-0.02em]">
+          Reset link expired or invalid
+        </h1>
         <p className="text-sm text-foreground/65">
-          We sent a verification link to <strong className="text-foreground">{email}</strong>.
+          The reset link is no longer valid. Request a new one to choose your password.
         </p>
-        <p className="text-sm text-foreground/60">
-          Click the link to finish creating your account. Free conversions start as soon as your
-          email is verified.
+        <p className="pt-2 text-sm">
+          <Link
+            href="/forgot-password"
+            className="font-medium underline text-foreground hover:text-foreground"
+          >
+            Request a new reset link
+          </Link>
         </p>
       </div>
     )
@@ -69,38 +103,21 @@ export default function RegisterPage() {
     <div className="space-y-7">
       <div className="space-y-3 text-center">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/50">
-          Create account
+          Choose new password
         </p>
         <h1 className="text-3xl font-bold leading-[1.1] tracking-[-0.02em]">
-          Create your StatementStudio account
+          Choose a new password
         </h1>
         <p className="text-sm text-foreground/65">
-          Free conversions start as soon as your email is verified.
+          This will replace your existing password and sign you in.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-semibold">
-            Work email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoFocus
-            autoComplete="email"
-            placeholder="you@company.com"
-            className="block h-11 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm placeholder:text-foreground/40 focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
-          />
-        </div>
-
-        <div className="space-y-1.5">
           <div className="flex items-baseline justify-between">
             <label htmlFor="password" className="block text-sm font-semibold">
-              Password
+              New password
             </label>
             <button
               type="button"
@@ -116,6 +133,7 @@ export default function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoFocus
             autoComplete="new-password"
             aria-describedby="password-hint"
             className="block h-11 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm placeholder:text-foreground/40 focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
@@ -144,16 +162,9 @@ export default function RegisterPage() {
           disabled={loading}
           className="block h-11 w-full rounded-md bg-foreground px-4 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {loading ? 'Creating account...' : 'Create account'}
+          {loading ? 'Updating...' : 'Update password'}
         </button>
       </form>
-
-      <p className="text-center text-sm text-foreground/65">
-        Already have an account?{' '}
-        <Link href="/login" className="font-medium underline hover:text-foreground">
-          Sign in
-        </Link>
-      </p>
     </div>
   )
 }
