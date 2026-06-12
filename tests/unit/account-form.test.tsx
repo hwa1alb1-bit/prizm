@@ -147,6 +147,86 @@ describe('AccountForm — editable full name', () => {
     )
   })
 
+  it('expands a password change form when Change password is clicked', async () => {
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Change password/i }))
+    expect(screen.getByLabelText(/Current password/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/New password/i)).toBeInTheDocument()
+    expect(screen.getByText(/10\+ characters/i)).toBeInTheDocument()
+  })
+
+  it('blocks the password change when the new password fails the policy', async () => {
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Change password/i }))
+    await userEvent.type(screen.getByLabelText(/Current password/i), 'Hunter12345')
+    await userEvent.type(screen.getByLabelText(/New password/i), 'short')
+    await userEvent.click(screen.getByRole('button', { name: /Update password/i }))
+
+    expect(await screen.findByText(/at least 10 characters/i)).toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('POSTs the password change and closes the form on success', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    )
+
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Change password/i }))
+    await userEvent.type(screen.getByLabelText(/Current password/i), 'Hunter12345')
+    await userEvent.type(screen.getByLabelText(/New password/i), 'BrandNewPass1')
+    await userEvent.click(screen.getByRole('button', { name: /Update password/i }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/v1/account/password',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            currentPassword: 'Hunter12345',
+            newPassword: 'BrandNewPass1',
+          }),
+        }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/Current password/i)).toBeNull()
+    })
+    expect(await screen.findByText(/Password updated/i)).toBeInTheDocument()
+  })
+
+  it('shows the server error for an invalid current password', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            status: 401,
+            code: 'PRZM_AUTH_INVALID_CURRENT_PASSWORD',
+            title: 'Current password is incorrect',
+            detail: 'Enter the current password before choosing a new one.',
+          }),
+          { status: 401, headers: { 'content-type': 'application/problem+json' } },
+        ),
+      ),
+    )
+
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Change password/i }))
+    await userEvent.type(screen.getByLabelText(/Current password/i), 'WrongPass1')
+    await userEvent.type(screen.getByLabelText(/New password/i), 'BrandNewPass1')
+    await userEvent.click(screen.getByRole('button', { name: /Update password/i }))
+
+    expect(await screen.findByText(/Enter the current password before/i)).toBeInTheDocument()
+  })
+
   it('surfaces an inline error when the API returns a problem', async () => {
     vi.stubGlobal(
       'fetch',

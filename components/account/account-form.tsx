@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PASSWORD_HINT, validatePassword } from '@/lib/auth/password'
 import type { BillingSummary } from '@/lib/shared/billing'
 import type { SettingsSummary } from '@/lib/shared/settings'
 
@@ -81,6 +82,9 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
           <ReadOnlyRow label="Workspace" value={settings.workspace.name} />
           <ReadOnlyRow label="Role" value={settings.account.role} />
         </dl>
+        <div className="mt-6 border-t border-foreground/5 pt-4">
+          <PasswordChangeRow />
+        </div>
       </section>
 
       <section
@@ -216,6 +220,176 @@ function EditableRow({
         Edit
       </button>
     </div>
+  )
+}
+
+function PasswordChangeRow() {
+  const [open, setOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [revealCurrent, setRevealCurrent] = useState(false)
+  const [revealNew, setRevealNew] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [policyError, setPolicyError] = useState<string | null>(null)
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  function reset() {
+    setCurrentPassword('')
+    setNewPassword('')
+    setRevealCurrent(false)
+    setRevealNew(false)
+    setPolicyError(null)
+    setServerError(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setPolicyError(null)
+    setServerError(null)
+
+    const policy = validatePassword(newPassword)
+    if (!policy.ok) {
+      setPolicyError(policy.reason)
+      return
+    }
+
+    setSaving(true)
+    const response = await fetch('/api/v1/account/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+    setSaving(false)
+
+    if (!response.ok) {
+      const problem = (await response.json().catch(() => ({}))) as {
+        detail?: string
+        title?: string
+      }
+      setServerError(problem.detail ?? problem.title ?? 'Password change failed')
+      return
+    }
+
+    reset()
+    setOpen(false)
+    setSuccess(true)
+  }
+
+  if (!open) {
+    return (
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">Password</p>
+          <p className="mt-0.5 text-xs text-foreground/55">
+            Update the password you use to sign in.
+          </p>
+          {success ? (
+            <p className="mt-2 text-xs font-medium text-emerald-700" role="status">
+              Password updated.
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSuccess(false)
+            setOpen(true)
+          }}
+          className="text-xs font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          Change password
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="space-y-1.5">
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="current-password" className="text-sm font-semibold">
+            Current password
+          </label>
+          <button
+            type="button"
+            onClick={() => setRevealCurrent((v) => !v)}
+            className="text-xs font-medium text-foreground/60 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+          >
+            {revealCurrent ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        <input
+          id="current-password"
+          type={revealCurrent ? 'text' : 'password'}
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          autoComplete="current-password"
+          required
+          className="block h-10 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="new-password" className="text-sm font-semibold">
+            New password
+          </label>
+          <button
+            type="button"
+            onClick={() => setRevealNew((v) => !v)}
+            className="text-xs font-medium text-foreground/60 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+          >
+            {revealNew ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        <input
+          id="new-password"
+          type={revealNew ? 'text' : 'password'}
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          autoComplete="new-password"
+          aria-describedby="new-password-hint"
+          required
+          className="block h-10 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
+        />
+        <p id="new-password-hint" className="text-xs text-foreground/55">
+          {PASSWORD_HINT}
+        </p>
+        {policyError ? (
+          <p className="text-xs font-medium text-red-600" role="alert">
+            {policyError}
+          </p>
+        ) : null}
+      </div>
+      {serverError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50/60 px-3 py-2 text-xs text-red-700"
+        >
+          {serverError}
+        </div>
+      ) : null}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-sm font-semibold text-background hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? 'Updating...' : 'Update password'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            reset()
+            setOpen(false)
+          }}
+          disabled={saving}
+          className="inline-flex h-9 items-center rounded-md border border-foreground/20 px-3 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 
