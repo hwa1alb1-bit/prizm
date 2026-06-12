@@ -19,11 +19,26 @@ export default function ResetPage() {
 
   useEffect(() => {
     let mounted = true
-    const supabase = createClient()
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!mounted) return
-      setStatus(data.user ? 'authenticated' : 'expired')
-    })
+    try {
+      const supabase = createClient()
+      supabase.auth
+        .getUser()
+        .then(({ data }) => {
+          if (!mounted) return
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setStatus(data.user ? 'authenticated' : 'expired')
+        })
+        .catch(() => {
+          if (!mounted) return
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setStatus('expired')
+        })
+    } catch {
+      // Supabase client failed to initialize (e.g. missing env vars).
+      // Treat as an expired link so the user can request a new one.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatus('expired')
+    }
     return () => {
       mounted = false
     }

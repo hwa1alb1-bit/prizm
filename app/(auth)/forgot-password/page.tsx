@@ -13,7 +13,9 @@ export default function ForgotPasswordPage() {
   const [firstTime, setFirstTime] = useState(false)
 
   useEffect(() => {
+    // URL-derived state, read once after hydration so SSR and client agree.
     const params = new URLSearchParams(window.location.search)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFirstTime(params.get('firstTime') === '1')
   }, [])
 

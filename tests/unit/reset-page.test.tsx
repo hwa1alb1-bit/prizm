@@ -20,7 +20,10 @@ const updateUser = vi.fn()
 describe('ResetPage', () => {
   beforeEach(() => {
     window.history.pushState({}, '', '/reset')
-    getUser.mockResolvedValue({ data: { user: { id: 'u', email: 'owner@example.com' } }, error: null })
+    getUser.mockResolvedValue({
+      data: { user: { id: 'u', email: 'owner@example.com' } },
+      error: null,
+    })
     updateUser.mockResolvedValue({ data: { user: { id: 'u' } }, error: null })
     createClientMock.mockReturnValue({
       auth: { getUser, updateUser },
@@ -67,9 +70,7 @@ describe('ResetPage', () => {
     getUser.mockResolvedValueOnce({ data: { user: null }, error: null })
     render(<ResetPage />)
 
-    expect(
-      await screen.findByRole('heading', { name: /Reset link expired/i }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Reset link expired/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Request a new reset link/i })).toHaveAttribute(
       'href',
       '/forgot-password',
