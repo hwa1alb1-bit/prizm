@@ -31,7 +31,6 @@ const TIERS: Tier[] = [
     blurb: 'Perfect for trying out',
     features: [
       `${PAGES.free} pages per month`,
-      'XLSX, CSV, QuickBooks CSV, Xero CSV',
       'No overage, no credit card required',
     ],
     ctaLabel: 'Get started',
