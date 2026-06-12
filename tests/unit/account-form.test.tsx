@@ -111,6 +111,42 @@ describe('AccountForm — editable full name', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('does not show a pending-email banner on initial render', () => {
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    expect(screen.queryByText(/Pending verification/i)).toBeNull()
+  })
+
+  it('shows the pending-email banner after a successful email change', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ pending_email: 'new@example.com' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    )
+
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Edit email/i }))
+    const input = screen.getByLabelText(/^Email$/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'new@example.com')
+    await userEvent.click(screen.getByRole('button', { name: /Save/i }))
+
+    expect(await screen.findByText(/Pending verification/i)).toBeInTheDocument()
+    expect(screen.getByText('new@example.com')).toBeInTheDocument()
+    // owner@example.com appears twice: the email row + the banner reference.
+    expect(screen.getAllByText('owner@example.com').length).toBeGreaterThanOrEqual(1)
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/account/email',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'new@example.com' }),
+      }),
+    )
+  })
+
   it('surfaces an inline error when the API returns a problem', async () => {
     vi.stubGlobal(
       'fetch',

@@ -11,6 +11,7 @@ type AccountFormProps = {
 
 export function AccountForm({ settings, billing }: AccountFormProps) {
   const [fullName, setFullName] = useState<string>(settings.account.fullName ?? '')
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
 
   async function saveFullName(value: string): Promise<{ ok: true } | { ok: false; message: string }> {
     const response = await fetch('/api/v1/account/profile', {
@@ -18,14 +19,21 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ full_name: value }),
     })
-    if (!response.ok) {
-      const problem = (await response
-        .json()
-        .catch(() => ({}))) as { detail?: string; title?: string }
-      return { ok: false, message: problem.detail ?? problem.title ?? 'Save failed' }
-    }
+    if (!response.ok) return readProblem(response)
     const body = (await response.json().catch(() => ({}))) as { full_name?: string }
     if (body.full_name) setFullName(body.full_name)
+    return { ok: true }
+  }
+
+  async function saveEmail(value: string): Promise<{ ok: true } | { ok: false; message: string }> {
+    const response = await fetch('/api/v1/account/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: value }),
+    })
+    if (!response.ok) return readProblem(response)
+    const body = (await response.json().catch(() => ({}))) as { pending_email?: string }
+    if (body.pending_email) setPendingEmail(body.pending_email)
     return { ok: true }
   }
 
@@ -38,6 +46,19 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
         <h2 id="account-section-heading" className="text-base font-semibold">
           Account
         </h2>
+        {pendingEmail ? (
+          <div
+            role="status"
+            className="mt-4 rounded-md border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-sm text-amber-900"
+          >
+            <p className="font-semibold">Pending verification</p>
+            <p className="mt-1">
+              Check <span className="font-medium">{pendingEmail}</span> for the confirmation link.
+              Until you click it, your sign-in email stays{' '}
+              <span className="font-medium">{settings.account.email}</span>.
+            </p>
+          </div>
+        ) : null}
         <dl className="mt-4 space-y-4 text-sm">
           <EditableRow
             label="Full name"
@@ -48,7 +69,15 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
             onSave={saveFullName}
             editButtonLabel="Edit full name"
           />
-          <ReadOnlyRow label="Email" value={settings.account.email} />
+          <EditableRow
+            label="Email"
+            displayValue={settings.account.email}
+            initialEditValue={settings.account.email}
+            inputType="email"
+            inputProps={{ autoComplete: 'email' }}
+            onSave={saveEmail}
+            editButtonLabel="Edit email"
+          />
           <ReadOnlyRow label="Workspace" value={settings.workspace.name} />
           <ReadOnlyRow label="Role" value={settings.account.role} />
         </dl>
@@ -188,6 +217,13 @@ function EditableRow({
       </button>
     </div>
   )
+}
+
+async function readProblem(response: Response): Promise<{ ok: false; message: string }> {
+  const problem = (await response
+    .json()
+    .catch(() => ({}))) as { detail?: string; title?: string }
+  return { ok: false, message: problem.detail ?? problem.title ?? 'Save failed' }
 }
 
 function ReadOnlyRow({ label, value }: { label: string; value: string }) {
