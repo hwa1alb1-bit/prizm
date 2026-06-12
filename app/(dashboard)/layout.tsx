@@ -4,7 +4,6 @@ import Link from 'next/link'
 
 const navItems = [
   { href: '/app', label: 'Upload' },
-  { href: '/app/history', label: 'History' },
   { href: '/app/billing', label: 'Billing' },
   { href: '/app/settings', label: 'Settings' },
 ]
