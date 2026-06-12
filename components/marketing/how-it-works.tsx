@@ -1,7 +1,7 @@
 const STEPS = [
   {
     title: 'Securely upload your PDF',
-    body: 'Upload bank statements, credit card statements, transaction reports, or other financial PDFs through an encrypted TLS 1.2+ connection.',
+    body: 'Upload bank statements, credit card statements, transaction reports, or other financial PDFs.',
   },
   {
     title: 'We extract the data',

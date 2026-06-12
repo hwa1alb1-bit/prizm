@@ -25,4 +25,9 @@ describe('HowItWorks', () => {
       expect(items[index]).toHaveTextContent(title)
     })
   })
+
+  it('does not name a TLS version in the upload step body', () => {
+    render(<HowItWorks />)
+    expect(screen.queryByText(/TLS 1\.2/)).toBeNull()
+  })
 })
