@@ -410,7 +410,7 @@ export default function UploadPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <header className="grid gap-4 border-b border-[var(--border-subtle)] pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
+      <header className="border-b border-[var(--border-subtle)] pb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/50">
             Bank or credit-card statement converter
@@ -424,12 +424,6 @@ export default function UploadPage() {
             the conversion, starts the conversion, and opens a review record for spreadsheet export.
           </p>
         </div>
-        <Link
-          href="/app/history"
-          className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-subtle)] px-4 text-sm font-medium hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-        >
-          View history
-        </Link>
       </header>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">

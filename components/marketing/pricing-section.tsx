@@ -29,11 +29,7 @@ const TIERS: Tier[] = [
     price: '$0',
     cadence: 'after email signup',
     blurb: 'Perfect for trying out',
-    features: [
-      `${PAGES.free} pages per month`,
-      'XLSX, CSV, QuickBooks CSV, Xero CSV',
-      'No overage, no credit card required',
-    ],
+    features: [`${PAGES.free} pages per month`, 'No overage, no credit card required'],
     ctaLabel: 'Get started',
   },
   {

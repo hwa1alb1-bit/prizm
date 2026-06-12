@@ -47,4 +47,9 @@ describe('PricingSection', () => {
       expect(cta).toHaveAttribute('href', '/app/billing')
     }
   })
+
+  it('does not advertise specific export format names on the Free tier', () => {
+    render(<PricingSection isAuthenticated={false} />)
+    expect(screen.queryByText(/XLSX, CSV, QuickBooks CSV, Xero CSV/)).toBeNull()
+  })
 })

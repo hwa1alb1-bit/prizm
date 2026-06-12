@@ -73,6 +73,7 @@ describe('UploadPage', () => {
 
     expect(screen.getByText('Bank or credit-card statement converter')).toBeInTheDocument()
     expect(screen.getByText(/Upload one bank or credit-card statement PDF/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /View history/i })).toBeNull()
     expect(
       screen.getByText('One bank or credit-card statement PDF per conversion'),
     ).toBeInTheDocument()
