@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 const pages: { path: string; heading: RegExp }[] = [
-  { path: '/', heading: /Turn PDF Statements into QuickBooks and Xero.*Ready Files/ },
+  { path: '/', heading: /Turn PDF bank statements into clean spreadsheets/ },
   { path: '/bank-statement-converter', heading: /Bank Statement Converter for Excel and CSV/ },
   { path: '/bank-statement-to-excel', heading: /Convert PDF Bank Statements to Excel/ },
   { path: '/bank-statement-to-csv', heading: /Convert Bank Statements to CSV/ },
