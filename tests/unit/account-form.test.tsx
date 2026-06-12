@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountForm } from '@/components/account/account-form'
@@ -145,6 +145,42 @@ describe('AccountForm — editable full name', () => {
         body: JSON.stringify({ email: 'new@example.com' }),
       }),
     )
+  })
+
+  it('renders a Sign out button inside the Account section', () => {
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    const account = screen.getByRole('region', { name: /^Account$/i })
+    expect(within(account).getByRole('button', { name: /Sign out/i })).toBeInTheDocument()
+  })
+
+  it('POSTs to /api/v1/auth/signout on click and navigates to /', async () => {
+    const assign = vi.fn()
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, assign },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    )
+
+    render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
+    await userEvent.click(screen.getByRole('button', { name: /Sign out/i }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/v1/auth/signout',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith('/')
+    })
   })
 
   it('renders an Edit workspace button for owner and admin roles', () => {

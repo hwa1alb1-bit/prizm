@@ -114,6 +114,9 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
         <div className="mt-6 border-t border-foreground/5 pt-4">
           <PasswordChangeRow />
         </div>
+        <div className="mt-6 border-t border-foreground/5 pt-4">
+          <SignOutRow />
+        </div>
       </section>
 
       <section
@@ -419,6 +422,47 @@ function PasswordChangeRow() {
         </button>
       </div>
     </form>
+  )
+}
+
+function SignOutRow() {
+  const [signing, setSigning] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleClick() {
+    setSigning(true)
+    setError(null)
+    const response = await fetch('/api/v1/auth/signout', { method: 'POST' })
+    if (!response.ok) {
+      setSigning(false)
+      setError('Sign out failed. Try again.')
+      return
+    }
+    window.location.assign('/')
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-sm font-medium">Sign out</p>
+        <p className="mt-0.5 text-xs text-foreground/55">
+          End this session and return to the landing page.
+        </p>
+        {error ? (
+          <p className="mt-2 text-xs font-medium text-red-600" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        onClick={() => void handleClick()}
+        disabled={signing}
+        className="inline-flex h-9 items-center rounded-md border border-red-300 px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+      >
+        {signing ? 'Signing out...' : 'Sign out'}
+      </button>
+    </div>
   )
 }
 
