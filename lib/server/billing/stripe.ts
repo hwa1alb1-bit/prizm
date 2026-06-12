@@ -46,8 +46,8 @@ export async function createCheckoutSession(
     mode: 'subscription',
     customer,
     line_items: [{ price, quantity: 1 }],
-    success_url: `${publicEnv.NEXT_PUBLIC_SITE_URL}/app/billing?checkout=success`,
-    cancel_url: `${publicEnv.NEXT_PUBLIC_SITE_URL}/app/billing?checkout=cancelled`,
+    success_url: `${publicEnv.NEXT_PUBLIC_SITE_URL}/app/account?checkout=success`,
+    cancel_url: `${publicEnv.NEXT_PUBLIC_SITE_URL}/app/account?checkout=cancelled`,
     client_reference_id: input.workspaceId,
     metadata: {
       workspace_id: input.workspaceId,
@@ -90,7 +90,7 @@ export async function createCustomerPortalSession(
 
   const session = await getStripeClient().billingPortal.sessions.create({
     customer,
-    return_url: `${publicEnv.NEXT_PUBLIC_SITE_URL}/app/billing`,
+    return_url: `${publicEnv.NEXT_PUBLIC_SITE_URL}/app/account`,
   })
 
   if (!session.url) throw new BillingStripeError('session_missing')
