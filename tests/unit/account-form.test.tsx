@@ -147,6 +147,91 @@ describe('AccountForm — editable full name', () => {
     )
   })
 
+  it('renders three plan cards (Free, Starter, Pro) with the current plan marked', () => {
+    render(<AccountForm settings={buildSettings()} billing={buildBilling({ plan: 'starter' })} />)
+    const billing = screen.getByRole('region', { name: /Billing Details/i })
+    expect(within(billing).getByRole('heading', { name: 'Free' })).toBeInTheDocument()
+    expect(within(billing).getByRole('heading', { name: 'Starter' })).toBeInTheDocument()
+    expect(within(billing).getByRole('heading', { name: 'Pro' })).toBeInTheDocument()
+    const current = within(billing).getByText(/^Current$/i)
+    expect(current.closest('article')).toHaveTextContent('Starter')
+  })
+
+  it('renders an Open portal button when hasStripeCustomer is true', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ url: 'https://billing.stripe.com/p/1' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    )
+    const assign = vi.fn()
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, assign },
+    })
+
+    render(
+      <AccountForm
+        settings={buildSettings()}
+        billing={buildBilling({ hasStripeCustomer: true })}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Open portal/i }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/v1/billing/portal',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith('https://billing.stripe.com/p/1')
+    })
+  })
+
+  it('omits the Open portal button when hasStripeCustomer is false', () => {
+    render(
+      <AccountForm
+        settings={buildSettings()}
+        billing={buildBilling({ hasStripeCustomer: false })}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /Open portal/i })).toBeNull()
+  })
+
+  it('starts a Stripe checkout when switching to Starter', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ url: 'https://checkout.stripe.com/s/1' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    )
+    const assign = vi.fn()
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, assign },
+    })
+
+    render(<AccountForm settings={buildSettings()} billing={buildBilling({ plan: 'free' })} />)
+    await userEvent.click(screen.getByRole('button', { name: /Switch to Starter/i }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/v1/billing/checkout',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ plan: 'starter', billingCycle: 'monthly' }),
+        }),
+      )
+    })
+  })
+
   it('renders a Sign out button inside the Account section', () => {
     render(<AccountForm settings={buildSettings()} billing={buildBilling()} />)
     const account = screen.getByRole('region', { name: /^Account$/i })

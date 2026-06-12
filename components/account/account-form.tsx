@@ -126,21 +126,210 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
         <h2 id="billing-section-heading" className="text-base font-semibold">
           Billing Details
         </h2>
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-          <ReadOnlyRow label="Plan" value={billing.plan} />
-          <ReadOnlyRow label="Status" value={billing.status} />
-          <ReadOnlyRow
-            label="Credits"
-            value={`${billing.usedCredits} / ${billing.monthlyCredits} used this period`}
-          />
-          <ReadOnlyRow
-            label="Renews"
-            value={billing.currentPeriodEnd ? billing.currentPeriodEnd.slice(0, 10) : 'No renewal'}
-          />
-        </dl>
+        <BillingDetails billing={billing} />
       </section>
     </div>
   )
+}
+
+function BillingDetails({ billing }: { billing: BillingSummary }) {
+  const usagePercent =
+    billing.monthlyCredits > 0
+      ? Math.min(100, Math.round((billing.usedCredits / billing.monthlyCredits) * 100))
+      : 0
+  const [action, setAction] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  async function openPortal() {
+    setAction('loading')
+    const response = await fetch('/api/v1/billing/portal', { method: 'POST' })
+    if (!response.ok) {
+      setAction('error')
+      return
+    }
+    const body = (await response.json().catch(() => ({}))) as { url?: string }
+    if (body.url) window.location.assign(body.url)
+    else setAction('error')
+  }
+
+  async function switchPlan(plan: 'starter' | 'pro') {
+    setAction('loading')
+    const response = await fetch('/api/v1/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, billingCycle: 'monthly' }),
+    })
+    if (!response.ok) {
+      setAction('error')
+      return
+    }
+    const body = (await response.json().catch(() => ({}))) as { url?: string }
+    if (body.url) window.location.assign(body.url)
+    else setAction('error')
+  }
+
+  return (
+    <div className="mt-4 space-y-5">
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <ReadOnlyRow label="Plan" value={planLabel(billing.plan)} />
+        <ReadOnlyRow label="Status" value={statusLabel(billing.status)} />
+        <ReadOnlyRow
+          label="Credits"
+          value={`${billing.usedCredits} / ${billing.monthlyCredits} used this period`}
+        />
+        <ReadOnlyRow
+          label="Renews"
+          value={
+            billing.currentPeriodEnd
+              ? billing.cancelAtPeriodEnd
+                ? `Cancels ${billing.currentPeriodEnd.slice(0, 10)}`
+                : billing.currentPeriodEnd.slice(0, 10)
+              : 'No renewal'
+          }
+        />
+      </dl>
+
+      <div>
+        <div className="h-2 overflow-hidden rounded-full bg-foreground/10">
+          <div className="h-full bg-emerald-500" style={{ width: `${usagePercent}%` }} />
+        </div>
+        <p className="mt-2 text-xs text-foreground/55">
+          {usagePercent}% of included credits used this period
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <PlanCard
+          name="Free"
+          credits="5 credits / month"
+          price="$0"
+          current={billing.plan === 'free'}
+          action={
+            billing.plan === 'free' ? null : (
+              <button
+                type="button"
+                onClick={() => void openPortal()}
+                disabled={action === 'loading'}
+                className="inline-flex h-9 w-full items-center justify-center rounded-md border border-foreground/20 px-3 text-xs font-semibold hover:bg-foreground/5 disabled:opacity-50"
+              >
+                Downgrade in portal
+              </button>
+            )
+          }
+        />
+        <PlanCard
+          name="Starter"
+          credits="200 credits / month"
+          price="$19 / mo"
+          current={billing.plan === 'starter'}
+          action={
+            billing.plan === 'starter' ? null : (
+              <button
+                type="button"
+                onClick={() => void switchPlan('starter')}
+                disabled={action === 'loading'}
+                className="inline-flex h-9 w-full items-center justify-center rounded-md bg-foreground px-3 text-xs font-semibold text-background hover:opacity-90 disabled:opacity-50"
+              >
+                Switch to Starter
+              </button>
+            )
+          }
+        />
+        <PlanCard
+          name="Pro"
+          credits="1,000 credits / month"
+          price="$49 / mo"
+          current={billing.plan === 'pro'}
+          action={
+            billing.plan === 'pro' ? null : (
+              <button
+                type="button"
+                onClick={() => void switchPlan('pro')}
+                disabled={action === 'loading'}
+                className="inline-flex h-9 w-full items-center justify-center rounded-md border border-foreground/20 px-3 text-xs font-semibold hover:bg-foreground/5 disabled:opacity-50"
+              >
+                Switch to Pro
+              </button>
+            )
+          }
+        />
+      </div>
+
+      {billing.hasStripeCustomer ? (
+        <div className="border-t border-foreground/5 pt-4">
+          <button
+            type="button"
+            onClick={() => void openPortal()}
+            disabled={action === 'loading'}
+            className="text-xs font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:opacity-50"
+          >
+            Open portal to manage invoices and payment method
+          </button>
+        </div>
+      ) : null}
+
+      {action === 'error' ? (
+        <p className="text-xs font-medium text-red-600" role="alert">
+          Billing action failed. Try again.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function PlanCard({
+  name,
+  credits,
+  price,
+  current,
+  action,
+}: {
+  name: string
+  credits: string
+  price: string
+  current: boolean
+  action: React.ReactNode
+}) {
+  return (
+    <article className="rounded-lg border border-foreground/10 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-sm font-semibold">{name}</h3>
+        {current ? (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+            Current
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-2 text-xs text-foreground/60">{credits}</p>
+      <p className="mt-1 text-sm font-medium">{price}</p>
+      {action ? <div className="mt-3">{action}</div> : null}
+    </article>
+  )
+}
+
+function planLabel(plan: BillingSummary['plan']): string {
+  switch (plan) {
+    case 'free':
+      return 'Free'
+    case 'starter':
+      return 'Starter'
+    case 'pro':
+      return 'Pro'
+  }
+}
+
+function statusLabel(status: BillingSummary['status']): string {
+  switch (status) {
+    case 'active':
+      return 'Active'
+    case 'trialing':
+      return 'Trialing'
+    case 'past_due':
+      return 'Payment past due'
+    case 'canceled':
+      return 'Canceled'
+    case 'incomplete':
+      return 'Payment incomplete'
+  }
 }
 
 type EditableRowProps = {
