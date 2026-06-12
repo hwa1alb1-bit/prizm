@@ -1,0 +1,73 @@
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const pushMock = vi.fn()
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushMock }),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
+import { UploadHero } from '@/components/marketing/upload-hero'
+
+afterEach(() => {
+  pushMock.mockReset()
+})
+
+function findFileInput(): HTMLInputElement {
+  const input = document.querySelector('input[type="file"]')
+  if (!input) throw new Error('No file input rendered')
+  return input as HTMLInputElement
+}
+
+function pickFile() {
+  const file = new File(['%PDF-1.4 sample'], 'statement.pdf', { type: 'application/pdf' })
+  fireEvent.change(findFileInput(), { target: { files: [file] } })
+}
+
+describe('UploadHero', () => {
+  it('renders the eyebrow chip and headline', () => {
+    render(<UploadHero isAuthenticated={false} />)
+    expect(screen.getByText(/BANK & CREDIT CARD STATEMENT CONVERTER/)).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: /Turn PDF Statements into QuickBooks and Xero.*Ready Files/i,
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('renders the three trust pills', () => {
+    render(<UploadHero isAuthenticated={false} />)
+    expect(screen.getByText('Secure & private')).toBeInTheDocument()
+    expect(screen.getByText('Highly accurate')).toBeInTheDocument()
+    expect(screen.getByText('Audit-ready output')).toBeInTheDocument()
+  })
+
+  it('renders an accessible dropzone with file input', () => {
+    render(<UploadHero isAuthenticated={false} />)
+    const dropzone = screen.getByRole('button', { name: /Upload PDF statement/i })
+    expect(dropzone).toBeInTheDocument()
+    expect(within(dropzone).getByRole('button', { name: /Choose PDF/i })).toBeInTheDocument()
+    expect(findFileInput()).toBeInTheDocument()
+  })
+
+  it('renders the idle Conversion status card', () => {
+    render(<UploadHero isAuthenticated={false} />)
+    expect(screen.getByText(/Conversion status/i)).toBeInTheDocument()
+    expect(screen.getByText(/Waiting for upload/i)).toBeInTheDocument()
+    expect(screen.getByText(/No file uploaded/i)).toBeInTheDocument()
+  })
+
+  it('routes anonymous users to /register?next=/app on file selection', () => {
+    render(<UploadHero isAuthenticated={false} />)
+    pickFile()
+    expect(pushMock).toHaveBeenCalledWith('/register?next=/app')
+  })
+
+  it('routes signed-in users to /app on file selection', () => {
+    render(<UploadHero isAuthenticated={true} />)
+    pickFile()
+    expect(pushMock).toHaveBeenCalledWith('/app')
+  })
+})
