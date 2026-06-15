@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/server/supabase-middleware'
 import { AppHeader } from '@/components/layout/app-header'
 import { getBillingSummaryForUser } from '@/lib/server/billing/summary'
+import { FREE_DAILY_PAGE_LIMIT, getDailyUsage, todayInUtc } from '@/lib/server/billing/daily-usage'
 
 const navItems = [
   { href: '/app', label: 'Upload' },
@@ -17,10 +18,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect('/login')
 
-  let credits: { used: number; included: number } | undefined
+  let credits: { used: number; included: number; window?: 'monthly' | 'daily' } | undefined
   try {
     const billing = await getBillingSummaryForUser({ userId: user.id })
-    credits = { used: billing.usedCredits, included: billing.monthlyCredits }
+    if (billing.plan === 'free') {
+      const usage = await getDailyUsage({
+        supabase,
+        userId: user.id,
+        date: todayInUtc(),
+      })
+      credits = {
+        used: usage.ok ? usage.pagesUsed : 0,
+        included: FREE_DAILY_PAGE_LIMIT,
+        window: 'daily',
+      }
+    } else {
+      credits = {
+        used: billing.usedCredits,
+        included: billing.monthlyCredits,
+        window: 'monthly',
+      }
+    }
   } catch {
     credits = undefined
   }

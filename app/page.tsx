@@ -9,6 +9,7 @@ import { SupportedOutputs } from '@/components/marketing/supported-outputs'
 import { TrustCards } from '@/components/marketing/trust-cards'
 import { UploadHero } from '@/components/marketing/upload-hero'
 import { getBillingSummaryForUser } from '@/lib/server/billing/summary'
+import { FREE_DAILY_PAGE_LIMIT, getDailyUsage, todayInUtc } from '@/lib/server/billing/daily-usage'
 import {
   buildBreadcrumbJsonLd,
   buildOrganizationJsonLd,
@@ -25,7 +26,7 @@ export const metadata = buildPageMetadata({
 
 type Visitor = {
   authenticated: boolean
-  credits?: { used: number; included: number }
+  credits?: { used: number; included: number; window?: 'monthly' | 'daily' }
 }
 
 async function detectVisitor(): Promise<Visitor> {
@@ -40,9 +41,24 @@ async function detectVisitor(): Promise<Visitor> {
     if (!user) return { authenticated: false }
     try {
       const billing = await getBillingSummaryForUser({ userId: user.id })
+      if (billing.plan === 'free') {
+        const usage = await getDailyUsage({ supabase, userId: user.id, date: todayInUtc() })
+        return {
+          authenticated: true,
+          credits: {
+            used: usage.ok ? usage.pagesUsed : 0,
+            included: FREE_DAILY_PAGE_LIMIT,
+            window: 'daily',
+          },
+        }
+      }
       return {
         authenticated: true,
-        credits: { used: billing.usedCredits, included: billing.monthlyCredits },
+        credits: {
+          used: billing.usedCredits,
+          included: billing.monthlyCredits,
+          window: 'monthly',
+        },
       }
     } catch {
       return { authenticated: true }
