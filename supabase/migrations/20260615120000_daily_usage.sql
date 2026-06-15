@@ -22,3 +22,30 @@ create policy daily_usage_owner_select on public.daily_usage
 
 comment on table public.daily_usage is
   'Free-plan daily upload counter. One row per (user, day). Server-side increments on each successful conversion.';
+
+-- Atomic per-row increment so concurrent conversions cannot lose a count.
+create or replace function public.increment_daily_usage(
+  p_user_id uuid,
+  p_usage_date date,
+  p_pages integer
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_total integer;
+begin
+  insert into public.daily_usage (user_id, usage_date, pages_used)
+    values (p_user_id, p_usage_date, p_pages)
+  on conflict (user_id, usage_date)
+  do update set pages_used = public.daily_usage.pages_used + excluded.pages_used,
+                updated_at = now()
+  returning pages_used into v_total;
+  return v_total;
+end;
+$$;
+
+revoke all on function public.increment_daily_usage(uuid, date, integer) from public;
+grant execute on function public.increment_daily_usage(uuid, date, integer) to service_role;

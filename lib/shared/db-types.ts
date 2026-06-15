@@ -259,6 +259,30 @@ export type Database = {
           },
         ]
       }
+      daily_usage: {
+        Row: {
+          created_at: string
+          pages_used: number
+          updated_at: string
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          pages_used?: number
+          updated_at?: string
+          usage_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          pages_used?: number
+          updated_at?: string
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       deletion_receipt: {
         Row: {
           created_at: string
@@ -1404,6 +1428,10 @@ export type Database = {
         Returns: {
           charge_status: string
         }[]
+      }
+      increment_daily_usage: {
+        Args: { p_pages: number; p_usage_date: string; p_user_id: string }
+        Returns: number
       }
       create_pending_document_upload: {
         Args: {
