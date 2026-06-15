@@ -1,14 +1,17 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { PLAN_ALLOWANCES } from '@/lib/server/billing/plan'
+import { PLAN_MONTHLY_CREDITS } from '@/lib/shared/plan-allowances'
 
 type PricingSectionProps = {
   isAuthenticated: boolean
 }
 
 const PAGES = {
-  free: PLAN_ALLOWANCES.free.monthlyCredits.toLocaleString('en-US'),
-  starter: PLAN_ALLOWANCES.starter.monthlyCredits.toLocaleString('en-US'),
-  pro: PLAN_ALLOWANCES.pro.monthlyCredits.toLocaleString('en-US'),
+  free: PLAN_MONTHLY_CREDITS.free.toLocaleString('en-US'),
+  starter: PLAN_MONTHLY_CREDITS.starter.toLocaleString('en-US'),
+  pro: PLAN_MONTHLY_CREDITS.pro.toLocaleString('en-US'),
 } as const
 
 type Tier = {
@@ -62,11 +65,6 @@ const TIERS: Tier[] = [
   },
 ]
 
-function resolveHref(tier: Tier, isAuthenticated: boolean): string {
-  if (tier.key === 'free') return '/register'
-  return isAuthenticated ? '/app/billing' : '/register?next=/app/billing'
-}
-
 function CheckBullet({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-3 text-sm">
@@ -88,6 +86,34 @@ function CheckBullet({ children }: { children: React.ReactNode }) {
 }
 
 export function PricingSection({ isAuthenticated }: PricingSectionProps) {
+  const [error, setError] = useState<string | null>(null)
+  const [busyPlan, setBusyPlan] = useState<'starter' | 'pro' | null>(null)
+
+  async function startCheckout(plan: 'starter' | 'pro') {
+    setError(null)
+    setBusyPlan(plan)
+    try {
+      const response = await fetch('/api/v1/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, billingCycle: 'monthly' }),
+      })
+      if (!response.ok) {
+        const problem = (await response.json().catch(() => ({}))) as {
+          detail?: string
+          title?: string
+        }
+        throw new Error(problem.detail ?? problem.title ?? 'Checkout could not be started.')
+      }
+      const body = (await response.json().catch(() => ({}))) as { url?: string }
+      if (!body.url) throw new Error('Checkout could not be started.')
+      window.location.assign(body.url)
+    } catch (err) {
+      setBusyPlan(null)
+      setError(err instanceof Error ? err.message : 'Checkout could not be started.')
+    }
+  }
+
   return (
     <section
       id="pricing"
@@ -114,7 +140,6 @@ export function PricingSection({ isAuthenticated }: PricingSectionProps) {
 
         <ul className="mt-10 grid gap-5 lg:grid-cols-3">
           {TIERS.map((tier) => {
-            const href = resolveHref(tier, isAuthenticated)
             const isPopular = Boolean(tier.popular)
             return (
               <li key={tier.key} className="relative flex">
@@ -148,22 +173,74 @@ export function PricingSection({ isAuthenticated }: PricingSectionProps) {
                       <CheckBullet key={f}>{f}</CheckBullet>
                     ))}
                   </ul>
-                  <Link
-                    href={href}
-                    className={`mt-auto inline-flex h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--focus-ring)] active:translate-y-px ${
-                      isPopular
-                        ? 'bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]'
-                        : 'border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]'
-                    }`}
-                  >
-                    {tier.ctaLabel}
-                  </Link>
+                  <TierCta
+                    tier={tier}
+                    isAuthenticated={isAuthenticated}
+                    isPopular={isPopular}
+                    busyPlan={busyPlan}
+                    onCheckout={startCheckout}
+                  />
                 </article>
               </li>
             )
           })}
         </ul>
+
+        {error ? (
+          <p className="mt-4 text-center text-sm font-medium text-red-600" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
     </section>
+  )
+}
+
+function TierCta({
+  tier,
+  isAuthenticated,
+  isPopular,
+  busyPlan,
+  onCheckout,
+}: {
+  tier: Tier
+  isAuthenticated: boolean
+  isPopular: boolean
+  busyPlan: 'starter' | 'pro' | null
+  onCheckout: (plan: 'starter' | 'pro') => void
+}) {
+  const ctaClass = `mt-auto inline-flex h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--focus-ring)] active:translate-y-px ${
+    isPopular
+      ? 'bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]'
+      : 'border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]'
+  }`
+
+  if (tier.key === 'free') {
+    return (
+      <Link href="/register" className={ctaClass}>
+        {tier.ctaLabel}
+      </Link>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Link href="/register?next=/app/account" className={ctaClass}>
+        {tier.ctaLabel}
+      </Link>
+    )
+  }
+
+  const plan = tier.key
+  const busy = busyPlan === plan
+  return (
+    <button
+      type="button"
+      onClick={() => onCheckout(plan)}
+      disabled={busyPlan !== null}
+      className={`${ctaClass} disabled:opacity-60`}
+    >
+      {busy ? 'Starting checkout...' : tier.ctaLabel}
+    </button>
   )
 }

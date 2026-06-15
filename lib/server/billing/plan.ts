@@ -1,6 +1,7 @@
 import 'server-only'
 
 import type { BillingPlan, SubscriptionStatus } from '@/lib/shared/billing'
+import { PLAN_MONTHLY_CREDITS } from '@/lib/shared/plan-allowances'
 export type { BillingPlan, SubscriptionStatus }
 
 export type PlanAllowance = {
@@ -32,17 +33,17 @@ export type BillingGateResult =
 export const PLAN_ALLOWANCES: Record<BillingPlan, PlanAllowance> = {
   free: {
     plan: 'free',
-    monthlyCredits: 5,
+    monthlyCredits: PLAN_MONTHLY_CREDITS.free,
     overageAllowed: false,
   },
   starter: {
     plan: 'starter',
-    monthlyCredits: 200,
+    monthlyCredits: PLAN_MONTHLY_CREDITS.starter,
     overageAllowed: true,
   },
   pro: {
     plan: 'pro',
-    monthlyCredits: 1000,
+    monthlyCredits: PLAN_MONTHLY_CREDITS.pro,
     overageAllowed: true,
   },
 }
