@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  getDailyUsage,
-  incrementDailyUsage,
-  todayInUtc,
-} from '@/lib/server/billing/daily-usage'
+import { getDailyUsage, incrementDailyUsage, todayInUtc } from '@/lib/server/billing/daily-usage'
 
-function maybeSingleMock(payload: { data: { pages_used: number } | null; error: null | { message: string } }) {
+function maybeSingleMock(payload: {
+  data: { pages_used: number } | null
+  error: null | { message: string }
+}) {
   return {
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({

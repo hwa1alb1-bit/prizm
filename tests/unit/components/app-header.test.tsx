@@ -49,4 +49,18 @@ describe('AppHeader', () => {
     render(<AppHeader authed={false} credits={{ used: 1, included: 5 }} />)
     expect(screen.queryByText(/Pages/i)).toBeNull()
   })
+
+  it('renders the free-plan daily chip with a today suffix', () => {
+    render(<AppHeader authed credits={{ used: 3, included: 5, window: 'daily' }} />)
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('/5')).toBeInTheDocument()
+    expect(screen.getByText(/today/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^Pages$/i)).toBeNull()
+  })
+
+  it('renders the monthly Pages suffix when window is omitted', () => {
+    render(<AppHeader authed credits={{ used: 12, included: 200 }} />)
+    expect(screen.getByText(/Pages/i)).toBeInTheDocument()
+    expect(screen.queryByText(/today/i)).toBeNull()
+  })
 })

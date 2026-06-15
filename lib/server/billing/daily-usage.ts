@@ -11,9 +11,7 @@ export type DailyUsageInput = {
   date: string
 }
 
-export type DailyUsageResult =
-  | { ok: true; pagesUsed: number }
-  | { ok: false; reason: string }
+export type DailyUsageResult = { ok: true; pagesUsed: number } | { ok: false; reason: string }
 
 export async function getDailyUsage({
   supabase,
