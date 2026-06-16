@@ -61,6 +61,10 @@ export default function RegisterPage() {
           Click the link to finish creating your account. Free conversions start as soon as your
           email is verified.
         </p>
+        <p className="pt-2 text-sm text-foreground/55">
+          Cannot find it? Check your spam folder, then mark the email as Not Spam so future links
+          land in your inbox. Open the link in the same browser to keep your sign-in session.
+        </p>
       </div>
     )
   }

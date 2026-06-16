@@ -1,1 +1,2 @@
 2026-06-16T14:30Z bust /faq edge-cache 404 post-merge of #86
+2026-06-16T17:00Z bust /auth/callback + /login + new /auth/finish for auth-email fix

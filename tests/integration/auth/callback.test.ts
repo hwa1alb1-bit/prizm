@@ -52,15 +52,37 @@ describe('auth callback route', () => {
     expect(exchangeCodeForSession).toHaveBeenCalledWith('abc')
   })
 
-  it('redirects callback failures to login', async () => {
+  it('redirects callback failures to login with the underlying message', async () => {
     exchangeCodeForSession.mockResolvedValue({ error: new Error('invalid code') })
 
     const response = await GET(new Request('http://localhost/auth/callback?code=bad') as never)
 
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toBe(
-      'http://localhost/login?error=auth_callback_failed',
+      'http://localhost/login?error=auth_callback_failed&error_description=invalid+code',
     )
+  })
+
+  it('forwards Supabase /verify errors to login so they are not silent', async () => {
+    const response = await GET(
+      new Request(
+        'http://localhost/auth/callback?error=otp_expired&error_description=Token+expired',
+      ) as never,
+    )
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'http://localhost/login?error=otp_expired&error_description=Token+expired',
+    )
+    expect(exchangeCodeForSession).not.toHaveBeenCalled()
+  })
+
+  it('hands off implicit-flow callbacks (no code, no error) to /auth/finish', async () => {
+    const response = await GET(new Request('http://localhost/auth/callback?next=/reset') as never)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('http://localhost/auth/finish?next=%2Freset')
+    expect(exchangeCodeForSession).not.toHaveBeenCalled()
   })
 
   it('records an ops admin login audit event when callback enters /ops', async () => {

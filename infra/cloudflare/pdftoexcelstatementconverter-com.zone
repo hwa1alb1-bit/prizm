@@ -62,7 +62,10 @@ send                    1   IN  TXT     "v=spf1 include:amazonses.com ~all"
 
 ;; --- Resend DKIM ---
 ;; PLACEHOLDER: replace with the DKIM TXT value from the Resend dashboard
-;; after adding pdftoexcelstatementconverter.com as a verified sender.
+;; at https://resend.com/domains -> pdftoexcelstatementconverter.com ->
+;; DNS Records -> DKIM row. Copy the full quoted TXT value verbatim.
+;; Without a real key here, every Supabase Auth and Resend transactional
+;; email fails DKIM and lands in spam. See docs/runbooks/auth-email.md.
 resend._domainkey       1   IN  TXT     "REPLACE_WITH_RESEND_DKIM_VALUE"
 
 ;; --- DMARC policy ---
