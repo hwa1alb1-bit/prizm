@@ -172,6 +172,65 @@ describe('parseTextractStatement', () => {
     expect(result.statements[0].transactions).toHaveLength(2)
   })
 
+  it('identifies major issuers from header context when no Bank:/Issuer: label exists', () => {
+    const chaseLike = {
+      JobStatus: 'SUCCEEDED',
+      Blocks: [
+        { BlockType: 'LINE', Text: 'Chase', Confidence: 99, Page: 1 },
+        {
+          BlockType: 'LINE',
+          Text: 'JPMorgan Chase Bank, N.A.  Member FDIC',
+          Confidence: 99,
+          Page: 1,
+        },
+        { BlockType: 'LINE', Text: 'Account Summary', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Account number ending in 4242', Confidence: 99, Page: 1 },
+        {
+          BlockType: 'LINE',
+          Text: 'Statement period 04/01/26 - 04/30/26',
+          Confidence: 99,
+          Page: 1,
+        },
+        { BlockType: 'LINE', Text: 'Previous Balance $1,200.00', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Payments and Other Credits -$500.00', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Purchases and Other Debits $366.20', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'New Balance $1,066.20', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: '2026-04-15 | Grocery Market | Purchases | -$125.45', Confidence: 99, Page: 2 },
+      ],
+    }
+
+    const result = parseTextractStatement(chaseLike)
+    const statement = result.statements[0]
+    expect(statement.bankName).toBe('Chase')
+    expect(statement.statementType).toBe('credit_card')
+    expect(statement.accountLast4).toBe('4242')
+    expect(statement.periodStart).toBe('2026-04-01')
+    expect(statement.periodEnd).toBe('2026-04-30')
+    expect(statement.openingBalance).toBe(1200)
+    expect(statement.closingBalance).toBe(1066.2)
+  })
+
+  it('produces deterministic output across repeated parses of the same input', () => {
+    const input = {
+      JobStatus: 'SUCCEEDED',
+      Blocks: [
+        { BlockType: 'LINE', Text: 'Bank of America', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Account number ending in 9876', Confidence: 99, Page: 1 },
+        {
+          BlockType: 'LINE',
+          Text: 'Statement period 04/01/26 - 04/30/26',
+          Confidence: 99,
+          Page: 1,
+        },
+        { BlockType: 'LINE', Text: 'Previous Balance $500.00', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'New Balance $475.00', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: '2026-04-05 | Coffee | Purchases | -$25.00', Confidence: 99, Page: 2 },
+      ],
+    }
+
+    expect(parseTextractStatement(input)).toEqual(parseTextractStatement(input))
+  })
+
   it('reports billablePageCount of 0 when no transactions extract', () => {
     const result = parseTextractStatement({
       JobStatus: 'SUCCEEDED',
