@@ -141,8 +141,36 @@ describe('EditableReviewWorkflow', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Mark reviewed' })).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('Review blocked')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "To mark this statement reviewed, fix the following:",
+    )
     expect(screen.getByText('Transaction row 1')).toBeInTheDocument()
+  })
+
+  it('explains exactly which conditions block Mark reviewed and ties them to the button', () => {
+    render(
+      <EditableReviewWorkflow
+        documentId="doc_123"
+        statement={{
+          ...statement(),
+          bankName: '',
+          accountLast4: '',
+          reportedTotal: null,
+        }}
+        exceptions={[]}
+      />,
+    )
+
+    const button = screen.getByRole('button', { name: 'Mark reviewed' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('aria-describedby', 'review-blockers')
+
+    const blockers = screen.getByRole('status')
+    expect(blockers).toHaveAttribute('id', 'review-blockers')
+    expect(blockers).toHaveTextContent('Enter the bank name')
+    expect(blockers).toHaveTextContent('Enter the account last 4')
+    expect(blockers).toHaveTextContent('Enter the reported total')
+    expect(blockers).toHaveTextContent('Match computed total to the reported total')
   })
 })
 
