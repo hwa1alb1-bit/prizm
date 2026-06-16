@@ -22,6 +22,23 @@ type UploadHeroProps = {
 
 const TRUST_PILLS = ['Secure & private', 'Highly accurate', 'Audit-ready output'] as const
 
+export const PENDING_UPLOAD_KEY = 'ss:pending-upload'
+let pendingUpload: File | null = null
+
+export function takePendingUpload(): File | null {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.removeItem(PENDING_UPLOAD_KEY)
+  }
+  const file = pendingUpload
+  pendingUpload = null
+  return file
+}
+
+export function hasPendingUpload(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.sessionStorage.getItem(PENDING_UPLOAD_KEY) === '1'
+}
+
 function CheckCircle() {
   return (
     <svg
@@ -136,13 +153,17 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
   const isInteractive =
     status.kind === 'idle' || status.kind === 'dragover' || status.kind === 'error'
 
-  function dispatchFile() {
+  function dispatchFile(file: File | null) {
+    if (file && typeof window !== 'undefined') {
+      pendingUpload = file
+      window.sessionStorage.setItem(PENDING_UPLOAD_KEY, '1')
+    }
     router.push(route)
   }
 
   function onChange(event: ChangeEvent<HTMLInputElement>) {
     if (event.target.files && event.target.files.length > 0) {
-      dispatchFile()
+      dispatchFile(event.target.files[0] ?? null)
     }
   }
 
@@ -150,7 +171,7 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
     event.preventDefault()
     if (status.kind === 'dragover') setStatus({ kind: 'idle' })
     if (event.dataTransfer.files.length > 0) {
-      dispatchFile()
+      dispatchFile(event.dataTransfer.files[0] ?? null)
     }
   }
 

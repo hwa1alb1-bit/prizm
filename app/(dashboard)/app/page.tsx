@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { pollDocumentStatus } from '@/lib/client/document-polling'
+import { hasPendingUpload, takePendingUpload } from '@/components/marketing/upload-hero'
 
 type UploadState =
   | 'idle'
@@ -243,6 +244,12 @@ export default function UploadPage() {
       )
     }
   }, [])
+
+  useEffect(() => {
+    if (!hasPendingUpload()) return
+    const file = takePendingUpload()
+    if (file) handleFile(file)
+  }, [handleFile])
 
   const confirmUpload = useCallback(async () => {
     if (!pendingPreflight) return
