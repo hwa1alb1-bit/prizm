@@ -2,6 +2,7 @@ export type TextractBlock = {
   BlockType?: string
   Text?: string
   Confidence?: number
+  Page?: number
 }
 
 export type TextractOutput = {
@@ -46,6 +47,7 @@ export type ParsedStatement = {
   }
   reviewFlags: string[]
   metadata: Record<string, string | number | boolean | null>
+  billablePageCount: number
   transactions: ParsedStatementTransaction[]
 }
 
@@ -57,6 +59,7 @@ export type ParsedTextractStatementResult = {
 type Line = {
   text: string
   confidence: number
+  page: number
 }
 
 const TRANSACTION_LINE_PATTERN =
@@ -67,13 +70,19 @@ const CREDIT_CARD_TRANSACTION_LINE_PATTERN =
 export function parseTextractStatement(output: TextractOutput): ParsedTextractStatementResult {
   const lines = extractLines(output)
   const statementType = detectStatementType(lines)
-  const transactions = lines
-    .map((line) =>
+  const billablePages = new Set<number>()
+  const transactions: ParsedStatementTransaction[] = []
+  for (const line of lines) {
+    const transaction =
       statementType === 'credit_card'
         ? parseCreditCardTransactionLine(line)
-        : parseTransactionLine(line),
-    )
-    .filter(isPresent)
+        : parseTransactionLine(line)
+    if (transaction) {
+      transactions.push(transaction)
+      billablePages.add(line.page)
+    }
+  }
+  const billablePageCount = billablePages.size
   const bankName =
     firstCapture(lines, /^bank:\s*(.+)$/i) ?? firstCapture(lines, /^issuer:\s*(.+)$/i)
   const accountLast4 =
@@ -136,6 +145,7 @@ export function parseTextractStatement(output: TextractOutput): ParsedTextractSt
         confidence,
         reviewFlags,
         metadata,
+        billablePageCount,
         transactions,
       },
     ],
@@ -148,6 +158,7 @@ function extractLines(output: TextractOutput): Line[] {
     .map((block) => ({
       text: block.Text!.trim(),
       confidence: normalizeConfidence(block.Confidence),
+      page: typeof block.Page === 'number' && block.Page > 0 ? block.Page : 1,
     }))
     .filter((line) => line.text.length > 0)
 }

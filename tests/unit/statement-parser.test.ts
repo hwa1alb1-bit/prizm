@@ -29,6 +29,7 @@ describe('parseTextractStatement', () => {
           },
           reviewFlags: ['low_confidence_transactions'],
           metadata: {},
+          billablePageCount: 1,
           transactions: [
             {
               date: '2026-04-03',
@@ -135,5 +136,51 @@ describe('parseTextractStatement', () => {
         },
       ],
     })
+  })
+
+  it('counts billable pages as the unique source pages with at least one transaction', () => {
+    const result = parseTextractStatement({
+      JobStatus: 'SUCCEEDED',
+      Blocks: [
+        { BlockType: 'LINE', Text: 'Bank: PRIZM Credit Union', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Account ending: 4242', Confidence: 99, Page: 1 },
+        {
+          BlockType: 'LINE',
+          Text: 'Statement period: 2026-04-01 - 2026-04-30',
+          Confidence: 99,
+          Page: 1,
+        },
+        { BlockType: 'LINE', Text: 'Opening balance: $1,000.00', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Closing balance: $1,250.50', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Reported transaction total: $250.50', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Page 2 — Account Information', Confidence: 99, Page: 2 },
+        { BlockType: 'LINE', Text: 'Routing 011000390 | Account #####4242', Confidence: 99, Page: 2 },
+        { BlockType: 'LINE', Text: '2026-04-03 | Coffee Shop | -$12.25', Confidence: 96, Page: 3 },
+        { BlockType: 'LINE', Text: '2026-04-18 | Payroll Deposit | $262.75', Confidence: 96, Page: 3 },
+        { BlockType: 'LINE', Text: 'Page 4 — Fee Disclosures', Confidence: 99, Page: 4 },
+        {
+          BlockType: 'LINE',
+          Text: 'Overdraft fee of up to $35 may apply per item.',
+          Confidence: 99,
+          Page: 4,
+        },
+        { BlockType: 'LINE', Text: 'Page 5 — Marketing Insert', Confidence: 99, Page: 5 },
+      ],
+    })
+
+    expect(result.statements[0].billablePageCount).toBe(1)
+    expect(result.statements[0].transactions).toHaveLength(2)
+  })
+
+  it('reports billablePageCount of 0 when no transactions extract', () => {
+    const result = parseTextractStatement({
+      JobStatus: 'SUCCEEDED',
+      Blocks: [
+        { BlockType: 'LINE', Text: 'Bank: PRIZM Credit Union', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Marketing copy only', Confidence: 99, Page: 2 },
+      ],
+    })
+
+    expect(result.statements[0].billablePageCount).toBe(0)
   })
 })
