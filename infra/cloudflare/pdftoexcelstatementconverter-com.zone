@@ -66,7 +66,7 @@ send                    1   IN  TXT     "v=spf1 include:amazonses.com ~all"
 ;; DNS Records -> DKIM row. Copy the full quoted TXT value verbatim.
 ;; Without a real key here, every Supabase Auth and Resend transactional
 ;; email fails DKIM and lands in spam. See docs/runbooks/auth-email.md.
-resend._domainkey       1   IN  TXT     "REPLACE_WITH_RESEND_DKIM_VALUE"
+resend._domainkey       1   IN  TXT     "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDG5Krx2GofYdrC/sN28FLULN3TAD40CUZuDIQLDUOHirXCKeMA3ZVyESDwJv8y5Pnl3w30HAiQ27wDbfiLg8R0ZzscQgDlszHnIODAsbIJLlZ6MT3nJfKuAoo6/7d3f9KJT5OshkYiw89YcoPt4Mb7j37S3A5DNVBCfA6XkbQd3QIDAQAB"
 
 ;; --- DMARC policy ---
 ;; Start at p=none for the 7-day warm-up window per migration plan Wave 5,
