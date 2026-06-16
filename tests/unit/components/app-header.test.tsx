@@ -63,4 +63,14 @@ describe('AppHeader', () => {
     expect(screen.getByText(/Pages/i)).toBeInTheDocument()
     expect(screen.queryByText(/today/i)).toBeNull()
   })
+
+  it('shows a FAQ link in the header when unauthenticated', () => {
+    render(<AppHeader authed={false} />)
+    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/faq')
+  })
+
+  it('shows a FAQ link in the header when authenticated', () => {
+    render(<AppHeader authed />)
+    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/faq')
+  })
 })
