@@ -1433,6 +1433,15 @@ export type Database = {
         Args: { p_pages: number; p_usage_date: string; p_user_id: string }
         Returns: number
       }
+      debit_free_plan_pages_for_document: {
+        Args: {
+          p_document_id: string
+          p_pages: number
+          p_usage_date: string
+          p_user_id: string
+        }
+        Returns: number | null
+      }
       create_pending_document_upload: {
         Args: {
           p_actor_ip?: unknown

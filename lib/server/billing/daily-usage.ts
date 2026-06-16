@@ -51,6 +51,40 @@ export async function incrementDailyUsage({
   return { ok: true, pagesUsed: data as number }
 }
 
+export type DebitFreePlanPagesForDocumentInput = {
+  supabase: SupabaseClient<Database>
+  documentId: string
+  userId: string
+  date: string
+  pages: number
+}
+
+export type DebitFreePlanPagesForDocumentResult =
+  | { ok: true; pagesUsed: number | null }
+  | { ok: false; reason: string }
+
+export async function debitFreePlanPagesForDocument({
+  supabase,
+  documentId,
+  userId,
+  date,
+  pages,
+}: DebitFreePlanPagesForDocumentInput): Promise<DebitFreePlanPagesForDocumentResult> {
+  if (!Number.isInteger(pages) || pages <= 0) {
+    return { ok: false, reason: 'invalid_pages' }
+  }
+
+  const { data, error } = await supabase.rpc('debit_free_plan_pages_for_document', {
+    p_document_id: documentId,
+    p_user_id: userId,
+    p_usage_date: date,
+    p_pages: pages,
+  })
+
+  if (error) return { ok: false, reason: error.message }
+  return { ok: true, pagesUsed: (data as number | null) ?? null }
+}
+
 export function todayInUtc(reference: Date = new Date()): string {
   const year = reference.getUTCFullYear()
   const month = String(reference.getUTCMonth() + 1).padStart(2, '0')
