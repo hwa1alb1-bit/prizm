@@ -496,6 +496,7 @@ function processingDocument(overrides: Partial<ProcessingDocument> = {}): Proces
   return {
     id: 'doc_123',
     workspaceId: 'workspace_123',
+    uploadedBy: 'user_owner_123',
     extractionEngine: 'textract',
     extractionJobId: 'textract_job_123',
     textractJobId: 'textract_job_123',

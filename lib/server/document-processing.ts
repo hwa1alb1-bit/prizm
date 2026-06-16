@@ -19,6 +19,7 @@ import { getServiceRoleClient } from './supabase'
 export type ProcessingDocument = {
   id: string
   workspaceId: string
+  uploadedBy: string
   extractionEngine: string | null
   extractionJobId: string | null
   textractJobId: string | null
@@ -67,6 +68,7 @@ export type DocumentProcessingDependencies = {
 type ProcessingDocumentRow = {
   id: string
   workspace_id: string
+  uploaded_by: string
   extraction_engine: string | null
   extraction_job_id: string | null
   textract_job_id: string | null
@@ -250,7 +252,7 @@ async function listProcessingDocuments(input: {
   let query = getProcessingStoreClient()
     .from('document')
     .select<ProcessingDocumentRow>(
-      'id, workspace_id, extraction_engine, extraction_job_id, textract_job_id',
+      'id, workspace_id, uploaded_by, extraction_engine, extraction_job_id, textract_job_id',
     )
     .eq('status', 'processing')
     .is('deleted_at', null)
@@ -264,6 +266,7 @@ async function listProcessingDocuments(input: {
   return (data ?? []).map((row) => ({
     id: row.id,
     workspaceId: row.workspace_id,
+    uploadedBy: row.uploaded_by,
     extractionEngine: row.extraction_engine,
     extractionJobId: row.extraction_job_id,
     textractJobId: row.textract_job_id,
