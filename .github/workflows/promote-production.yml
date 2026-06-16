@@ -52,6 +52,17 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
     steps:
+      - name: Guard — VERCEL_TOKEN must be set
+        run: |
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN secret is empty. Verify a *repository* secret"
+            echo "::error::named exactly 'VERCEL_TOKEN' exists at"
+            echo "::error::https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "::error::See docs/runbooks/vercel-alias.md for the one-time setup steps."
+            exit 1
+          fi
+          echo "VERCEL_TOKEN is set (length: ${#VERCEL_TOKEN})"
+
       - name: Resolve commit SHA to promote
         id: sha
         run: |
