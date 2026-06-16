@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import FaqPage from '@/app/faq/page'
+import FaqPage from '@/app/help/page'
 
 describe('FAQ page', () => {
   it('renders all four question headings', () => {

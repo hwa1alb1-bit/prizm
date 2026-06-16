@@ -66,11 +66,11 @@ describe('AppHeader', () => {
 
   it('shows a FAQ link in the header when unauthenticated', () => {
     render(<AppHeader authed={false} />)
-    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/faq')
+    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/help')
   })
 
   it('shows a FAQ link in the header when authenticated', () => {
     render(<AppHeader authed />)
-    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/faq')
+    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/help')
   })
 })

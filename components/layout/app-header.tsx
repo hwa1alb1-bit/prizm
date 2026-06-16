@@ -75,7 +75,7 @@ export function AppHeader({ authed, accountHref = '/app/account', credits }: App
 
         <div className="flex items-center gap-2">
           <Link
-            href="/faq"
+            href="/help"
             className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             FAQ
