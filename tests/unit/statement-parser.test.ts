@@ -154,9 +154,19 @@ describe('parseTextractStatement', () => {
         { BlockType: 'LINE', Text: 'Closing balance: $1,250.50', Confidence: 99, Page: 1 },
         { BlockType: 'LINE', Text: 'Reported transaction total: $250.50', Confidence: 99, Page: 1 },
         { BlockType: 'LINE', Text: 'Page 2 — Account Information', Confidence: 99, Page: 2 },
-        { BlockType: 'LINE', Text: 'Routing 011000390 | Account #####4242', Confidence: 99, Page: 2 },
+        {
+          BlockType: 'LINE',
+          Text: 'Routing 011000390 | Account #####4242',
+          Confidence: 99,
+          Page: 2,
+        },
         { BlockType: 'LINE', Text: '2026-04-03 | Coffee Shop | -$12.25', Confidence: 96, Page: 3 },
-        { BlockType: 'LINE', Text: '2026-04-18 | Payroll Deposit | $262.75', Confidence: 96, Page: 3 },
+        {
+          BlockType: 'LINE',
+          Text: '2026-04-18 | Payroll Deposit | $262.75',
+          Confidence: 96,
+          Page: 3,
+        },
         { BlockType: 'LINE', Text: 'Page 4 — Fee Disclosures', Confidence: 99, Page: 4 },
         {
           BlockType: 'LINE',
@@ -195,7 +205,12 @@ describe('parseTextractStatement', () => {
         { BlockType: 'LINE', Text: 'Payments and Other Credits -$500.00', Confidence: 99, Page: 1 },
         { BlockType: 'LINE', Text: 'Purchases and Other Debits $366.20', Confidence: 99, Page: 1 },
         { BlockType: 'LINE', Text: 'New Balance $1,066.20', Confidence: 99, Page: 1 },
-        { BlockType: 'LINE', Text: '2026-04-15 | Grocery Market | Purchases | -$125.45', Confidence: 99, Page: 2 },
+        {
+          BlockType: 'LINE',
+          Text: '2026-04-15 | Grocery Market | Purchases | -$125.45',
+          Confidence: 99,
+          Page: 2,
+        },
       ],
     }
 
@@ -224,7 +239,12 @@ describe('parseTextractStatement', () => {
         },
         { BlockType: 'LINE', Text: 'Previous Balance $500.00', Confidence: 99, Page: 1 },
         { BlockType: 'LINE', Text: 'New Balance $475.00', Confidence: 99, Page: 1 },
-        { BlockType: 'LINE', Text: '2026-04-05 | Coffee | Purchases | -$25.00', Confidence: 99, Page: 2 },
+        {
+          BlockType: 'LINE',
+          Text: '2026-04-05 | Coffee | Purchases | -$25.00',
+          Confidence: 99,
+          Page: 2,
+        },
       ],
     }
 

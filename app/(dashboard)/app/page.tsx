@@ -248,7 +248,10 @@ export default function UploadPage() {
   useEffect(() => {
     if (!hasPendingUpload()) return
     const file = takePendingUpload()
-    if (file) handleFile(file)
+    if (!file) return
+    queueMicrotask(() => {
+      void handleFile(file)
+    })
   }, [handleFile])
 
   const confirmUpload = useCallback(async () => {

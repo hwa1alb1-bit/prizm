@@ -142,7 +142,7 @@ describe('EditableReviewWorkflow', () => {
 
     expect(screen.getByRole('button', { name: 'Mark reviewed' })).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent(
-      "To mark this statement reviewed, fix the following:",
+      'To mark this statement reviewed, fix the following:',
     )
     expect(screen.getByText('Transaction row 1')).toBeInTheDocument()
   })

@@ -93,10 +93,8 @@ export function parseTextractStatement(output: TextractOutput): ParsedTextractSt
     firstCapture(lines, /account (?:number )?ending in\s*\*?(\d{4})/i) ??
     firstCapture(lines, /account #+\s*(\d{4})/i)
   const period =
-    firstMatch(
-      lines,
-      /^statement period:?\s*(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})$/i,
-    ) ?? slashDatePeriod(lines)
+    firstMatch(lines, /^statement period:?\s*(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})$/i) ??
+    slashDatePeriod(lines)
   const metadata = statementType === 'credit_card' ? creditCardMetadata(lines) : {}
   const openingBalance =
     statementType === 'credit_card'
@@ -417,4 +415,3 @@ function reviewFlagsFor(input: {
   if (input.transactions.length === 0) flags.push('transactions_missing')
   return flags
 }
-
