@@ -10,15 +10,12 @@ vi.mock('next/navigation', () => ({
 import { DashboardNav } from '@/components/layout/dashboard-nav'
 
 describe('DashboardNav', () => {
-  it('renders Upload and Account nav links on /app', () => {
+  it('renders nothing on /app — AppHeader brand mark already routes here', () => {
     mockPathname = '/app'
-    render(<DashboardNav />)
-    const uploads = screen.getAllByRole('link', { name: 'Upload' })
-    const accounts = screen.getAllByRole('link', { name: 'Account' })
-    expect(uploads.length).toBeGreaterThan(0)
-    expect(accounts.length).toBeGreaterThan(0)
-    for (const link of uploads) expect(link).toHaveAttribute('href', '/app')
-    for (const link of accounts) expect(link).toHaveAttribute('href', '/app/account')
+    const { container } = render(<DashboardNav />)
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByRole('link', { name: 'Upload' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Account' })).toBeNull()
   })
 
   it('renders nothing on /app/account so the page is full-width', () => {
@@ -27,5 +24,12 @@ describe('DashboardNav', () => {
     expect(container).toBeEmptyDOMElement()
     expect(screen.queryByRole('link', { name: 'Upload' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Account' })).toBeNull()
+  })
+
+  it('still renders on other authed sub-routes (e.g. /app/history)', () => {
+    mockPathname = '/app/history'
+    render(<DashboardNav />)
+    expect(screen.getAllByRole('link', { name: 'Upload' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: 'Account' }).length).toBeGreaterThan(0)
   })
 })

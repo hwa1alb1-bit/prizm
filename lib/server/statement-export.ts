@@ -602,7 +602,7 @@ export async function getStatementExportDownload(
 
 async function xlsxFor(rows: ExportRow[]): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'PRIZM'
+  workbook.creator = 'StatementStudio'
   workbook.created = new Date()
   const worksheet = workbook.addWorksheet('Statement')
   worksheet.addRow(['Date ofTransaction', 'Merchant Name or Transaction Description', '$ Amount'])

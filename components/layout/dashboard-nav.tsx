@@ -8,9 +8,14 @@ const navItems = [
   { href: '/app/account', label: 'Account' },
 ]
 
+// Hide on routes where AppHeader already covers navigation:
+//   `/app`         -> brand mark routes here (Upload)
+//   `/app/account` -> top-right Account button routes here
+const HIDDEN_ON: ReadonlySet<string> = new Set(['/app', '/app/account'])
+
 export function DashboardNav() {
   const pathname = usePathname()
-  if (pathname === '/app/account') return null
+  if (HIDDEN_ON.has(pathname)) return null
 
   return (
     <>

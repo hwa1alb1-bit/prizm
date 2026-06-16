@@ -52,6 +52,10 @@ export default function ForgotPasswordPage() {
           Check <strong className="text-foreground">{email}</strong> for the reset link.
         </p>
         <p className="text-sm text-foreground/60">The link expires in 60 minutes.</p>
+        <p className="text-sm text-foreground/55">
+          Cannot find it? Look in spam, then open the link in the same browser where you requested
+          it so your new password applies.
+        </p>
         <p className="pt-2 text-sm text-foreground/65">
           <Link href="/login" className="font-medium underline hover:text-foreground">
             Back to sign in
