@@ -246,6 +246,7 @@ describe('DocumentReview', () => {
     expect(screen.getByText('Rewards earned')).toBeInTheDocument()
     expect(screen.getByText('Fees charged')).toBeInTheDocument()
     expect(screen.getByText('Interest charged')).toBeInTheDocument()
+    expect(screen.getByText('Download as')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'CSV' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'XLSX' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'QuickBooks CSV' })).toBeInTheDocument()
