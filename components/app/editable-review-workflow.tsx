@@ -164,23 +164,27 @@ export function EditableReviewWorkflow({
 
       {reviewBlocked && (
         <div
+          id="review-blockers"
           role="status"
           className="rounded-md border border-[color-mix(in_oklch,var(--warning)_35%,transparent)] bg-[color-mix(in_oklch,var(--warning)_8%,transparent)] p-3 text-sm"
         >
-          <p className="font-medium text-[var(--warning)]">Review blocked</p>
-          <ul className="mt-2 space-y-1 text-foreground/75">
+          <p className="font-medium text-[var(--warning)]">
+            To mark this statement reviewed, fix the following:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-foreground/75">
             {requiredGaps.map((gap) => (
-              <li key={gap}>{gap}</li>
+              <li key={gap}>{actionForGap(gap)}</li>
             ))}
             {invalidRows.length > 0 && (
               <li>
-                {invalidRows.length} invalid transaction {invalidRows.length === 1 ? 'row' : 'rows'}
+                Fix {invalidRows.length} invalid transaction{' '}
+                {invalidRows.length === 1 ? 'row' : 'rows'}
               </li>
             )}
             {exceptions.map((exception) => (
               <li key={exception.id}>{exception.title}</li>
             ))}
-            {!reconciles && <li>Reconciliation does not match the reported total</li>}
+            {!reconciles && <li>Match computed total to the reported total</li>}
           </ul>
         </div>
       )}
@@ -355,6 +359,7 @@ export function EditableReviewWorkflow({
           type="button"
           onClick={() => void save(true)}
           disabled={reviewBlocked || saveMode !== null}
+          aria-describedby={reviewBlocked ? 'review-blockers' : undefined}
           className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-subtle)] px-3 text-sm font-semibold hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         >
           {saveMode === 'review' ? 'Marking reviewed' : 'Mark reviewed'}
@@ -498,6 +503,20 @@ function requiredMetadataGaps(metadata: MetadataDraft, rows: RowDraft[]): string
   if (moneyOrNull(metadata.reportedTotal) === null) gaps.push('Missing reported total')
   if (rows.length === 0) gaps.push('Missing transaction rows')
   return gaps
+}
+
+function actionForGap(gap: string): string {
+  const lower = gap.toLowerCase()
+  if (lower === 'missing bank name') return 'Enter the bank name'
+  if (lower === 'missing issuer') return 'Enter the issuer'
+  if (lower === 'missing account last 4') return 'Enter the account last 4'
+  if (lower === 'missing card last 4') return 'Enter the card last 4'
+  if (lower === 'missing statement period') return 'Enter the statement period'
+  if (lower === 'missing opening balance') return 'Enter the opening balance'
+  if (lower === 'missing closing balance') return 'Enter the closing balance'
+  if (lower === 'missing reported total') return 'Enter the reported total'
+  if (lower === 'missing transaction rows') return 'Add at least one transaction row'
+  return gap
 }
 
 function rowBlocksReview(row: RowDraft): boolean {

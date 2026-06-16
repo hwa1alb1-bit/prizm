@@ -75,6 +75,9 @@ export function ExportActions({
 
   return (
     <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/55">
+        Download as
+      </p>
       <div className="flex flex-wrap gap-2" aria-label="Export actions">
         {actions.map((action) => {
           const busy = busyFormat === action.format

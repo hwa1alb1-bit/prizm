@@ -197,6 +197,13 @@ describe('DocumentReview', () => {
     expect(screen.getAllByText('Ready to export').length).toBeGreaterThan(0)
   })
 
+  it('does not display per-row confidence percentages to end users', () => {
+    render(<DocumentReview document={historyDocument()} />)
+
+    expect(screen.queryAllByText(/Confidence/i)).toHaveLength(0)
+    expect(screen.queryAllByText(/^\d{1,3}%$/)).toHaveLength(0)
+  })
+
   it('keeps primary sections visible and collapses system-detail behind disclosure', () => {
     render(<DocumentReview document={historyDocument()} />)
 
@@ -239,6 +246,7 @@ describe('DocumentReview', () => {
     expect(screen.getByText('Rewards earned')).toBeInTheDocument()
     expect(screen.getByText('Fees charged')).toBeInTheDocument()
     expect(screen.getByText('Interest charged')).toBeInTheDocument()
+    expect(screen.getByText('Download as')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'CSV' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'XLSX' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'QuickBooks CSV' })).toBeInTheDocument()

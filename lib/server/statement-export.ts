@@ -206,6 +206,7 @@ export type ExportStatementRow = {
   statement_type?: string | null
   review_status?: string | null
   reconciles: boolean | null
+  period_start?: string | null
   transactions: Json
   expires_at: string
   deleted_at: string | null
@@ -338,7 +339,7 @@ export async function buildStatementExport(
       input.format === 'xlsx'
         ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         : 'text/csv; charset=utf-8',
-    filename: exportFilename(document.filename, input.format),
+    filename: exportFilename(statement.period_start ?? null, input.format),
     requestId: input.routeContext.requestId,
     traceId: input.routeContext.traceId,
   }
@@ -424,7 +425,7 @@ export async function createStatementExportArtifact(
 
   const body = csvFor(input.format, rows)
   const exportId = input.idFactory?.() ?? randomUUID()
-  const filename = exportFilename(document.filename, input.format)
+  const filename = exportFilename(statement.period_start ?? null, input.format)
   const contentType = 'text/csv; charset=utf-8'
   const bucket = objectStore.getExportBucket()
   const key = `${workspaceId}/exports/${document.id}/${exportId}.csv`
@@ -752,10 +753,23 @@ function signedAmount(debit: string, credit: string): string {
   return Number.isFinite(numeric) ? String(-Math.abs(numeric)) : `-${debit}`
 }
 
-function exportFilename(filename: string, format: StatementExportFormat): string {
-  const stem = filename.replace(/\.[^.]+$/, '') || 'statement'
+function exportFilename(periodStart: string | null, format: StatementExportFormat): string {
   const suffix = format === 'csv' ? 'csv' : format.replace('_', '-')
+  const stem = statementStudioStem(periodStart)
   return `${stem}.${suffix}`
+}
+
+function statementStudioStem(periodStart: string | null): string {
+  const period = parsePeriodStart(periodStart)
+  return period ? `StatementStudio - ${period}` : 'StatementStudio - statement'
+}
+
+function parsePeriodStart(value: string | null): string | null {
+  if (!value) return null
+  const match = value.match(/^(\d{4})-(\d{2})-\d{2}/)
+  if (!match) return null
+  const [, year, month] = match
+  return `${month}-${year.slice(-2)}`
 }
 
 function earlierIso(first: string, second: string): string {
@@ -801,7 +815,7 @@ function createStatementExportStore(): StatementExportStore {
       const { data, error } = await client
         .from('statement')
         .select<ExportStatementRow>(
-          'id, statement_type, review_status, reconciles, transactions, expires_at, deleted_at',
+          'id, statement_type, review_status, reconciles, period_start, transactions, expires_at, deleted_at',
         )
         .eq('workspace_id', workspaceId)
         .eq('document_id', documentId)
@@ -857,7 +871,7 @@ function createStatementExportArtifactStore(): StatementExportArtifactStore {
       const { data, error } = await client
         .from('statement')
         .select<ExportStatementRow>(
-          'id, statement_type, review_status, reconciles, transactions, expires_at, deleted_at',
+          'id, statement_type, review_status, reconciles, period_start, transactions, expires_at, deleted_at',
         )
         .eq('workspace_id', workspaceId)
         .eq('document_id', documentId)
