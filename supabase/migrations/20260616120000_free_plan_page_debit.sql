@@ -23,7 +23,7 @@ set search_path = public
 as $$
 declare
   v_total integer;
-  v_claimed boolean;
+  v_claimed integer;
 begin
   if p_pages is null or p_pages <= 0 then
     return null;

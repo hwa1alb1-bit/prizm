@@ -594,6 +594,63 @@ describe('processExtractionDocuments', () => {
     )
   })
 
+  it('still marks the document ready when resolveBillingPlan throws', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const resolveBillingPlan = vi.fn().mockRejectedValue(new Error('supabase_outage'))
+    const debit = vi.fn()
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan,
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(deps.consumeCreditReservation).toHaveBeenCalled()
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+    expect(debit).not.toHaveBeenCalled()
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          billable_pages_debited: 0,
+          daily_usage_debit_failed: 'supabase_outage',
+        }),
+      }),
+    )
+  })
+
+  it('still marks the document ready when debitFreePlanPages throws', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn().mockRejectedValue(new Error('rpc_unreachable'))
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan: vi.fn().mockResolvedValue('free'),
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          billable_pages_debited: 0,
+          daily_usage_debit_failed: 'rpc_unreachable',
+        }),
+      }),
+    )
+  })
+
   it('records no-op metadata when the document was already debited', async () => {
     const now = new Date('2026-06-16T18:00:00.000Z')
     const debit = vi.fn().mockResolvedValue({ ok: true, pagesUsed: null })

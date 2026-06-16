@@ -386,40 +386,49 @@ async function debitFreePlanIfNeeded({
 }): Promise<DebitOutcome> {
   if (pages <= 0) return { audit: {} }
 
-  const plan = await deps.resolveBillingPlan(document.uploadedBy)
-  if (plan !== 'free') return { audit: {} }
+  try {
+    const plan = await deps.resolveBillingPlan(document.uploadedBy)
+    if (plan !== 'free') return { audit: {} }
 
-  const result = await deps.debitFreePlanPages({
-    documentId: document.id,
-    userId: document.uploadedBy,
-    pages,
-    date,
-  })
+    const result = await deps.debitFreePlanPages({
+      documentId: document.id,
+      userId: document.uploadedBy,
+      pages,
+      date,
+    })
 
-  if (!result.ok) {
+    if (!result.ok) {
+      return {
+        audit: {
+          billable_pages_debited: 0,
+          daily_usage_debit_failed: result.reason,
+        },
+      }
+    }
+
+    if (result.pagesUsed === null) {
+      return {
+        audit: {
+          billable_pages_debited: 0,
+          daily_pages_used_after: null,
+          daily_usage_debit_already_recorded: true,
+        },
+      }
+    }
+
+    return {
+      audit: {
+        billable_pages_debited: pages,
+        daily_pages_used_after: result.pagesUsed,
+      },
+    }
+  } catch (error) {
     return {
       audit: {
         billable_pages_debited: 0,
-        daily_usage_debit_failed: result.reason,
+        daily_usage_debit_failed: error instanceof Error ? error.message : 'debit_threw',
       },
     }
-  }
-
-  if (result.pagesUsed === null) {
-    return {
-      audit: {
-        billable_pages_debited: 0,
-        daily_pages_used_after: null,
-        daily_usage_debit_already_recorded: true,
-      },
-    }
-  }
-
-  return {
-    audit: {
-      billable_pages_debited: pages,
-      daily_pages_used_after: result.pagesUsed,
-    },
   }
 }
 

@@ -225,6 +225,33 @@ describe('parseTextractStatement', () => {
     expect(statement.closingBalance).toBe(1066.2)
   })
 
+  it('does not infer an issuer from a transaction-row mention alone', () => {
+    const result = parseTextractStatement({
+      JobStatus: 'SUCCEEDED',
+      Blocks: [
+        { BlockType: 'LINE', Text: 'Local Credit Union', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Account ending: 4242', Confidence: 99, Page: 1 },
+        {
+          BlockType: 'LINE',
+          Text: 'Statement period: 2026-04-01 - 2026-04-30',
+          Confidence: 99,
+          Page: 1,
+        },
+        { BlockType: 'LINE', Text: 'Opening balance: $100.00', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Closing balance: $50.00', Confidence: 99, Page: 1 },
+        { BlockType: 'LINE', Text: 'Reported transaction total: -$50.00', Confidence: 99, Page: 1 },
+        {
+          BlockType: 'LINE',
+          Text: '2026-04-03 | Chase Bank ATM withdrawal | -$50.00',
+          Confidence: 96,
+          Page: 2,
+        },
+      ],
+    })
+
+    expect(result.statements[0].bankName).toBeNull()
+  })
+
   it('produces deterministic output across repeated parses of the same input', () => {
     const input = {
       JobStatus: 'SUCCEEDED',

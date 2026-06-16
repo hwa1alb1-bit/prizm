@@ -246,13 +246,23 @@ const KNOWN_ISSUERS = [
 ]
 
 function detectKnownIssuer(lines: Line[]): string | null {
-  for (const line of lines) {
+  for (const line of headerLines(lines)) {
     for (const issuer of KNOWN_ISSUERS) {
       const pattern = new RegExp(`\\b${escapeRegex(issuer)}\\b`, 'i')
       if (pattern.test(line.text)) return canonicalIssuer(issuer)
     }
   }
   return null
+}
+
+function headerLines(lines: Line[]): Line[] {
+  const out: Line[] = []
+  for (const line of lines) {
+    if (line.page > 1) break
+    if (isTransactionLine(line.text)) break
+    out.push(line)
+  }
+  return out
 }
 
 function canonicalIssuer(matched: string): string {
