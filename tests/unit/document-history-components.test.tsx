@@ -197,6 +197,13 @@ describe('DocumentReview', () => {
     expect(screen.getAllByText('Ready to export').length).toBeGreaterThan(0)
   })
 
+  it('does not display per-row confidence percentages to end users', () => {
+    render(<DocumentReview document={historyDocument()} />)
+
+    expect(screen.queryAllByText(/Confidence/i)).toHaveLength(0)
+    expect(screen.queryAllByText(/^\d{1,3}%$/)).toHaveLength(0)
+  })
+
   it('keeps primary sections visible and collapses system-detail behind disclosure', () => {
     render(<DocumentReview document={historyDocument()} />)
 

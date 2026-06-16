@@ -418,6 +418,3 @@ function reviewFlagsFor(input: {
   return flags
 }
 
-function isPresent<T>(value: T | null): value is T {
-  return value !== null
-}
