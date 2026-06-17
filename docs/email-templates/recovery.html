@@ -50,34 +50,23 @@
               </td>
             </tr>
             <tr>
-              <td style="font-size: 14px; line-height: 1.55; color: #3a4047; padding-bottom: 20px">
-                Click the button below to choose a new password for your StatementStudio account.
-                The link expires in 60 minutes.
+              <td style="font-size: 14px; line-height: 1.55; color: #3a4047; padding-bottom: 16px">
+                To choose a new password, click the link below, or copy and paste it
+                into the address bar of the same browser where you requested the reset.
+                The link expires in 60 minutes and can only be used once.
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding-bottom: 24px">
-                <a
-                  href="{{ .ConfirmationURL }}"
-                  style="
-                    display: inline-block;
-                    background: #101418;
-                    color: #ffffff;
-                    text-decoration: none;
-                    font-size: 14px;
-                    font-weight: 600;
-                    padding: 12px 22px;
-                    border-radius: 6px;
-                  "
-                  >Choose a new password</a
-                >
-              </td>
-            </tr>
-            <tr>
-              <td style="font-size: 12px; line-height: 1.5; color: #6a7079; padding-bottom: 16px">
-                Open this link in the same browser where you requested the reset so your new
-                password applies:<br />
-                <a href="{{ .ConfirmationURL }}" style="color: #6a7079; word-break: break-all"
+              <td
+                style="
+                  font-size: 14px;
+                  line-height: 1.55;
+                  color: #101418;
+                  padding: 16px 0 24px 0;
+                  word-break: break-all;
+                "
+              >
+                <a href="{{ .ConfirmationURL }}" style="color: #101418; text-decoration: underline"
                   >{{ .ConfirmationURL }}</a
                 >
               </td>
