@@ -83,10 +83,8 @@ class ExtractorHttpService(
       sendJson(
         exchange,
         statusCode = 500,
-        WorkerPollResponse(
-          status = "failed",
-          failureReason = error.message ?: "Kotlin worker extraction failed.",
-        ),
+        ExtractionOutcome.UnexpectedFailure(error.message ?: "Kotlin worker extraction failed.")
+          .toWorkerPollResponse(jobId = "http-unhandled"),
       )
     } finally {
       exchange.close()
@@ -97,11 +95,8 @@ class ExtractorHttpService(
     try {
       extractor.extract(uploadedPdf, jobId)
     } catch (error: Exception) {
-      WorkerPollResponse(
-        status = "failed",
-        jobId = jobId,
-        failureReason = error.message ?: "Kotlin worker extraction failed.",
-      )
+      ExtractionOutcome.UnexpectedFailure(error.message ?: "Kotlin worker extraction failed.")
+        .toWorkerPollResponse(jobId)
     }
 
   private fun requestJobId(exchange: HttpExchange): String =

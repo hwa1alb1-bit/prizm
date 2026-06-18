@@ -25,11 +25,8 @@ class ExtractorCli {
     val response = try {
       PdfStatementExtractor().extract(input, jobId)
     } catch (error: Exception) {
-      WorkerPollResponse(
-        status = "failed",
-        jobId = jobId,
-        failureReason = error.message ?: "Kotlin worker extraction failed.",
-      )
+      ExtractionOutcome.UnexpectedFailure(error.message ?: "Kotlin worker extraction failed.")
+        .toWorkerPollResponse(jobId)
     }
 
     out.println(mapper.writeValueAsString(response))
