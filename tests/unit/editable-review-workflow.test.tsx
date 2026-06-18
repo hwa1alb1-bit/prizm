@@ -147,6 +147,74 @@ describe('EditableReviewWorkflow', () => {
     expect(screen.getByText('Transaction row 1')).toBeInTheDocument()
   })
 
+  it('resets the draft to the new record when the statement is replaced by a server refresh', () => {
+    function Parent({ stmt }: { stmt: (StatementEvidenceView & { revision: number }) | null }) {
+      return (
+        <EditableReviewWorkflow
+          key={stmt ? `${stmt.id}:${stmt.revision}` : 'none'}
+          documentId="doc_123"
+          statement={stmt}
+          exceptions={[]}
+        />
+      )
+    }
+
+    const base = statement()
+    const empty: StatementEvidenceView & { revision: number } = {
+      ...base,
+      revision: 1,
+      bankName: '',
+      accountLast4: '',
+      openingBalance: null,
+      closingBalance: null,
+      reportedTotal: null,
+      computedTotal: 0,
+      reconciles: false,
+      transactionCount: 0,
+      transactions: [],
+    }
+    const populated: StatementEvidenceView & { revision: number } = {
+      ...base,
+      revision: 2,
+      bankName: 'chase',
+      accountLast4: '8972',
+      openingBalance: 1000,
+      closingBalance: 2000,
+      reportedTotal: 5802,
+      computedTotal: 559.04,
+      reconciles: false,
+      transactionCount: 1,
+      transactions: [
+        {
+          ...base.transactions[0]!,
+          amount: 559.04,
+          credit: 559.04,
+          debit: null,
+          balance: 559.04,
+        },
+      ],
+    }
+
+    const { rerender } = render(<Parent stmt={empty} />)
+
+    const blockersBefore = screen.getByRole('status')
+    expect(blockersBefore).toHaveTextContent('Enter the bank name')
+    expect(blockersBefore).toHaveTextContent('Enter the account last 4')
+    expect(blockersBefore).toHaveTextContent('Enter the opening balance')
+    expect(blockersBefore).toHaveTextContent('Enter the closing balance')
+    expect(blockersBefore).toHaveTextContent('Enter the reported total')
+
+    rerender(<Parent stmt={populated} />)
+
+    const blockersAfter = screen.getByRole('status')
+    expect(blockersAfter).not.toHaveTextContent('Enter the bank name')
+    expect(blockersAfter).not.toHaveTextContent('Enter the account last 4')
+    expect(blockersAfter).not.toHaveTextContent('Enter the opening balance')
+    expect(blockersAfter).not.toHaveTextContent('Enter the closing balance')
+    expect(blockersAfter).not.toHaveTextContent('Enter the reported total')
+    expect(blockersAfter).toHaveTextContent('Match computed total to the reported total')
+  })
+
   it('explains exactly which conditions block Mark reviewed and ties them to the button', () => {
     render(
       <EditableReviewWorkflow

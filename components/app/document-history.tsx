@@ -145,6 +145,9 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
 
           <EvidenceSection title="Editable review">
             <EditableReviewWorkflow
+              key={
+                primaryStatement ? `${primaryStatement.id}:${primaryStatement.revision}` : 'none'
+              }
               documentId={document.id}
               statement={primaryStatement}
               exceptions={exceptions.map((exception) => ({
