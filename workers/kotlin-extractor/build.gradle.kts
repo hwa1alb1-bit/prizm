@@ -17,6 +17,9 @@ application {
 dependencies {
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.0")
   implementation("org.apache.pdfbox:pdfbox:3.0.4")
+  implementation("org.slf4j:slf4j-api:2.0.16")
+  implementation("ch.qos.logback:logback-classic:1.5.18")
+  implementation("net.logstash.logback:logstash-logback-encoder:8.0")
 
   testImplementation(kotlin("test"))
   testImplementation("org.junit.jupiter:junit-jupiter-params:5.12.2")
