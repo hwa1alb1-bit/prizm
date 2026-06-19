@@ -5,8 +5,10 @@ package com.prizm.extractor
  * for period and rows), resolves family labels to totals, extracts rows generically, then hands
  * everything to [CreditCardReconciler] for the hard math.
  */
-class CreditCardEngine {
-  fun extract(text: String, issuer: IssuerProfile?): ExtractionOutcome {
+class CreditCardEngine : FamilyEngine {
+  override val stageName: String = "credit-card-extract"
+
+  override fun extract(text: String, issuer: IssuerProfile?): ExtractionOutcome {
     val collapsed = collapse(text)
     val layout = CreditCardLayouts.forIssuer(issuer?.layoutKey)
 
