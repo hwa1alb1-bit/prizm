@@ -3,6 +3,7 @@ package com.prizm.extractor
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
@@ -14,6 +15,7 @@ import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlinx.coroutines.runBlocking
 
 fun main(args: Array<String>) {
   val service = ExtractorHttpService().start(port = servicePort(args))
@@ -24,6 +26,7 @@ fun main(args: Array<String>) {
 
 class ExtractorHttpService(
   private val extractor: PdfStatementExtractor = PdfStatementExtractor(),
+  private val batchHandler: BatchExtractionHandler = BatchExtractionHandler(extractor),
   private val mapper: ObjectMapper = jacksonObjectMapper()
     .setSerializationInclusion(JsonInclude.Include.NON_NULL),
 ) {
@@ -32,6 +35,9 @@ class ExtractorHttpService(
     val server = HttpServer.create(InetSocketAddress("0.0.0.0", port), 0)
     server.createContext("/internal/extract") { exchange ->
       handleExtract(exchange)
+    }
+    server.createContext("/internal/extract-batch") { exchange ->
+      handleBatchExtract(exchange)
     }
     server.executor = executor
     server.start()
@@ -91,6 +97,38 @@ class ExtractorHttpService(
     }
   }
 
+  private fun handleBatchExtract(exchange: HttpExchange) {
+    try {
+      if (exchange.requestURI.path != "/internal/extract-batch") {
+        sendJson(exchange, statusCode = 404, BatchExtractionResponse(results = emptyList()))
+        return
+      }
+      if (!exchange.requestMethod.equals("POST", ignoreCase = true)) {
+        exchange.responseHeaders.set("Allow", "POST")
+        sendJson(exchange, statusCode = 405, BatchExtractionResponse(results = emptyList()))
+        return
+      }
+
+      val requestBytes = exchange.requestBody.use { it.readAllBytes() }
+      val request: BatchExtractionRequest = mapper.readValue(requestBytes)
+      val response = runBlocking { batchHandler.handle(request) }
+      sendJson(exchange, statusCode = 200, response)
+    } catch (error: Exception) {
+      sendJson(
+        exchange,
+        statusCode = 500,
+        BatchExtractionResponse(
+          results = listOf(
+            ExtractionOutcome.UnexpectedFailure(error.message ?: "Batch extraction failed.")
+              .toWorkerPollResponse(jobId = "batch-unhandled"),
+          ),
+        ),
+      )
+    } finally {
+      exchange.close()
+    }
+  }
+
   private fun tryExtract(uploadedPdf: java.nio.file.Path, jobId: String): WorkerPollResponse =
     try {
       extractor.extract(uploadedPdf, jobId)
@@ -107,7 +145,7 @@ class ExtractorHttpService(
   private fun sendJson(
     exchange: HttpExchange,
     statusCode: Int,
-    response: WorkerPollResponse,
+    response: Any,
   ) {
     val body = mapper.writeValueAsBytes(response)
     exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
