@@ -1,12 +1,12 @@
 package com.prizm.extractor
 
 /**
- * Credit-card-family reconciliation math. Hard-coded. The reported total is the sum of the four
- * activity buckets the issuer prints (purchases, payments, fees, interest); the computed total is
- * the sum of signed transaction rows. Reconciles iff they match to the cent.
+ * Credit-card-family reconciliation math. The reported total is the sum of the four activity
+ * buckets the issuer prints (purchases, payments, fees, interest); the computed total is the
+ * sum of signed transaction rows. Reconciles iff they match to the cent.
  *
- * This is the load-bearing rule the user agreed to: math here cannot be overridden by an
- * issuer-specific layout. A new issuer either fits this math or it does not belong in this family.
+ * The load-bearing rule: math here cannot be overridden by an issuer-specific layout. A new
+ * issuer either fits this math or it does not belong in this family.
  */
 data class CreditCardTotals(
   val previousBalance: Double,
@@ -17,17 +17,11 @@ data class CreditCardTotals(
   val interest: Double,
 )
 
-data class CreditCardReconciliation(
-  val reportedTotal: Double,
-  val computedTotal: Double,
-  val reconciles: Boolean,
-)
-
-object CreditCardReconciler {
-  fun reportedTotal(totals: CreditCardTotals): Double =
+object CreditCardReconciler : Reconciler<CreditCardTotals> {
+  override fun reportedTotal(totals: CreditCardTotals): Double =
     money(totals.purchases + totals.payments + totals.fees + totals.interest)
 
-  fun computedTotal(transactions: List<ParsedTransaction>): Double =
+  override fun computedTotal(transactions: List<ParsedTransaction>): Double =
     money(
       transactions.sumOf { transaction ->
         when {
@@ -38,9 +32,9 @@ object CreditCardReconciler {
       },
     )
 
-  fun reconcile(totals: CreditCardTotals, transactions: List<ParsedTransaction>): CreditCardReconciliation {
+  override fun reconcile(totals: CreditCardTotals, transactions: List<ParsedTransaction>): ReconciliationResult {
     val reported = reportedTotal(totals)
     val computed = computedTotal(transactions)
-    return CreditCardReconciliation(reported, computed, reported == computed)
+    return ReconciliationResult(reported, computed, reported == computed)
   }
 }
