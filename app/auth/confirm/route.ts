@@ -34,32 +34,50 @@ export async function GET(request: NextRequest) {
   }
 
   const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        },
-      },
-    },
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-  if (error) {
+  let verifyError: { code?: string; status?: number; message?: string } | null = null
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    verifyError = { message: 'Auth service is not configured' }
+  } else {
+    try {
+      const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            )
+          },
+        },
+      })
+      const result = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+      if (result.error) {
+        verifyError = {
+          code: result.error.code,
+          status: result.error.status,
+          message: result.error.message,
+        }
+      }
+    } catch (e) {
+      verifyError = {
+        message: e instanceof Error ? e.message : 'verifyOtp threw before completing',
+      }
+    }
+  }
+
+  if (verifyError) {
     console.error('[auth-confirm] verifyOtp failed', {
       type,
-      code: error.code,
-      status: error.status,
-      message: error.message,
+      ...verifyError,
       requestId: context.requestId,
     })
     const params = new URLSearchParams({ error: 'auth_callback_failed' })
-    if (error.message) params.set('error_description', error.message)
+    if (verifyError.message) params.set('error_description', verifyError.message)
     return applyRouteHeaders(context, NextResponse.redirect(`${origin}/login?${params.toString()}`))
   }
 
