@@ -32,7 +32,7 @@ describe('route response helpers', () => {
     })
 
     await expect(response.json()).resolves.toMatchObject({
-      type: 'https://prizmview.app/errors/PRZM_VALIDATION_TEST',
+      type: 'https://pdftoexcelstatementconverter.com/errors/PRZM_VALIDATION_TEST',
       title: 'Invalid request',
       status: 400,
       detail: 'The request is invalid.',

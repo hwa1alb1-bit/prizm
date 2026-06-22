@@ -16,6 +16,20 @@ const csp = [
 ].join('; ')
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/app/settings',
+        destination: '/app/account',
+        permanent: true,
+      },
+      {
+        source: '/app/billing',
+        destination: '/app/account',
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     return [
       {

@@ -2,19 +2,20 @@ import Link from 'next/link'
 
 export const metadata = {
   title: 'Security',
-  description: 'Current PRIZM security controls, disclosure contacts, and planned controls.',
+  description:
+    'Current StatementStudio security controls, disclosure contacts, and planned controls.',
 }
 
 export default function SecurityPage() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-16">
       <p className="text-sm font-medium uppercase tracking-widest text-foreground/50">
-        PRIZM Trust
+        StatementStudio Trust
       </p>
       <h1 className="mt-4 text-4xl font-semibold tracking-tight">Security</h1>
       <p className="mt-4 max-w-3xl text-base leading-7 text-foreground/70">
-        PRIZM is in alpha. This page describes controls that are active in the product today and
-        controls that must be verified before a production launch.
+        StatementStudio is in alpha. This page describes controls that are active in the product
+        today and controls that must be verified before a production launch.
       </p>
 
       <div className="mt-10 grid gap-8 md:grid-cols-2">
@@ -45,8 +46,11 @@ export default function SecurityPage() {
         <h2 className="text-xl font-semibold">Disclosure</h2>
         <p className="mt-4 max-w-3xl text-sm leading-6 text-foreground/70">
           Report vulnerabilities to{' '}
-          <a className="font-medium underline" href="mailto:security@prizmview.app">
-            security@prizmview.app
+          <a
+            className="font-medium underline"
+            href="mailto:security@pdftoexcelstatementconverter.com"
+          >
+            security@pdftoexcelstatementconverter.com
           </a>
           . Do not include live bank statements, credentials, or regulated customer data in the
           initial report.

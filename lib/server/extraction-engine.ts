@@ -405,6 +405,14 @@ function normalizeParsedStatement(input: unknown): ParsedStatement | null {
   const transactions = input.transactions.map((transaction) => normalizeTransaction(transaction))
   if (transactions.some((transaction) => transaction === null)) return null
 
+  const usableTransactions = transactions.filter(isParsedStatementTransaction)
+  const billablePageCount =
+    typeof input.billablePageCount === 'number' && Number.isFinite(input.billablePageCount)
+      ? Math.max(0, Math.floor(input.billablePageCount))
+      : usableTransactions.length === 0
+        ? 0
+        : 1
+
   return {
     statementType: input.statementType,
     bankName: input.bankName,
@@ -420,7 +428,8 @@ function normalizeParsedStatement(input: unknown): ParsedStatement | null {
     confidence: input.confidence,
     reviewFlags: input.reviewFlags,
     metadata: input.metadata,
-    transactions: transactions.filter(isParsedStatementTransaction),
+    billablePageCount,
+    transactions: usableTransactions,
   }
 }
 

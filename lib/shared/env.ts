@@ -47,7 +47,7 @@ const serverSchema = z.object({
   STRIPE_METER_OVERAGE: z.string().optional(),
 
   RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().email().default('noreply@prizmview.app'),
+  RESEND_FROM_EMAIL: z.string().email().default('noreply@pdftoexcelstatementconverter.com'),
 
   SENTRY_AUTH_TOKEN: z.string().optional(),
   SENTRY_ORG: z.string().optional(),

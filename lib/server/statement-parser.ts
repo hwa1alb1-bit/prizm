@@ -2,6 +2,7 @@ export type TextractBlock = {
   BlockType?: string
   Text?: string
   Confidence?: number
+  Page?: number
 }
 
 export type TextractOutput = {
@@ -46,6 +47,7 @@ export type ParsedStatement = {
   }
   reviewFlags: string[]
   metadata: Record<string, string | number | boolean | null>
+  billablePageCount: number
   transactions: ParsedStatementTransaction[]
 }
 
@@ -57,6 +59,7 @@ export type ParsedTextractStatementResult = {
 type Line = {
   text: string
   confidence: number
+  page: number
 }
 
 const TRANSACTION_LINE_PATTERN =
@@ -67,22 +70,31 @@ const CREDIT_CARD_TRANSACTION_LINE_PATTERN =
 export function parseTextractStatement(output: TextractOutput): ParsedTextractStatementResult {
   const lines = extractLines(output)
   const statementType = detectStatementType(lines)
-  const transactions = lines
-    .map((line) =>
+  const billablePages = new Set<number>()
+  const transactions: ParsedStatementTransaction[] = []
+  for (const line of lines) {
+    const transaction =
       statementType === 'credit_card'
         ? parseCreditCardTransactionLine(line)
-        : parseTransactionLine(line),
-    )
-    .filter(isPresent)
+        : parseTransactionLine(line)
+    if (transaction) {
+      transactions.push(transaction)
+      billablePages.add(line.page)
+    }
+  }
+  const billablePageCount = billablePages.size
   const bankName =
-    firstCapture(lines, /^bank:\s*(.+)$/i) ?? firstCapture(lines, /^issuer:\s*(.+)$/i)
+    firstCapture(lines, /^bank:\s*(.+)$/i) ??
+    firstCapture(lines, /^issuer:\s*(.+)$/i) ??
+    detectKnownIssuer(lines)
   const accountLast4 =
     firstCapture(lines, /^account ending:\s*(\d{4})$/i) ??
-    firstCapture(lines, /^card ending:\s*(\d{4})$/i)
-  const period = firstMatch(
-    lines,
-    /^statement period:\s*(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})$/i,
-  )
+    firstCapture(lines, /^card ending:\s*(\d{4})$/i) ??
+    firstCapture(lines, /account (?:number )?ending in\s*\*?(\d{4})/i) ??
+    firstCapture(lines, /account #+\s*(\d{4})/i)
+  const period =
+    firstMatch(lines, /^statement period:?\s*(\d{4}-\d{2}-\d{2})\s*-\s*(\d{4}-\d{2}-\d{2})$/i) ??
+    slashDatePeriod(lines)
   const metadata = statementType === 'credit_card' ? creditCardMetadata(lines) : {}
   const openingBalance =
     statementType === 'credit_card'
@@ -136,6 +148,7 @@ export function parseTextractStatement(output: TextractOutput): ParsedTextractSt
         confidence,
         reviewFlags,
         metadata,
+        billablePageCount,
         transactions,
       },
     ],
@@ -148,6 +161,7 @@ function extractLines(output: TextractOutput): Line[] {
     .map((block) => ({
       text: block.Text!.trim(),
       confidence: normalizeConfidence(block.Confidence),
+      page: typeof block.Page === 'number' && block.Page > 0 ? block.Page : 1,
     }))
     .filter((line) => line.text.length > 0)
 }
@@ -192,28 +206,114 @@ function parseCreditCardTransactionLine(line: Line): ParsedStatementTransaction 
 }
 
 function detectStatementType(lines: Line[]): ParsedStatement['statementType'] {
-  return lines.some((line) =>
+  const labeled = lines.some((line) =>
     /^(issuer|card ending|payment due date|minimum payment due|credit limit|available credit):/i.test(
       line.text,
     ),
   )
-    ? 'credit_card'
-    : 'bank'
+  if (labeled) return 'credit_card'
+  const contextual = lines.some((line) =>
+    /(previous balance|new balance|payments and other credits|purchases and other debits|minimum payment due|cardmember service|card ending)/i.test(
+      line.text,
+    ),
+  )
+  return contextual ? 'credit_card' : 'bank'
+}
+
+const KNOWN_ISSUERS = [
+  'JPMorgan Chase',
+  'Chase',
+  'Bank of America',
+  'Wells Fargo',
+  'Citibank',
+  'Citi',
+  'Capital One',
+  'American Express',
+  'Discover',
+  'U.S. Bank',
+  'US Bank',
+  'PNC Bank',
+  'PNC',
+  'TD Bank',
+  'HSBC',
+  'Truist',
+  'USAA',
+  'Charles Schwab',
+  'Fidelity',
+  'Ally Bank',
+  'Ally',
+  'Barclays',
+]
+
+function detectKnownIssuer(lines: Line[]): string | null {
+  for (const line of headerLines(lines)) {
+    for (const issuer of KNOWN_ISSUERS) {
+      const pattern = new RegExp(`\\b${escapeRegex(issuer)}\\b`, 'i')
+      if (pattern.test(line.text)) return canonicalIssuer(issuer)
+    }
+  }
+  return null
+}
+
+function headerLines(lines: Line[]): Line[] {
+  const out: Line[] = []
+  for (const line of lines) {
+    if (line.page > 1) break
+    if (isTransactionLine(line.text)) break
+    out.push(line)
+  }
+  return out
+}
+
+function canonicalIssuer(matched: string): string {
+  const lower = matched.toLowerCase()
+  if (lower.includes('chase')) return 'Chase'
+  if (lower === 'citi' || lower === 'citibank') return 'Citi'
+  if (lower === 'pnc' || lower === 'pnc bank') return 'PNC Bank'
+  if (lower === 'ally' || lower === 'ally bank') return 'Ally Bank'
+  return matched
+}
+
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function slashDatePeriod(lines: Line[]): RegExpMatchArray | null {
+  const match = firstMatch(
+    lines,
+    /statement period\s+(\d{2})\/(\d{2})\/(\d{2,4})\s*[-–to]+\s*(\d{2})\/(\d{2})\/(\d{2,4})/i,
+  )
+  if (!match) return null
+  const [, m1, d1, y1, m2, d2, y2] = match
+  const start = `${normalizeYear(y1)}-${m1}-${d1}`
+  const end = `${normalizeYear(y2)}-${m2}-${d2}`
+  return [match[0], start, end] as unknown as RegExpMatchArray
+}
+
+function normalizeYear(year: string): string {
+  if (year.length === 4) return year
+  const numeric = Number(year)
+  return numeric >= 70 ? `19${year}` : `20${year.padStart(2, '0')}`
 }
 
 function creditCardMetadata(lines: Line[]): ParsedStatement['metadata'] {
   const metadata: ParsedStatement['metadata'] = {}
   addDateMetadata(metadata, 'paymentDueDate', lines, /^payment due date:\s*(\d{4}-\d{2}-\d{2})$/i)
-  addMoneyMetadata(metadata, 'minimumPaymentDue', lines, /^minimum payment due:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'previousBalance', lines, /^previous balance:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'newBalance', lines, /^new balance:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'creditLimit', lines, /^credit limit:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'availableCredit', lines, /^available credit:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'purchaseTotal', lines, /^purchases:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'paymentTotal', lines, /^payments and credits:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'feeTotal', lines, /^fees charged:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'interestTotal', lines, /^interest charged:\s*(.+)$/i)
-  addMoneyMetadata(metadata, 'rewardsEarned', lines, /^rewards earned:\s*(.+)$/i)
+  addMoneyMetadata(metadata, 'minimumPaymentDue', lines, /^minimum payment due:?\s+(.+)$/i)
+  addMoneyMetadata(metadata, 'previousBalance', lines, /^previous balance:?\s+(.+)$/i)
+  addMoneyMetadata(metadata, 'newBalance', lines, /^new balance:?\s+(.+)$/i)
+  addMoneyMetadata(metadata, 'creditLimit', lines, /^credit limit:?\s+(.+)$/i)
+  addMoneyMetadata(metadata, 'availableCredit', lines, /^available credit:?\s+(.+)$/i)
+  addMoneyMetadata(metadata, 'purchaseTotal', lines, /^purchases:?\s+(.+)$/i)
+  addMoneyMetadata(
+    metadata,
+    'paymentTotal',
+    lines,
+    /^payments(?: and other)?(?: and)? credits:?\s+(.+)$/i,
+  )
+  addMoneyMetadata(metadata, 'feeTotal', lines, /^fees charged:?\s+(.+)$/i)
+  addMoneyMetadata(metadata, 'interestTotal', lines, /^interest charged:?\s+(.+)$/i)
+  addMoneyMetadata(metadata, 'rewardsEarned', lines, /^rewards earned:?\s+(.+)$/i)
   return metadata
 }
 
@@ -324,8 +424,4 @@ function reviewFlagsFor(input: {
   if (!input.reconciles) flags.push('reconciliation_mismatch')
   if (input.transactions.length === 0) flags.push('transactions_missing')
   return flags
-}
-
-function isPresent<T>(value: T | null): value is T {
-  return value !== null
 }

@@ -28,12 +28,44 @@ describe('statement export service', () => {
     expect(result).toMatchObject({
       ok: true,
       contentType: 'text/csv; charset=utf-8',
-      filename: 'statement.csv',
+      filename: 'StatementStudio - 05-26.csv',
     })
     expect(result.ok && result.body).toBe(
       'Date,Description,Debit,Credit,Amount,Balance\r\n2026-05-01,ACH Payroll,,2500,2500,3500\r\n',
     )
     expect(recordAudit).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['xlsx', 'StatementStudio - 05-26.xlsx'],
+    ['quickbooks_csv', 'StatementStudio - 05-26.quickbooks-csv'],
+    ['xero_csv', 'StatementStudio - 05-26.xero-csv'],
+  ])('names %s exports with the StatementStudio - MM-YY convention', async (format, expected) => {
+    const result = await buildStatementExport({
+      documentId: 'doc_123',
+      format: format as 'xlsx' | 'quickbooks_csv' | 'xero_csv',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      store: exportStore({}),
+    })
+
+    expect(result).toMatchObject({ ok: true, filename: expected })
+  })
+
+  it('falls back to a generic StatementStudio name when period_start is missing', async () => {
+    const result = await buildStatementExport({
+      documentId: 'doc_123',
+      format: 'csv',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      store: exportStore({ statement: { period_start: null } }),
+    })
+
+    expect(result).toMatchObject({ ok: true, filename: 'StatementStudio - statement.csv' })
   })
 
   it('blocks unreviewed statements before writing export audit', async () => {
@@ -98,7 +130,7 @@ describe('statement export service', () => {
     expect(result).toMatchObject({
       ok: true,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      filename: 'statement.xlsx',
+      filename: 'StatementStudio - 05-26.xlsx',
     })
     if (!result.ok || !(result.body instanceof Uint8Array)) {
       throw new Error('expected xlsx export bytes')
@@ -334,7 +366,7 @@ describe('statement export artifacts', () => {
       exportId: 'export_123',
       documentId: 'doc_123',
       format: 'csv',
-      filename: 'statement.csv',
+      filename: 'StatementStudio - 05-26.csv',
       contentType: 'text/csv; charset=utf-8',
       expiresAt: expect.any(String),
     })
@@ -351,7 +383,7 @@ describe('statement export artifacts', () => {
         documentId: 'doc_123',
         statementId: 'statement_123',
         format: 'csv',
-        filename: 'statement.csv',
+        filename: 'StatementStudio - 05-26.csv',
         s3Bucket: 'prizm-uploads-test',
         s3Key: 'workspace_123/exports/doc_123/export_123.csv',
         contentType: 'text/csv; charset=utf-8',
@@ -438,6 +470,7 @@ function exportStore(
       id: 'statement_123',
       review_status: 'reviewed',
       reconciles: true,
+      period_start: '2026-05-01',
       transactions: [
         {
           id: 'txn_1',
@@ -479,6 +512,7 @@ function exportArtifactStore(
       statement_type: 'bank',
       review_status: 'reviewed',
       reconciles: true,
+      period_start: '2026-05-01',
       transactions: [
         {
           id: 'txn_1',

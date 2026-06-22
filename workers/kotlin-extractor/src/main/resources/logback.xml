@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <fieldNames>
+        <timestamp>ts</timestamp>
+        <message>msg</message>
+        <logger>logger</logger>
+        <thread>thread</thread>
+        <level>level</level>
+        <levelValue>[ignore]</levelValue>
+        <version>[ignore]</version>
+      </fieldNames>
+      <includeMdcKeyName>jobId</includeMdcKeyName>
+    </encoder>
+  </appender>
+
+  <logger name="prizm.extractor" level="INFO" additivity="false">
+    <appender-ref ref="JSON_STDOUT"/>
+  </logger>
+
+  <root level="WARN">
+    <appender-ref ref="JSON_STDOUT"/>
+  </root>
+</configuration>

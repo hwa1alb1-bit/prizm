@@ -32,8 +32,8 @@ export default async function HistoryPage({
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Review and evidence</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            Every document row is loaded from PRIZM records with statement output, audit events,
-            retention state, and deletion evidence.
+            Every document row is loaded from StatementStudio records with statement output, audit
+            events, retention state, and deletion evidence.
           </p>
         </div>
       </header>

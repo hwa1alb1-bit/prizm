@@ -3,14 +3,14 @@ import { TrustPage, TrustSection } from '@/components/trust/trust-page'
 
 export const metadata = {
   title: 'Privacy',
-  description: 'PRIZM privacy commitments, retention, and data rights workflows.',
+  description: 'StatementStudio privacy commitments, retention, and data rights workflows.',
 }
 
 export default function PrivacyPage() {
   return (
     <TrustPage
       title="Privacy"
-      intro="PRIZM limits bank statement handling to conversion workflows and keeps public privacy claims tied to implemented product behavior."
+      intro="StatementStudio limits bank statement handling to conversion workflows and keeps public privacy claims tied to implemented product behavior."
     >
       <TrustSection title="Data We Process">
         <ul className="space-y-3">

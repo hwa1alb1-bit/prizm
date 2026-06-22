@@ -8,7 +8,8 @@ export default function HistoryLoading() {
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Review and evidence</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            PRIZM is loading document evidence and audit records for your statement history.
+            StatementStudio is loading document evidence and audit records for your statement
+            history.
           </p>
         </div>
       </header>
