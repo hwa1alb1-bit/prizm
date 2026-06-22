@@ -1,0 +1,20 @@
+# Build + dependency artifacts (prettier's defaults cover most, this is explicit)
+node_modules
+.next
+.vercel
+.turbo
+.wrangler
+coverage
+dist
+build
+
+# Generated files
+*.lockb
+pnpm-lock.yaml
+
+# PowerShell helper scripts (not formatted by prettier)
+*.ps1
+
+# Vendored fixtures + evidence JSON
+workers/kotlin-extractor/fixtures-local
+docs/evidence
