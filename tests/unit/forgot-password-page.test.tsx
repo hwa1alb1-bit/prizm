@@ -42,7 +42,7 @@ describe('ForgotPasswordPage', () => {
 
     await waitFor(() => {
       expect(resetPasswordForEmail).toHaveBeenCalledWith('owner@example.com', {
-        redirectTo: 'https://pdftoexcelstatementconverter.com/auth/callback?next=%2Freset',
+        redirectTo: 'https://pdftoexcelstatementconverter.com/auth/confirm?next=%2Freset',
       })
     })
 
