@@ -1,19 +1,8 @@
 import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs'
 
-const csp = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.sentry.io https://s3.amazonaws.com https://*.s3.amazonaws.com https://*.r2.cloudflarestorage.com",
-  'frame-src https://js.stripe.com https://hooks.stripe.com',
-].join('; ')
+// Content-Security-Policy lives in middleware.ts so each response carries a
+// fresh nonce. Static headers below stay here.
 
 const nextConfig: NextConfig = {
   async redirects() {
@@ -35,7 +24,6 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          { key: 'Content-Security-Policy', value: csp },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           {

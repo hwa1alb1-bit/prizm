@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import { PASSWORD_HINT, validatePassword } from '@/lib/auth/password'
 import type { BillingSummary } from '@/lib/shared/billing'
@@ -10,11 +11,27 @@ type AccountFormProps = {
   billing: BillingSummary
 }
 
+const ICON_USER = '/marketing/icons/user.png'
+const ICON_MAIL = '/marketing/icons/mail.png'
+const ICON_KEY = '/marketing/icons/key.png'
+const ICON_LOGOUT = '/marketing/icons/logout.png'
+
+function FieldIcon({ src }: { src: string }) {
+  return (
+    <Image
+      src={src}
+      alt=""
+      width={20}
+      height={20}
+      aria-hidden
+      className="mt-1 h-5 w-5 shrink-0 opacity-70"
+    />
+  )
+}
+
 export function AccountForm({ settings, billing }: AccountFormProps) {
   const [fullName, setFullName] = useState<string>(settings.account.fullName ?? '')
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
-  const [workspaceName, setWorkspaceName] = useState<string>(settings.workspace.name)
-  const canEditWorkspace = settings.account.role === 'owner' || settings.account.role === 'admin'
 
   async function saveFullName(
     value: string,
@@ -42,20 +59,6 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
     return { ok: true }
   }
 
-  async function saveWorkspaceName(
-    value: string,
-  ): Promise<{ ok: true } | { ok: false; message: string }> {
-    const response = await fetch('/api/v1/account/workspace', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: value }),
-    })
-    if (!response.ok) return readProblem(response)
-    const body = (await response.json().catch(() => ({}))) as { name?: string }
-    if (body.name) setWorkspaceName(body.name)
-    return { ok: true }
-  }
-
   return (
     <div className="space-y-6">
       <section
@@ -80,6 +83,7 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
         ) : null}
         <dl className="mt-4 space-y-4 text-sm">
           <EditableRow
+            iconSrc={ICON_USER}
             label="Full name"
             displayValue={fullName.trim().length > 0 ? fullName : 'Not set'}
             initialEditValue={fullName}
@@ -89,6 +93,7 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
             editButtonLabel="Edit full name"
           />
           <EditableRow
+            iconSrc={ICON_MAIL}
             label="Email"
             displayValue={settings.account.email}
             initialEditValue={settings.account.email}
@@ -97,26 +102,12 @@ export function AccountForm({ settings, billing }: AccountFormProps) {
             onSave={saveEmail}
             editButtonLabel="Edit email"
           />
-          {canEditWorkspace ? (
-            <EditableRow
-              label="Workspace name"
-              displayValue={workspaceName}
-              initialEditValue={workspaceName}
-              inputType="text"
-              inputProps={{ maxLength: 120, autoComplete: 'organization' }}
-              onSave={saveWorkspaceName}
-              editButtonLabel="Edit workspace name"
-            />
-          ) : (
-            <ReadOnlyRow label="Workspace" value={workspaceName} />
-          )}
-          <ReadOnlyRow label="Role" value={settings.account.role} />
         </dl>
         <div className="mt-6 border-t border-foreground/5 pt-4">
-          <PasswordChangeRow />
+          <PasswordChangeRow iconSrc={ICON_KEY} />
         </div>
         <div className="mt-6 border-t border-foreground/5 pt-4">
-          <SignOutRow />
+          <SignOutRow iconSrc={ICON_LOGOUT} />
         </div>
       </section>
 
@@ -291,7 +282,13 @@ function PlanCard({
   action: React.ReactNode
 }) {
   return (
-    <article className="rounded-lg border border-foreground/10 p-4">
+    <article
+      className={`rounded-lg border p-4 transition ${
+        current
+          ? 'border-[var(--accent)] bg-[color-mix(in_oklch,var(--accent)_12%,var(--background))]'
+          : 'border-foreground/10'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-semibold">{name}</h3>
         {current ? (
@@ -334,6 +331,7 @@ function statusLabel(status: BillingSummary['status']): string {
 }
 
 type EditableRowProps = {
+  iconSrc: string
   label: string
   displayValue: string
   initialEditValue: string
@@ -344,6 +342,7 @@ type EditableRowProps = {
 }
 
 function EditableRow({
+  iconSrc,
   label,
   displayValue,
   initialEditValue,
@@ -387,40 +386,43 @@ function EditableRow({
   if (editing) {
     return (
       <div className="border-b border-foreground/5 pb-4">
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <label htmlFor={inputId} className="text-foreground/50">
-            {label}
-          </label>
-          <input
-            id={inputId}
-            type={inputType}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            autoFocus
-            className="block h-10 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
-            {...inputProps}
-          />
-          {error ? (
-            <p className="text-xs font-medium text-red-600" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="flex gap-2 pt-1">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-sm font-semibold text-background hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={cancel}
-              disabled={saving}
-              className="inline-flex h-9 items-center rounded-md border border-foreground/20 px-3 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
-            >
-              Cancel
-            </button>
+        <form onSubmit={handleSubmit} className="flex gap-3">
+          <FieldIcon src={iconSrc} />
+          <div className="flex-1 space-y-2">
+            <label htmlFor={inputId} className="text-foreground/50">
+              {label}
+            </label>
+            <input
+              id={inputId}
+              type={inputType}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              autoFocus
+              className="block h-10 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
+              {...inputProps}
+            />
+            {error ? (
+              <p className="text-xs font-medium text-red-600" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-sm font-semibold text-background hover:opacity-90 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={cancel}
+                disabled={saving}
+                className="inline-flex h-9 items-center rounded-md border border-foreground/20 px-3 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -428,8 +430,9 @@ function EditableRow({
   }
 
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-foreground/5 pb-4">
-      <div>
+    <div className="flex flex-wrap items-center gap-3 border-b border-foreground/5 pb-4">
+      <FieldIcon src={iconSrc} />
+      <div className="min-w-0 flex-1">
         <dt className="text-foreground/50">{label}</dt>
         <dd className="mt-0.5 break-words font-medium">{displayValue}</dd>
       </div>
@@ -437,7 +440,7 @@ function EditableRow({
         type="button"
         onClick={startEdit}
         aria-label={editButtonLabel}
-        className="text-xs font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        className="inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--accent-foreground)] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         Edit
       </button>
@@ -445,7 +448,7 @@ function EditableRow({
   )
 }
 
-function PasswordChangeRow() {
+function PasswordChangeRow({ iconSrc }: { iconSrc: string }) {
   const [open, setOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -500,8 +503,9 @@ function PasswordChangeRow() {
 
   if (!open) {
     return (
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <FieldIcon src={iconSrc} />
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">Password</p>
           <p className="mt-0.5 text-xs text-foreground/55">
             Update the password you use to sign in.
@@ -518,7 +522,7 @@ function PasswordChangeRow() {
             setSuccess(false)
             setOpen(true)
           }}
-          className="text-xs font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          className="inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--accent-foreground)] hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           Change password
         </button>
@@ -615,7 +619,7 @@ function PasswordChangeRow() {
   )
 }
 
-function SignOutRow() {
+function SignOutRow({ iconSrc }: { iconSrc: string }) {
   const [signing, setSigning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -632,8 +636,9 @@ function SignOutRow() {
   }
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div>
+    <div className="flex flex-wrap items-center gap-3">
+      <FieldIcon src={iconSrc} />
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">Sign out</p>
         <p className="mt-0.5 text-xs text-foreground/55">
           End this session and return to the landing page.

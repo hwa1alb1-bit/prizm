@@ -58,11 +58,11 @@ describe('Vercel deployment config', () => {
   })
 
   it('allows browser uploads to presigned S3 and R2 endpoints in the content security policy', () => {
-    const nextConfig = readFileSync(resolve(process.cwd(), 'next.config.ts'), 'utf8')
+    const proxyFile = readFileSync(resolve(process.cwd(), 'proxy.ts'), 'utf8')
 
-    expect(nextConfig).toContain('https://*.s3.amazonaws.com')
-    expect(nextConfig).toContain('https://s3.amazonaws.com')
-    expect(nextConfig).toContain('https://*.r2.cloudflarestorage.com')
+    expect(proxyFile).toContain('https://*.s3.amazonaws.com')
+    expect(proxyFile).toContain('https://s3.amazonaws.com')
+    expect(proxyFile).toContain('https://*.r2.cloudflarestorage.com')
   })
 
   it('uses the Next proxy file convention instead of deprecated middleware', () => {

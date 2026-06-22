@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { pollDocumentStatus } from '@/lib/client/document-polling'
 import { hasPendingUpload, takePendingUpload } from '@/components/marketing/upload-hero'
+import { StepNumeral } from '@/components/marketing/step-numeral'
 
 type UploadState =
   | 'idle'
@@ -124,13 +125,6 @@ const workflowSteps = [
     label: 'Export spreadsheet',
     detail: 'Reviewed rows export to XLSX or CSV before the 24-hour deletion window closes.',
   },
-]
-
-const trustControls = [
-  { label: 'Input', value: 'One bank or credit-card statement PDF per conversion' },
-  { label: 'Quote', value: 'One credit reserved only after confirmation' },
-  { label: 'Output', value: 'XLSX, CSV, QuickBooks CSV, and Xero CSV' },
-  { label: 'Retention', value: '24-hour auto-delete with request evidence' },
 ]
 
 const processingStages = [
@@ -436,7 +430,7 @@ export default function UploadPage() {
         </div>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="space-y-6">
         <section className="space-y-6" aria-labelledby="upload-heading">
           <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -531,11 +525,6 @@ export default function UploadPage() {
           <WorkflowPanel currentState={state} />
           <CurrentDocumentHandoff evidence={evidence} />
         </section>
-
-        <aside className="space-y-4" aria-label="Upload evidence">
-          <EvidencePanel evidence={evidence} />
-          <TrustControls />
-        </aside>
       </div>
     </div>
   )
@@ -901,17 +890,18 @@ function WorkflowPanel({ currentState }: { currentState: UploadState }) {
           return (
             <li
               key={step.label}
-              className={`rounded-md border p-3 ${
+              className={`flex flex-col items-center rounded-md border p-4 text-center ${
                 reached
                   ? 'border-[var(--accent)] bg-[var(--surface-muted)]'
                   : 'border-[var(--border-subtle)]'
               }`}
             >
-              <span className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
+              <StepNumeral n={index + 1} />
+              <span className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
                 Step {index + 1}
               </span>
-              <h3 className="mt-2 text-sm font-semibold">{step.label}</h3>
-              <p className="mt-1 text-xs leading-5 text-foreground/60">{step.detail}</p>
+              <h3 className="mt-1 text-sm font-semibold">{step.label}</h3>
+              <p className="mt-2 text-xs leading-5 text-foreground/60">{step.detail}</p>
             </li>
           )
         })}
@@ -1045,51 +1035,6 @@ function CurrentDocumentHandoff({ evidence }: { evidence: UploadEvidence | null 
             )}
           </tbody>
         </table>
-      </div>
-    </section>
-  )
-}
-
-function EvidencePanel({ evidence }: { evidence: UploadEvidence | null }) {
-  return (
-    <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4">
-      <h2 className="text-base font-semibold">Conversion evidence</h2>
-      <dl className="mt-4 space-y-3 text-sm">
-        <EvidenceRow label="Filename" value={evidence?.filename ?? 'Waiting for upload'} />
-        <EvidenceRow
-          label="Size"
-          value={evidence ? formatBytes(evidence.sizeBytes) : 'Checked before upload'}
-        />
-        {/* SECURITY-AUDIT: relabeled Document to Support reference; removed Request ID, Complete request, Trace ID, Textract job correlation rows */}
-        <EvidenceRow
-          label="Support reference"
-          value={evidence ? shortId(evidence.documentId) : 'Not created'}
-        />
-        <EvidenceRow
-          label="Expires"
-          value={evidence ? formatDateTime(evidence.expiresAt) : '24 hours after upload'}
-        />
-      </dl>
-    </section>
-  )
-}
-
-function TrustControls() {
-  return (
-    <section className="rounded-lg border border-[var(--border-subtle)] p-4">
-      <h2 className="text-base font-semibold">Lean controls</h2>
-      <div className="mt-4 space-y-3">
-        {trustControls.map((control) => (
-          <div
-            key={control.label}
-            className="border-t border-[var(--border-subtle)] pt-3 first:border-t-0 first:pt-0"
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
-              {control.label}
-            </p>
-            <p className="mt-1 text-sm font-medium">{control.value}</p>
-          </div>
-        ))}
       </div>
     </section>
   )
