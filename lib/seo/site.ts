@@ -40,7 +40,19 @@ export const trustRoutes = [
   '/docs/rate-limits',
 ] as const
 
-export const publicSitemapRoutes = ['/', ...seoRoutes, ...trustRoutes] as const
+export const marketingProofRoutes = [
+  '/how-we-verify',
+  '/throughput',
+  '/sample-output',
+  '/issuers',
+] as const
+
+export const publicSitemapRoutes = [
+  '/',
+  ...seoRoutes,
+  ...trustRoutes,
+  ...marketingProofRoutes,
+] as const
 
 export function absoluteUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`

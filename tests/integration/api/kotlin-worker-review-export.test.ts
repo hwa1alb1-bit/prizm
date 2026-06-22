@@ -110,6 +110,7 @@ describe('Kotlin worker review to export flow', () => {
           statement_type: workerStatement.statementType,
           review_status: 'reviewed',
           reconciles: true,
+          period_start: workerStatement.periodStart,
           transactions: reviewedTransactions,
         },
       }),
@@ -118,7 +119,7 @@ describe('Kotlin worker review to export flow', () => {
     expect(exportResult).toMatchObject({
       ok: true,
       contentType: 'text/csv; charset=utf-8',
-      filename: 'worker-card.csv',
+      filename: 'StatementStudio - 04-26.csv',
     })
     expect(exportResult.ok && exportResult.body).toBe(
       'Date,Description,Debit,Credit,Amount,Balance\r\n2026-04-05,Corrected Grocery Market,414.75,,-414.75,\r\n2026-04-20,Payment Thank You,,50,50,\r\n',

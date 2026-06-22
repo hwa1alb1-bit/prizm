@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { createServerSupabaseClient } from '@/lib/server/supabase-middleware'
 import { JsonLd } from '@/components/marketing/json-ld'
 import { HowItWorks } from '@/components/marketing/how-it-works'
+import { HeroClaimRow } from '@/components/marketing/hero-claim-row'
 import { PricingSection } from '@/components/marketing/pricing-section'
 import { SiteFooter } from '@/components/marketing/site-footer'
 import { AppHeader } from '@/components/layout/app-header'
@@ -86,6 +87,7 @@ export default async function Home() {
             rightRailExtras={<SupportedOutputs />}
           />
         </Suspense>
+        <HeroClaimRow />
         <HowItWorks />
         <TrustCards />
         <PricingSection isAuthenticated={visitor.authenticated} />

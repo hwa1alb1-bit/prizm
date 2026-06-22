@@ -20,6 +20,7 @@
         "transactions": 0.95
       },
       "reviewFlags": [],
+      "billablePageCount": 1,
       "metadata": {
         "issuer": "PRIZM Rewards Visa",
         "paymentDueDate": "2026-05-25",

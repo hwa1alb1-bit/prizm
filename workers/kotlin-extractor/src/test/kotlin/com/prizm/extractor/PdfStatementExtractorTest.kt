@@ -163,6 +163,17 @@ class PdfStatementExtractorTest {
   }
 
   @Test
+  fun `returns UnsupportedLayout when selectable text matches no known family`(@TempDir tempDir: Path) {
+    val fixture = tempDir / "unrecognized-statement.pdf"
+    val lorem = (1..40).joinToString(" ") { "lorem ipsum dolor sit amet consectetur adipiscing elit" }
+    writeTextPdf(fixture, listOf(lorem))
+
+    val outcome = PdfStatementExtractor().extractOutcome(fixture)
+
+    assertEquals(ExtractionOutcome.UnsupportedLayout, outcome)
+  }
+
+  @Test
   fun `fails closed when a PDF has no selectable text`(@TempDir tempDir: Path) {
     val imageOnlyStandIn = tempDir / "blank.pdf"
     PDDocument().use { document ->

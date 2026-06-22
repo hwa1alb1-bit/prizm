@@ -145,6 +145,9 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
 
           <EvidenceSection title="Editable review">
             <EditableReviewWorkflow
+              key={
+                primaryStatement ? `${primaryStatement.id}:${primaryStatement.revision}` : 'none'
+              }
               documentId={document.id}
               statement={primaryStatement}
               exceptions={exceptions.map((exception) => ({
@@ -1008,9 +1011,6 @@ function TransactionTable({
                 <p className="break-all font-mono text-xs">
                   {transaction.source ?? transaction.id}
                 </p>
-                <p className="mt-1 text-xs text-foreground/50">
-                  Confidence {formatConfidence(transaction.confidence)}
-                </p>
               </td>
               <td className="py-3 align-top">
                 <ReviewToneBadge tone={transaction.needsReview ? 'warning' : 'success'}>
@@ -1669,11 +1669,6 @@ function metadataMoneyValue(metadata: StatementMetadata, key: string): number | 
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim().length > 0) return value.trim()
   return null
-}
-
-function formatConfidence(value: number | null): string {
-  if (value === null) return 'Not recorded'
-  return `${Math.round(value * 100)}%`
 }
 
 function reconciliationDelta(statement: StatementEvidenceView): number | null {

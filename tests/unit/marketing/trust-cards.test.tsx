@@ -3,34 +3,39 @@ import { describe, expect, it } from 'vitest'
 import { TrustCards } from '@/components/marketing/trust-cards'
 
 describe('TrustCards', () => {
-  it('renders the four feature tiles with the new titles', () => {
+  it('renders the four evidence cards with their new titles', () => {
     render(<TrustCards />)
     for (const title of [
-      'Encrypted Connection',
-      'Files stay private',
-      'Rapid processing',
-      'Accounting & Bookkeeping Formatted',
+      'Reconciled to the cent',
+      'Throughput, measured',
+      'Files auto-delete in 24h',
+      'Mozilla Observatory A+',
     ]) {
       expect(screen.getByRole('heading', { level: 3, name: title })).toBeInTheDocument()
     }
   })
 
-  it('uses no nested cards (each tile is a single bordered surface)', () => {
+  it('uses no nested cards (each card is a single bordered surface)', () => {
     const { container } = render(<TrustCards />)
-    const tiles = container.querySelectorAll('[data-tile-root="trust"]')
-    expect(tiles.length).toBe(4)
-    tiles.forEach((tile) => {
-      expect(tile.querySelectorAll('[data-tile-root="trust"]').length).toBe(0)
+    const cards = container.querySelectorAll('article[data-card]')
+    expect(cards.length).toBe(4)
+    cards.forEach((card) => {
+      expect(card.querySelectorAll('article[data-card]').length).toBe(0)
     })
   })
 
-  it('renders the TLS 1.2+ encryption body for the Encrypted Connection tile', () => {
+  it('surfaces the reconciliation rule and a mismatch counter-example', () => {
     render(<TrustCards />)
-    expect(screen.getByText(/secure TLS 1\.2\+ encrypted transfer/i)).toBeInTheDocument()
+    expect(screen.getByText(/deterministic reconciliation math/i)).toBeInTheDocument()
+    expect(screen.getByText(/Mismatch flagged/i)).toBeInTheDocument()
   })
 
-  it('renders the no-training-on-uploads body for the Files stay private tile', () => {
+  it('links the Observatory card to the live security report', () => {
     render(<TrustCards />)
-    expect(screen.getByText(/never shared or used to train AI models/i)).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /View the report/i })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://observatory.mozilla.org/analyze/pdftoexcelstatementconverter.com',
+    )
   })
 })

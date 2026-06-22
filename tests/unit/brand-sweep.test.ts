@@ -5,9 +5,11 @@ import { describe, expect, it } from 'vitest'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-const SCAN_DIRS = ['app', 'components', 'lib/seo']
+const SCAN_DIRS = ['app', 'components', 'lib/seo', 'lib/server']
 const FILE_EXT = /\.(ts|tsx|mdx)$/
 const SKIP_FILE = /\.test\.(ts|tsx)$/
+// Env-var names and other deployment-time identifiers that keep the old codename.
+const ALLOWED_PRIZM_TOKENS = /PRIZM_EXTRACTION_ENGINE/
 
 function walk(dir: string, acc: string[]): string[] {
   let entries: string[]
@@ -63,7 +65,7 @@ describe('Brand sweep guard', () => {
     for (const file of files) {
       const content = readFileSync(file, 'utf8')
       content.split(/\r?\n/).forEach((line, index) => {
-        if (wordBoundary.test(line)) {
+        if (wordBoundary.test(line) && !ALLOWED_PRIZM_TOKENS.test(line)) {
           offenders.push({ path: relative(repoRoot, file), line: index + 1, text: line.trim() })
         }
       })

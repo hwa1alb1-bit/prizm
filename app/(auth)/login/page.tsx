@@ -1,10 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/client/supabase'
 import { normalizeAuthNextPath } from '@/lib/shared/auth-redirect'
+
+const ERROR_MESSAGES: Record<string, string> = {
+  auth_callback_failed:
+    'We could not finish your sign-in link. Request a new one and click it from the same browser where you opened your inbox.',
+  otp_expired: 'Your sign-in link expired. Request a new one to continue.',
+  access_denied: 'Your sign-in link is no longer valid. Request a new one to continue.',
+  ops_audit_failed: 'We could not record the admin sign-in. Try again or contact support.',
+}
+
+function describeAuthError(code: string | null, description: string | null): string | null {
+  if (!code) return null
+  if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code]
+  return description ?? 'Sign-in could not finish. Please try again.'
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -13,6 +27,18 @@ export default function LoginPage() {
   const [revealPassword, setRevealPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const linkError = describeAuthError(
+      params.get('error') ?? params.get('error_code'),
+      params.get('error_description'),
+    )
+    if (linkError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormError(linkError)
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

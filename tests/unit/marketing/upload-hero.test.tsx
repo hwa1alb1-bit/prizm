@@ -70,4 +70,17 @@ describe('UploadHero', () => {
     pickFile()
     expect(pushMock).toHaveBeenCalledWith('/app')
   })
+
+  it('stashes the picked file and a sessionStorage marker for the upload page to pick up', async () => {
+    sessionStorage.removeItem('ss:pending-upload')
+    render(<UploadHero isAuthenticated={true} />)
+    pickFile()
+
+    const { takePendingUpload } = await import('@/components/marketing/upload-hero')
+    expect(sessionStorage.getItem('ss:pending-upload')).toBe('1')
+    const pending = takePendingUpload()
+    expect(pending).toBeInstanceOf(File)
+    expect(pending?.name).toBe('statement.pdf')
+    expect(sessionStorage.getItem('ss:pending-upload')).toBeNull()
+  })
 })

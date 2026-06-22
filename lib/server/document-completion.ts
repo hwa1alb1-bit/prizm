@@ -552,7 +552,7 @@ function completionProblem(
         status: 502,
         code: 'PRZM_STORAGE_VERIFICATION_FAILED',
         title: 'Upload could not be verified',
-        detail: 'PRIZM could not verify the uploaded object. Try again shortly.',
+        detail: 'StatementStudio could not verify the uploaded object. Try again shortly.',
       }
     case 'transition_failed':
       return {
