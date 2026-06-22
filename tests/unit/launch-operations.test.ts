@@ -181,6 +181,49 @@ describe('launch operations controls', () => {
     expect(dependabot).toContain("package-ecosystem: 'github-actions'")
   })
 
+  it('documents the live Stripe cutover evidence checklist', () => {
+    const path = 'docs/runbooks/stripe-live-cutover.md'
+
+    expect(existsSync(path)).toBe(true)
+
+    const runbook = readFileSync(path, 'utf8')
+
+    for (const section of [
+      '## Scope',
+      '## Preconditions',
+      '## Production Environment Change',
+      '## Redeploy',
+      '## Verification',
+      '## Evidence To Archive',
+      '## Rollback',
+    ]) {
+      expect(runbook).toContain(section)
+    }
+
+    for (const phrase of [
+      'https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe',
+      'checkout.session.completed',
+      'customer.subscription.created',
+      'customer.subscription.updated',
+      'customer.subscription.deleted',
+      'STRIPE_SECRET_KEY',
+      'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+      'STRIPE_WEBHOOK_SECRET',
+      'sk_live_',
+      'pk_live_',
+      'whsec_',
+      'vercel env add STRIPE_SECRET_KEY production --force',
+      'vercel env add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY production --force',
+      'vercel env add STRIPE_WEBHOOK_SECRET production --force',
+      'vercel redeploy',
+      "LAUNCH_GATE_TARGET='production'",
+      'status=400',
+      'PRZM_AUTH_STRIPE_SIGNATURE_MISSING',
+    ]) {
+      expect(runbook).toContain(phrase)
+    }
+  })
+
   it('documents the Cloudflare Kotlin production proof before enabling the launch path', () => {
     const fallback = readFileSync('docs/runbooks/kotlin-worker-fallback.md', 'utf8')
     const rehearsal = readFileSync('docs/runbooks/staging-rehearsal.md', 'utf8')
@@ -282,7 +325,7 @@ function validStagingRehearsalEvidence() {
     rehearsalDate: '2026-05-14',
     releaseSha: '5a6b2351b500024ab74b2f7c53b12e0afb478306',
     vercelDeploymentUrl: 'https://prizm-git-main-plknokos-projects.vercel.app',
-    stagingHost: 'staging.prizmview.app',
+    stagingHost: 'staging.pdftoexcelstatementconverter.com',
     launchGateOutput: 'Launch gate passed for staging',
     liveConnectorSmokeOutput: 'supabase: ok\nstripe: ok\ns3: ok\nredis: ok',
     uploadRequestId: 'req_upload_123',

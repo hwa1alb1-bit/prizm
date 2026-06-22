@@ -206,6 +206,7 @@ export type ExportStatementRow = {
   statement_type?: string | null
   review_status?: string | null
   reconciles: boolean | null
+  period_start?: string | null
   transactions: Json
   expires_at: string
   deleted_at: string | null
@@ -338,7 +339,7 @@ export async function buildStatementExport(
       input.format === 'xlsx'
         ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         : 'text/csv; charset=utf-8',
-    filename: exportFilename(document.filename, input.format),
+    filename: exportFilename(statement.period_start ?? null, input.format),
     requestId: input.routeContext.requestId,
     traceId: input.routeContext.traceId,
   }
@@ -424,7 +425,7 @@ export async function createStatementExportArtifact(
 
   const body = csvFor(input.format, rows)
   const exportId = input.idFactory?.() ?? randomUUID()
-  const filename = exportFilename(document.filename, input.format)
+  const filename = exportFilename(statement.period_start ?? null, input.format)
   const contentType = 'text/csv; charset=utf-8'
   const bucket = objectStore.getExportBucket()
   const key = `${workspaceId}/exports/${document.id}/${exportId}.csv`
@@ -601,28 +602,53 @@ export async function getStatementExportDownload(
 
 async function xlsxFor(rows: ExportRow[]): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'PRIZM'
+  workbook.creator = 'StatementStudio'
   workbook.created = new Date()
   const worksheet = workbook.addWorksheet('Statement')
-  worksheet.addRow(['Date', 'Description', 'Debit', 'Credit', 'Amount', 'Balance'])
+  worksheet.addRow(['Date ofTransaction', 'Merchant Name or Transaction Description', '$ Amount'])
   for (const row of rows) {
-    worksheet.addRow(
-      [row.date, row.description, row.debit, row.credit, row.amount, row.balance].map(
-        spreadsheetSafeCell,
-      ),
-    )
+    worksheet.addRow([
+      xlsxDate(row.date),
+      spreadsheetSafeCell(row.payee || row.description),
+      xlsxAmount(row),
+    ])
   }
   worksheet.columns = [
     { key: 'date', width: 14 },
-    { key: 'description', width: 40 },
-    { key: 'debit', width: 12 },
-    { key: 'credit', width: 12 },
-    { key: 'amount', width: 12 },
-    { key: 'balance', width: 12 },
+    { key: 'description', width: 56 },
+    { key: 'amount', width: 14 },
   ]
   worksheet.getRow(1).font = { bold: true }
   const buffer = await workbook.xlsx.writeBuffer()
   return new Uint8Array(buffer)
+}
+
+function xlsxDate(value: string): string {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  if (iso) return `${iso[2]}/${iso[3]}`
+
+  const slash = /^(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?$/.exec(value.trim())
+  if (slash) return `${slash[1].padStart(2, '0')}/${slash[2].padStart(2, '0')}`
+
+  return spreadsheetSafeCell(value)
+}
+
+function xlsxAmount(row: ExportRow): number | string {
+  const debit = numericAmount(row.debit)
+  if (debit !== null) return Math.abs(debit)
+
+  const credit = numericAmount(row.credit)
+  if (credit !== null) return -Math.abs(credit)
+
+  const amount = numericAmount(row.amount)
+  return amount ?? spreadsheetSafeCell(row.amount)
+}
+
+function numericAmount(value: string): number | null {
+  const normalized = value.trim().replaceAll(',', '')
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(normalized)) return null
+  const amount = Number(normalized)
+  return Number.isFinite(amount) ? amount : null
 }
 
 function csvFor(format: Exclude<StatementExportFormat, 'xlsx'>, rows: ExportRow[]): string {
@@ -727,10 +753,23 @@ function signedAmount(debit: string, credit: string): string {
   return Number.isFinite(numeric) ? String(-Math.abs(numeric)) : `-${debit}`
 }
 
-function exportFilename(filename: string, format: StatementExportFormat): string {
-  const stem = filename.replace(/\.[^.]+$/, '') || 'statement'
+function exportFilename(periodStart: string | null, format: StatementExportFormat): string {
   const suffix = format === 'csv' ? 'csv' : format.replace('_', '-')
+  const stem = statementStudioStem(periodStart)
   return `${stem}.${suffix}`
+}
+
+function statementStudioStem(periodStart: string | null): string {
+  const period = parsePeriodStart(periodStart)
+  return period ? `StatementStudio - ${period}` : 'StatementStudio - statement'
+}
+
+function parsePeriodStart(value: string | null): string | null {
+  if (!value) return null
+  const match = value.match(/^(\d{4})-(\d{2})-\d{2}/)
+  if (!match) return null
+  const [, year, month] = match
+  return `${month}-${year.slice(-2)}`
 }
 
 function earlierIso(first: string, second: string): string {
@@ -776,7 +815,7 @@ function createStatementExportStore(): StatementExportStore {
       const { data, error } = await client
         .from('statement')
         .select<ExportStatementRow>(
-          'id, statement_type, review_status, reconciles, transactions, expires_at, deleted_at',
+          'id, statement_type, review_status, reconciles, period_start, transactions, expires_at, deleted_at',
         )
         .eq('workspace_id', workspaceId)
         .eq('document_id', documentId)
@@ -832,7 +871,7 @@ function createStatementExportArtifactStore(): StatementExportArtifactStore {
       const { data, error } = await client
         .from('statement')
         .select<ExportStatementRow>(
-          'id, statement_type, review_status, reconciles, transactions, expires_at, deleted_at',
+          'id, statement_type, review_status, reconciles, period_start, transactions, expires_at, deleted_at',
         )
         .eq('workspace_id', workspaceId)
         .eq('document_id', documentId)

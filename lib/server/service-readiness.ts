@@ -424,7 +424,7 @@ export function createServiceReadinessDashboardOnlyItems(input: {
       item: 'DNSSEC DS delegation',
       owner: 'Domain admin',
       nextProofStep:
-        'Copy Cloudflare DNSSEC DS values to the registrar, then rerun Resolve-DnsName prizmview.app -Type DS.',
+        'Copy Cloudflare DNSSEC DS values to the registrar, then rerun Resolve-DnsName pdftoexcelstatementconverter.com -Type DS.',
     })
   }
 

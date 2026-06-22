@@ -124,6 +124,22 @@ function isHttpsUrl(value: string | undefined): boolean {
   }
 }
 
+function stripeProductionKeyFailures(env: LaunchEnv): string[] {
+  const failures: string[] = []
+  const secretKey = env.STRIPE_SECRET_KEY?.trim() ?? ''
+  const publishableKey = env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ?? ''
+
+  if (secretKey && !secretKey.startsWith('sk_live_')) {
+    failures.push('STRIPE_SECRET_KEY')
+  }
+
+  if (publishableKey && !publishableKey.startsWith('pk_live_')) {
+    failures.push('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY')
+  }
+
+  return failures
+}
+
 export function evaluateLaunchReadiness({
   target,
   env,
@@ -150,6 +166,18 @@ export function evaluateLaunchReadiness({
       envKeys: ['NEXT_PUBLIC_SITE_URL'],
       reason: 'invalid',
     })
+  }
+
+  if (target === 'production') {
+    const invalidStripeKeys = stripeProductionKeyFailures(env)
+    if (invalidStripeKeys.length > 0) {
+      failures.push({
+        id: 'stripe-live-mode-configured',
+        title: 'Stripe production credentials use live-mode API keys',
+        envKeys: invalidStripeKeys,
+        reason: 'invalid',
+      })
+    }
   }
 
   const staticAwsKeys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'].filter((key) =>

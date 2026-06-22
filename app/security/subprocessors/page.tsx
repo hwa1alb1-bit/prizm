@@ -45,14 +45,14 @@ const subprocessors = [
 
 export const metadata = {
   title: 'Subprocessors',
-  description: 'PRIZM vendor and subprocessor inventory.',
+  description: 'StatementStudio vendor and subprocessor inventory.',
 }
 
 export default function SubprocessorsPage() {
   return (
     <TrustPage
       title="Subprocessors"
-      intro="This inventory lists vendors that may process customer data or operational metadata for PRIZM."
+      intro="This inventory lists vendors that may process customer data or operational metadata for StatementStudio."
     >
       <TrustSection title="Inventory">
         <div className="overflow-x-auto">

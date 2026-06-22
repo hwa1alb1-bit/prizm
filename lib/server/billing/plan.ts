@@ -1,6 +1,8 @@
 import 'server-only'
 
 import type { BillingPlan, SubscriptionStatus } from '@/lib/shared/billing'
+import { PLAN_MONTHLY_CREDITS } from '@/lib/shared/plan-allowances'
+import { FREE_DAILY_PAGE_LIMIT } from './daily-usage'
 export type { BillingPlan, SubscriptionStatus }
 
 export type PlanAllowance = {
@@ -14,6 +16,8 @@ export type BillingGateInput = {
   status: SubscriptionStatus
   creditBalance: number
   overageMeterConfigured: boolean
+  dailyPagesUsed?: number
+  requestedPages?: number
 }
 
 export type BillingGateResult =
@@ -23,26 +27,30 @@ export type BillingGateResult =
     }
   | {
       allowed: false
-      reason: 'payment_required' | 'credits_exhausted' | 'overage_not_configured'
+      reason:
+        | 'payment_required'
+        | 'credits_exhausted'
+        | 'overage_not_configured'
+        | 'daily_limit_reached'
       problemCode: string
       title: string
       detail: string
     }
 
-const PLAN_ALLOWANCES: Record<BillingPlan, PlanAllowance> = {
+export const PLAN_ALLOWANCES: Record<BillingPlan, PlanAllowance> = {
   free: {
     plan: 'free',
-    monthlyCredits: 5,
+    monthlyCredits: PLAN_MONTHLY_CREDITS.free,
     overageAllowed: false,
   },
   starter: {
     plan: 'starter',
-    monthlyCredits: 200,
+    monthlyCredits: PLAN_MONTHLY_CREDITS.starter,
     overageAllowed: true,
   },
   pro: {
     plan: 'pro',
-    monthlyCredits: 1000,
+    monthlyCredits: PLAN_MONTHLY_CREDITS.pro,
     overageAllowed: true,
   },
 }
@@ -63,6 +71,20 @@ export function evaluateBillingGate(input: BillingGateInput): BillingGateResult 
       problemCode: 'PRZM_BILLING_PAYMENT_REQUIRED',
       title: 'Payment required',
       detail: 'Resolve the workspace billing status before starting paid conversions.',
+    }
+  }
+
+  if (input.plan === 'free' && typeof input.dailyPagesUsed === 'number') {
+    const requested = input.requestedPages ?? 1
+    if (input.dailyPagesUsed + requested <= FREE_DAILY_PAGE_LIMIT) {
+      return { allowed: true, mode: 'included_credit' }
+    }
+    return {
+      allowed: false,
+      reason: 'daily_limit_reached',
+      problemCode: 'PRZM_BILLING_DAILY_LIMIT_REACHED',
+      title: 'Daily upload limit reached',
+      detail: `Free plan allows ${FREE_DAILY_PAGE_LIMIT} pages per day. Try again tomorrow or upgrade.`,
     }
   }
 
