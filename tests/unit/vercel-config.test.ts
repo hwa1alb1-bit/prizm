@@ -29,7 +29,7 @@ describe('Vercel deployment config', () => {
   it('uses GitHub Action majors that run on the Node 24 action runtime', () => {
     const ci = readFileSync(resolve(process.cwd(), '.github/workflows/ci.yml'), 'utf8')
 
-    expect(ci).toContain('actions/checkout@v6')
+    expect(ci).toContain('actions/checkout@v7')
     expect(ci).toContain('pnpm/action-setup@v6')
     expect(ci).toContain('actions/setup-node@v6')
     expect(ci).toContain('actions/upload-artifact@v7')
