@@ -2,15 +2,15 @@ import { TrustPage, TrustSection } from '@/components/trust/trust-page'
 
 export const metadata = {
   title: 'Rate Limits',
-  description: 'PRIZM rate-limit semantics.',
+  description: 'StatementStudio rate-limit semantics.',
 }
 
 export default function RateLimitsPage() {
   return (
     <TrustPage
-      eyebrow="PRIZM Docs"
+      eyebrow="StatementStudio Docs"
       title="Rate Limits"
-      intro="PRIZM applies rate limits to protect upload, billing, ops, and privacy workflows from accidental or abusive repetition."
+      intro="StatementStudio applies rate limits to protect upload, billing, ops, and privacy workflows from accidental or abusive repetition."
     >
       <TrustSection title="Response Semantics">
         <p>

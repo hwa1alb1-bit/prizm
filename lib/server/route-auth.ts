@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { publicEnv } from '../shared/env'
 import type { Database } from '../shared/db-types'
 import type { ProblemInit } from './http'
+import { isOpsAdminEmailAllowlisted, normalizeOpsAdminEmail } from './ops-admin-allowlist'
 import { getServiceRoleClient } from './supabase'
 
 export type AuthenticatedUserContext = {
@@ -98,6 +99,19 @@ export async function requireOwnerOrAdminUser(): Promise<AuthResult<AuthorizedUs
 export async function requireOpsAdminUser(): Promise<AuthResult<OpsAdminUserContext>> {
   const auth = await requireAuthenticatedUser()
   if (!auth.ok) return auth
+
+  const email = normalizeOpsAdminEmail(auth.context.user.email)
+  if (!email || !isOpsAdminEmailAllowlisted(email)) {
+    return {
+      ok: false,
+      problem: {
+        status: 403,
+        code: 'PRZM_AUTH_OPS_FORBIDDEN',
+        title: 'Ops admin access required',
+        detail: 'Owner or admin access is required for the Ops Dashboard.',
+      },
+    }
+  }
 
   try {
     const client = getServiceRoleClient()

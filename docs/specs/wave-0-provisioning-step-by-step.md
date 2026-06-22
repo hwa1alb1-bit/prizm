@@ -7,18 +7,18 @@ now carry the later contract and drift corrections that affect launch promises.
 The click-by-click instructions remain useful for a fresh home-desktop bring-up,
 but live service state must be rechecked before using a row as release evidence.
 
-| #   | Item                   | Status                 | Verified facts                                                                                                                                                                                                                                                                                                                                                                       |
-| --- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Domain `prizmview.app` | PARTIAL                | Zone imported at Cloudflare. DNS resolving. Apex A record proxied (must be DNS-only). DKIM TXT still equals literal `REPLACE_WITH_RESEND_DKIM_VALUE`. DNSSEC unverified.                                                                                                                                                                                                             |
-| 2   | GitHub repo            | PARTIAL                | `PLKNoko/prizm` private. `main` pushed at `3c0f9b06`. CI workflow registered. Branch protection blocked by Free plan for private repos. CODEOWNERS missing. 0 Actions secrets.                                                                                                                                                                                                       |
-| 3   | Supabase               | PARTIAL                | Project `dcirauvtuvvokvcwczft` ACTIVE_HEALTHY us-east-1 Postgres 17.6.1.111. 8 of 8 tables. RLS on all 8. 11 policies. 2 migrations applied (0001 schema, 0002 trigger rename + search_path harden). Bootstrap trigger lives under canonical name `on_auth_user_created` and was verified post-apply via `pg_trigger`. PITR not visible via MCP. Service role key not in Vercel env. |
-| 4   | Vercel                 | OUTSTANDING            | Team `plknokos-projects` confirmed. Zero projects. Zero deployments.                                                                                                                                                                                                                                                                                                                 |
-| 5   | AWS                    | OUTSTANDING            | AWS CLI not installed (`aws --version` exit 127). aws-api MCP connected but no host credentials.                                                                                                                                                                                                                                                                                     |
-| 6   | Stripe                 | PARTIAL                | Sandbox `acct_1TRZG9KKeaydfVMo` livemode false. Products, subscription prices, webhook handling, Customer Portal route, `STRIPE_METER_OVERAGE`, and `STRIPE_PRICE_OVERAGE_PAGE` are represented in code and launch gates. Recheck Stripe dashboard state before treating this as live provider evidence.                                                                             |
-| 7   | Resend                 | OUTSTANDING            | DNS structure correct (uses SES-backed records as Resend expects). DKIM placeholder unreplaced. `RESEND_API_KEY` not in `.env.local`. Domain not verified in Resend dashboard.                                                                                                                                                                                                       |
-| 8   | Sentry                 | OUTSTANDING externally | No account, no project, no DSN. Wrapper `lib/server/sentry.ts` ready as no-op until DSN set. No init files needed for Wave 0.                                                                                                                                                                                                                                                        |
-| 9   | Upstash Redis          | OUTSTANDING            | DB `close-stag-109648` exists per docs. Token compromised in chat earlier, must rotate. URL and token not in `.env.local`.                                                                                                                                                                                                                                                           |
-| 10  | Mailboxes              | OUTSTANDING            | Apex MX record absent. Inboxes cannot receive mail.                                                                                                                                                                                                                                                                                                                                  |
+| #   | Item                                      | Status                 | Verified facts                                                                                                                                                                                                                                                                                                                                                                       |
+| --- | ----------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Domain `pdftoexcelstatementconverter.com` | PARTIAL                | Zone imported at Cloudflare. DNS resolving. Apex A record proxied (must be DNS-only). DKIM TXT still equals literal `REPLACE_WITH_RESEND_DKIM_VALUE`. DNSSEC unverified.                                                                                                                                                                                                             |
+| 2   | GitHub repo                               | PARTIAL                | `PLKNoko/prizm` private. `main` pushed at `3c0f9b06`. CI workflow registered. Branch protection blocked by Free plan for private repos. CODEOWNERS missing. 0 Actions secrets.                                                                                                                                                                                                       |
+| 3   | Supabase                                  | PARTIAL                | Project `dcirauvtuvvokvcwczft` ACTIVE_HEALTHY us-east-1 Postgres 17.6.1.111. 8 of 8 tables. RLS on all 8. 11 policies. 2 migrations applied (0001 schema, 0002 trigger rename + search_path harden). Bootstrap trigger lives under canonical name `on_auth_user_created` and was verified post-apply via `pg_trigger`. PITR not visible via MCP. Service role key not in Vercel env. |
+| 4   | Vercel                                    | OUTSTANDING            | Team `plknokos-projects` confirmed. Zero projects. Zero deployments.                                                                                                                                                                                                                                                                                                                 |
+| 5   | AWS                                       | OUTSTANDING            | AWS CLI not installed (`aws --version` exit 127). aws-api MCP connected but no host credentials.                                                                                                                                                                                                                                                                                     |
+| 6   | Stripe                                    | PARTIAL                | Sandbox `acct_1TRZG9KKeaydfVMo` livemode false. Products, subscription prices, webhook handling, Customer Portal route, `STRIPE_METER_OVERAGE`, and `STRIPE_PRICE_OVERAGE_PAGE` are represented in code and launch gates. Recheck Stripe dashboard state before treating this as live provider evidence.                                                                             |
+| 7   | Resend                                    | OUTSTANDING            | DNS structure correct (uses SES-backed records as Resend expects). DKIM placeholder unreplaced. `RESEND_API_KEY` not in `.env.local`. Domain not verified in Resend dashboard.                                                                                                                                                                                                       |
+| 8   | Sentry                                    | OUTSTANDING externally | No account, no project, no DSN. Wrapper `lib/server/sentry.ts` ready as no-op until DSN set. No init files needed for Wave 0.                                                                                                                                                                                                                                                        |
+| 9   | Upstash Redis                             | OUTSTANDING            | DB `close-stag-109648` exists per docs. Token compromised in chat earlier, must rotate. URL and token not in `.env.local`.                                                                                                                                                                                                                                                           |
+| 10  | Mailboxes                                 | OUTSTANDING            | Apex MX record absent. Inboxes cannot receive mail.                                                                                                                                                                                                                                                                                                                                  |
 
 `.env.local` does not exist on this dev machine. Local dev cannot start until it is created.
 
@@ -26,7 +26,7 @@ but live service state must be rechecked before using a row as release evidence.
 
 Five concrete defects to fix before declaring Wave 0 closed.
 
-1. **Cloudflare apex A record proxied.** Switch the apex `prizmview.app` A record to DNS-only (gray cloud) at Cloudflare. Vercel anycast `76.76.21.21` requires direct DNS, not proxy.
+1. **Cloudflare apex A record proxied.** Switch the apex `pdftoexcelstatementconverter.com` A record to DNS-only (gray cloud) at Cloudflare. Vercel anycast `76.76.21.21` requires direct DNS, not proxy.
 2. **Resend DKIM TXT placeholder unreplaced.** The DKIM record still equals literal string `REPLACE_WITH_RESEND_DKIM_VALUE`. Pull the real DKIM value from the Resend dashboard and overwrite the TXT record at Cloudflare.
 3. ~~**Supabase `on_auth_user_created` trigger missing.**~~ FIXED 2026-04-29 in commit `6f65087`. Investigation showed migration 0001 had created the trigger under the name `auth_user_bootstrap_workspace`. Functional, but a verification query that filtered by canonical name `on_auth_user_created` returned 0 and looked like a missing trigger. Migration 0002 renamed it to the canonical name, replaced the function with a `SET search_path = public, pg_temp` variant, and revoked EXECUTE from `public`, `anon`, `authenticated` so only the trigger context invokes it. Verified live with `pg_trigger` query post-apply.
 4. **GitHub branch protection plan-gated.** Free plan blocks branch protection on private repos. Either upgrade `PLKNoko` to GitHub Pro or accept the gap and document the workaround until the org moves to a paid plan.
@@ -66,7 +66,7 @@ You can do steps 3, 4, 5, 6, 7, 8 in parallel if you have help.
 
 ---
 
-## 1. Domain (`prizmview.app`)
+## 1. Domain (`pdftoexcelstatementconverter.com`)
 
 ### What you are doing
 
@@ -80,8 +80,8 @@ Registering the apex domain that everything else hangs off, with DNSSEC and regi
 ### Steps
 
 1. Go to https://dash.cloudflare.com/registrar (or your registrar of choice).
-2. Search `prizmview.app`.
-3. If taken, fall back in this order: `tryprizmview.app`, `prizm.io`, `prizm.so`, `getprizm.com`. Update env vars accordingly later.
+2. Search `pdftoexcelstatementconverter.com`.
+3. If taken, fall back in this order: `trypdftoexcelstatementconverter.com`, `prizm.io`, `prizm.so`, `getprizm.com`. Update env vars accordingly later.
 4. `.app` is an HSTS-preloaded TLD, which means the browser refuses HTTP. This is a feature for trust posture, not a problem.
 5. Add to cart, expect about $14 to $20 for one year.
 6. Checkout. Auto-renew ON.
@@ -94,20 +94,20 @@ Registering the apex domain that everything else hangs off, with DNSSEC and regi
 ### Verify
 
 ```bash
-dig prizmview.app +dnssec | grep -E '^(prizmview.app|;.*RRSIG)'
+dig pdftoexcelstatementconverter.com +dnssec | grep -E '^(pdftoexcelstatementconverter.com|;.*RRSIG)'
 ```
 
 You expect to see `RRSIG` records.
 
 ```bash
-dig prizmview.app NS
+dig pdftoexcelstatementconverter.com NS
 ```
 
 Returns the registrar's nameservers (e.g. `*.ns.cloudflare.com`).
 
 ### Capture
 
-- Domain registered: prizmview.app
+- Domain registered: pdftoexcelstatementconverter.com
 - Registrar: <name>
 - DNSSEC: enabled
 - Lock: enabled
@@ -150,7 +150,7 @@ Once the project is ready:
 12. Copy `service_role` `secret` key (also `eyJh`). **Server-only**. Never paste in client code or commit.
 13. Settings → Database → Connection pooling. Copy the pooled connection string for migrations.
 14. Settings → Auth → URL Configuration:
-    - Site URL: `https://prizmview.app` (production project), `https://staging.prizmview.app` or your Vercel preview URL (staging project).
+    - Site URL: `https://pdftoexcelstatementconverter.com` (production project), `https://staging.pdftoexcelstatementconverter.com` or your Vercel preview URL (staging project).
     - Redirect URLs: add the same plus `http://localhost:3030` for local dev.
 15. Settings → Auth → Email:
     - Confirm signups: ON (we want email verification)
@@ -206,7 +206,7 @@ Linking the GitHub repo (your separate item 2) to a Vercel project, attaching th
 ### Pre-flight
 
 - GitHub repo `PLKNoko/prizm` exists with the local `PRIZM/product/` commits pushed.
-- Domain `prizmview.app` registered (item 1).
+- Domain `pdftoexcelstatementconverter.com` registered (item 1).
 - Vercel account at https://vercel.com signed in with GitHub.
 - All the env vars you've collected so far in your scratch file.
 
@@ -221,16 +221,16 @@ Linking the GitHub repo (your separate item 2) to a Vercel project, attaching th
    - `NEXT_PUBLIC_SUPABASE_URL` (different per environment)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (different per environment)
    - `SUPABASE_SERVICE_ROLE_KEY` (different per environment, **server-only** so mark "Sensitive")
-   - `NEXT_PUBLIC_SITE_URL` (https://prizmview.app for prod, https://staging.prizmview.app for preview)
+   - `NEXT_PUBLIC_SITE_URL` (https://pdftoexcelstatementconverter.com for prod, https://staging.pdftoexcelstatementconverter.com for preview)
    - Leave AWS, Stripe, Resend, Sentry, Upstash blank for now; you will fill them as you provision each.
 7. Click **Deploy**. First deploy takes 2-3 minutes.
 8. Once deployed, go to Settings → Domains.
-9. Add `prizmview.app`. Vercel shows the records to add at your registrar.
+9. Add `pdftoexcelstatementconverter.com`. Vercel shows the records to add at your registrar.
 10. At your registrar, add:
     - `A` record on apex `@` pointing to `76.76.21.21` (Vercel anycast)
     - `CNAME` on `www` pointing to `cname.vercel-dns.com`
 11. Wait 1 to 5 minutes for SSL provisioning.
-12. Optionally add `staging.prizmview.app` later when staging Vercel project is set up.
+12. Optionally add `staging.pdftoexcelstatementconverter.com` later when staging Vercel project is set up.
 13. Settings → Git → Production Branch: `main`.
 14. Settings → Git → Ignored Build Step: `git diff --quiet HEAD^ HEAD ./` (skips rebuilds when nothing changed).
 15. Settings → Cron Jobs: leave for Wave 2 (deletion sweep + monitor cron land there).
@@ -243,7 +243,7 @@ Linking the GitHub repo (your separate item 2) to a Vercel project, attaching th
 ### Verify
 
 ```bash
-curl -I https://prizmview.app
+curl -I https://pdftoexcelstatementconverter.com
 ```
 
 Expect:
@@ -259,7 +259,7 @@ content-security-policy: ...
 ### Capture
 
 - Vercel project linked to GitHub
-- prizmview.app live with HTTPS
+- pdftoexcelstatementconverter.com live with HTTPS
 - VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID for CI (under Account Settings → Tokens, then Project Settings → General for IDs)
 
 ### Gotchas
@@ -278,7 +278,7 @@ Creating a dedicated AWS Organization with two sub-accounts (prizm-prod and priz
 
 ### Pre-flight
 
-- A fresh AWS root account is recommended. Don't reuse a personal account if you can avoid it. Create a new one at https://aws.amazon.com/ with email `aws-root@prizmview.app` (alias to your real email).
+- A fresh AWS root account is recommended. Don't reuse a personal account if you can avoid it. Create a new one at https://aws.amazon.com/ with email `aws-root@pdftoexcelstatementconverter.com` (alias to your real email).
 - Hardware MFA key recommended for the root account (YubiKey, Titan).
 - Allow about 2 hours of focused time.
 
@@ -289,9 +289,9 @@ Creating a dedicated AWS Organization with two sub-accounts (prizm-prod and priz
 3. Click **Create an organization** → choose **Enable all features**.
 4. **Add an AWS account**:
    - Account name: `prizm-prod`
-   - Email: `aws-prod@prizmview.app` (must be a real email; use alias)
+   - Email: `aws-prod@pdftoexcelstatementconverter.com` (must be a real email; use alias)
    - IAM role name: `OrganizationAccountAccessRole` (default)
-5. Repeat for `prizm-staging` with email `aws-staging@prizmview.app`.
+5. Repeat for `prizm-staging` with email `aws-staging@pdftoexcelstatementconverter.com`.
 6. Create OUs:
    - **Organize accounts** → Create new OU `Production`, move `prizm-prod` in.
    - Create OU `NonProduction`, move `prizm-staging` in.
@@ -350,7 +350,11 @@ From now on, switch into `prizm-staging` via Identity Center.
   {
     "AllowedHeaders": ["*"],
     "AllowedMethods": ["PUT", "GET"],
-    "AllowedOrigins": ["https://prizmview.app", "https://*.vercel.app", "http://localhost:3030"],
+    "AllowedOrigins": [
+      "https://pdftoexcelstatementconverter.com",
+      "https://*.vercel.app",
+      "http://localhost:3030"
+    ],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3000
   }
@@ -517,7 +521,7 @@ Setting up your Stripe account in test mode, kicking off identity verification f
 2. **Settings → Account details**: complete business info.
 3. **Settings → Bank accounts and scheduling**: add bank account for payouts.
 4. **Settings → Tax**: register tax IDs (state sales tax if applicable, or use Stripe Tax).
-5. **Settings → Public details**: business name `PRIZM`, website `https://prizmview.app`, support email `support@prizmview.app`.
+5. **Settings → Public details**: business name `PRIZM`, website `https://pdftoexcelstatementconverter.com`, support email `support@pdftoexcelstatementconverter.com`.
 6. Identity verification will run in the background. You'll get an email when it clears.
 
 ### Part B. Test-mode products and prices
@@ -556,13 +560,13 @@ Toggle **Test mode** at top right. Do all setup in test mode first.
     - Cancel subscriptions: ON, **at period end** (no immediate refund flow in Phase 1)
     - Pause subscriptions: OFF
 13. **Cancellation reason**: ON, optional textarea.
-14. **Business info**: link to `https://prizmview.app/terms` and `https://prizmview.app/privacy`.
+14. **Business info**: link to `https://pdftoexcelstatementconverter.com/terms` and `https://pdftoexcelstatementconverter.com/privacy`.
 15. Save.
 
 ### Part D. Webhook endpoint
 
 16. **Developers → Webhooks → Add endpoint**.
-17. Endpoint URL: `https://prizmview.app/api/v1/webhooks/stripe` (use staging.prizmview.app for staging Stripe account, but you can also do one webhook with environment-aware routing).
+17. Endpoint URL: `https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe` (use staging.pdftoexcelstatementconverter.com for staging Stripe account, but you can also do one webhook with environment-aware routing).
 18. **Events to listen to** (select these):
     - `checkout.session.completed`
     - `customer.subscription.created`
@@ -635,7 +639,7 @@ STRIPE_PRICE_OVERAGE_PAGE=price_...
 
 ### What you are doing
 
-Verifying the prizmview.app domain for email sending and capturing the API key.
+Verifying the pdftoexcelstatementconverter.com domain for email sending and capturing the API key.
 
 ### Pre-flight
 
@@ -646,11 +650,11 @@ Verifying the prizmview.app domain for email sending and capturing the API key.
 ### Steps
 
 1. https://resend.com/domains.
-2. **Add Domain** → enter `prizmview.app`.
+2. **Add Domain** → enter `pdftoexcelstatementconverter.com`.
 3. Region: `us-east-1`.
 4. Resend shows DNS records to add. You will see:
    - 1 MX record (skip if your mailboxes are on a different provider like Google Workspace)
-   - 3 to 4 TXT records: SPF (`v=spf1 ...`), DKIM (`resend._domainkey.prizmview.app`), and a verification record
+   - 3 to 4 TXT records: SPF (`v=spf1 ...`), DKIM (`resend._domainkey.pdftoexcelstatementconverter.com`), and a verification record
 5. Open your DNS provider in another tab.
 6. Add each record exactly as shown. The DKIM TXT value is long; ensure the entire value lands in the record without truncation.
 7. Save the records.
@@ -658,22 +662,22 @@ Verifying the prizmview.app domain for email sending and capturing the API key.
 9. Once verified, **API Keys** → **Create API Key**.
    - Name: `PRIZM Production`
    - Permission: **Full access** for now (we'll scope to "Sending only" in Phase 2 if needed).
-   - Domain: `prizmview.app`.
+   - Domain: `pdftoexcelstatementconverter.com`.
    - Copy the key (`re_...`).
 
 ### Add a DMARC record (manual)
 
 10. After Resend is verified, manually add a DMARC TXT record at your DNS provider:
-    - Name: `_dmarc.prizmview.app`
-    - Value: `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@prizmview.app; ruf=mailto:dmarc-reports@prizmview.app; fo=1; aspf=s; adkim=s`
+    - Name: `_dmarc.pdftoexcelstatementconverter.com`
+    - Value: `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@pdftoexcelstatementconverter.com; ruf=mailto:dmarc-reports@pdftoexcelstatementconverter.com; fo=1; aspf=s; adkim=s`
     - Start with `p=quarantine` for the first 30 days. Move to `p=reject` once you confirm no false positives.
 
 ### Verify
 
 ```bash
-dig +short TXT prizmview.app
-dig +short TXT resend._domainkey.prizmview.app
-dig +short TXT _dmarc.prizmview.app
+dig +short TXT pdftoexcelstatementconverter.com
+dig +short TXT resend._domainkey.pdftoexcelstatementconverter.com
+dig +short TXT _dmarc.pdftoexcelstatementconverter.com
 ```
 
 All three should return values. Send a test email from the Resend dashboard to your personal inbox; in the headers, look for `dkim=pass`, `spf=pass`, `dmarc=pass`.
@@ -682,14 +686,14 @@ All three should return values. Send a test email from the Resend dashboard to y
 
 ```
 RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL=noreply@prizmview.app
+RESEND_FROM_EMAIL=noreply@pdftoexcelstatementconverter.com
 ```
 
 ### Gotchas
 
 - DKIM TXT values can exceed 255 chars. Some DNS providers split into multiple quoted strings; that is fine, the spec supports concatenation.
 - DMARC `p=reject` too early causes legitimate mail to bounce. Stay at `quarantine` for the first month.
-- If you use Google Workspace or Fastmail for receiving mail at prizmview.app, do **not** add the Resend MX record. Keep your mail-receiving MX records.
+- If you use Google Workspace or Fastmail for receiving mail at pdftoexcelstatementconverter.com, do **not** add the Resend MX record. Keep your mail-receiving MX records.
 
 ---
 
@@ -706,7 +710,7 @@ Creating a Sentry project for the Next.js app, capturing the DSN and an auth tok
 
 ### Steps
 
-1. https://sentry.io/signup. Use email `engineering@prizmview.app` if available, otherwise your personal.
+1. https://sentry.io/signup. Use email `engineering@pdftoexcelstatementconverter.com` if available, otherwise your personal.
 2. Organization: name `prizm`, slug `prizm`.
 3. **Create Project**.
 4. Platform: **Next.js**.
@@ -823,8 +827,8 @@ After completing all eight items, your scratch file should have these. Paste int
 
 ```
 # Public site
-NEXT_PUBLIC_SITE_URL=https://prizmview.app                                     # production
-NEXT_PUBLIC_SITE_URL=https://staging.prizmview.app                             # preview
+NEXT_PUBLIC_SITE_URL=https://pdftoexcelstatementconverter.com                                     # production
+NEXT_PUBLIC_SITE_URL=https://staging.pdftoexcelstatementconverter.com                             # preview
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://<prod-project>.supabase.co
@@ -849,7 +853,7 @@ STRIPE_PRICE_OVERAGE_PAGE=price_...
 
 # Resend
 RESEND_API_KEY=re_...                                                      # sensitive
-RESEND_FROM_EMAIL=noreply@prizmview.app
+RESEND_FROM_EMAIL=noreply@pdftoexcelstatementconverter.com
 
 # Sentry
 NEXT_PUBLIC_SENTRY_DSN=https://...@o....ingest.us.sentry.io/...
@@ -878,7 +882,7 @@ SENTRY_PROJECT=prizm-web
 
 ## Final checklist before pinging me
 
-- [ ] Domain `prizmview.app` registered, DNSSEC + lock + 2FA on
+- [ ] Domain `pdftoexcelstatementconverter.com` registered, DNSSEC + lock + 2FA on
 - [ ] Supabase prod + staging projects up, env vars captured
 - [ ] Vercel project deployed, custom domain attached, env vars set across all environments
 - [ ] AWS Organization with prizm-prod + prizm-staging, S3 + KMS + Textract + Vercel-OIDC role configured per env

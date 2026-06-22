@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 export function TrustPage({
-  eyebrow = 'PRIZM Trust',
+  eyebrow = 'StatementStudio Trust',
   title,
   intro,
   children,

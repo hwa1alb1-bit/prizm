@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/client/supabase'
 
 export default function OpsLoginPage() {
   const [email, setEmail] = useState('')
@@ -14,17 +13,15 @@ export default function OpsLoginPage() {
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/ops`,
-      },
+    const response = await fetch('/api/ops/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
     })
 
     setLoading(false)
-    if (authError) {
-      setError(authError.message)
+    if (!response.ok) {
+      setError('Unable to request an admin link. Please try again.')
       return
     }
     setSent(true)

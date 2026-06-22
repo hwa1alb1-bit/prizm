@@ -86,14 +86,14 @@ Claude reads the project memory and onboarding doc, asks you about MCP connector
 
 PRIZM depends on six external accounts. Provisioning details live in `docs/specs/wave-0-provisioning-step-by-step.md`.
 
-| Service       | Status                                          | Notes                                                                                            |
-| ------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Cloudflare    | Domain `prizmview.app` registered               | Zone import file at `infra/cloudflare/prizmview-app.zone`                                        |
-| Supabase      | Project `dcirauvtuvvokvcwczft` (us-east-1) live | Migrations through 2026-05-08 are represented in `lib/shared/db-types.ts`.                       |
-| Stripe        | Sandbox account `acct_1TRZG9KKeaydfVMo`         | Products, subscription prices, webhook, portal, `STRIPE_METER_OVERAGE`, and overage price wired. |
-| Resend        | Account exists                                  | Domain DKIM pending DNS import                                                                   |
-| Upstash Redis | DB `close-stag-109648` (us-east-1)              | Rate limit + idempotency                                                                         |
-| AWS           | Staging OIDC role configured                    | S3 upload and Textract connector health are exercised by protected deep health.                  |
+| Service       | Status                                               | Notes                                                                                            |
+| ------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Cloudflare    | Domain `pdftoexcelstatementconverter.com` registered | Zone import file at `infra/cloudflare/pdftoexcelstatementconverter-com.zone`                     |
+| Supabase      | Project `dcirauvtuvvokvcwczft` (us-east-1) live      | Migrations through 2026-05-08 are represented in `lib/shared/db-types.ts`.                       |
+| Stripe        | Sandbox account `acct_1TRZG9KKeaydfVMo`              | Products, subscription prices, webhook, portal, `STRIPE_METER_OVERAGE`, and overage price wired. |
+| Resend        | Account exists                                       | Domain DKIM pending DNS import                                                                   |
+| Upstash Redis | DB `close-stag-109648` (us-east-1)                   | Rate limit + idempotency                                                                         |
+| AWS           | Staging OIDC role configured                         | S3 upload and Textract connector health are exercised by protected deep health.                  |
 
 ## Layout
 

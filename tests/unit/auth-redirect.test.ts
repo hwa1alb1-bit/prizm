@@ -9,26 +9,26 @@ describe('auth redirect URLs', () => {
   it('uses the configured production site URL over the browser origin', () => {
     expect(
       buildAuthCallbackUrl({
-        siteUrl: 'https://prizmview.app',
+        siteUrl: 'https://pdftoexcelstatementconverter.com',
         fallbackOrigin: 'http://localhost:3000',
       }),
-    ).toBe('https://prizmview.app/auth/callback')
+    ).toBe('https://pdftoexcelstatementconverter.com/auth/callback')
   })
 
   it('normalizes bare domains and trailing slashes', () => {
-    expect(normalizeSiteUrl('prizmview.app///', 'http://localhost:3000')).toBe(
-      'https://prizmview.app',
+    expect(normalizeSiteUrl('pdftoexcelstatementconverter.com///', 'http://localhost:3000')).toBe(
+      'https://pdftoexcelstatementconverter.com',
     )
   })
 
   it('preserves explicit next paths for scoped sign-in flows', () => {
     expect(
       buildAuthCallbackUrl({
-        siteUrl: 'https://prizmview.app/',
+        siteUrl: 'https://pdftoexcelstatementconverter.com/',
         fallbackOrigin: 'http://localhost:3000',
         next: '/ops',
       }),
-    ).toBe('https://prizmview.app/auth/callback?next=%2Fops')
+    ).toBe('https://pdftoexcelstatementconverter.com/auth/callback?next=%2Fops')
   })
 
   it('accepts only local absolute paths as auth next targets', () => {

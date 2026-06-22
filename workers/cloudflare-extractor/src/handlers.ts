@@ -110,7 +110,12 @@ export async function handleCloudflareExtractorQueue(
   batch: QueueBatchLike<ExtractionJobMessage>,
   env: CloudflareExtractorEnv,
 ): Promise<void> {
-  for (const message of batch.messages) {
+  if (batch.messages.length === 0) return
+
+  // Batch-size-1 falls through to the historical single-PDF path. Preserves wire contract,
+  // log shape, and existing observability for single-message queue deliveries.
+  if (batch.messages.length === 1) {
+    const message = batch.messages[0]
     try {
       await processExtractionJob(message.body, env)
       message.ack?.()
@@ -118,7 +123,205 @@ export async function handleCloudflareExtractorQueue(
       if (!message.retry) throw error
       message.retry()
     }
+    return
   }
+
+  // Batch-size>1 fan-outs into a single container POST at /internal/extract-batch.
+  // The JVM uses kotlinx-coroutines supervisorScope so per-job failures stay isolated.
+  await processExtractionBatch(batch, env)
+}
+
+async function processExtractionBatch(
+  batch: QueueBatchLike<ExtractionJobMessage>,
+  env: CloudflareExtractorEnv,
+): Promise<void> {
+  type Fetched =
+    | {
+        ok: true
+        job: ExtractionJobMessage
+        message: QueueBatchLike<ExtractionJobMessage>['messages'][number]
+        pdfBase64: string
+      }
+    | {
+        ok: false
+        job: ExtractionJobMessage
+        message: QueueBatchLike<ExtractionJobMessage>['messages'][number]
+        reason: string
+      }
+
+  const fetched: Fetched[] = await Promise.all(
+    batch.messages.map(async (message): Promise<Fetched> => {
+      const job = message.body
+      if (job.storageBucket !== env.UPLOAD_BUCKET_NAME) {
+        return {
+          ok: false,
+          job,
+          message,
+          reason: `Extraction job referenced unsupported R2 bucket ${job.storageBucket}.`,
+        }
+      }
+      try {
+        const object = await env.UPLOAD_BUCKET.get(job.storageKey)
+        if (!object?.body) {
+          return { ok: false, job, message, reason: 'Uploaded PDF was not found in R2.' }
+        }
+        const pdfBytes = await new Response(object.body).arrayBuffer()
+        return { ok: true, job, message, pdfBase64: arrayBufferToBase64(pdfBytes) }
+      } catch (error) {
+        return {
+          ok: false,
+          job,
+          message,
+          reason: error instanceof Error ? error.message : 'R2 fetch failed.',
+        }
+      }
+    }),
+  )
+
+  // Fail-out the unreachable jobs before calling the container.
+  for (const item of fetched) {
+    if (item.ok) continue
+    try {
+      await putJobState(env, failedJob(item.job, item.reason))
+      item.message.ack?.()
+    } catch {
+      item.message.retry?.()
+    }
+  }
+
+  const eligible = fetched.filter((item): item is Extract<Fetched, { ok: true }> => item.ok)
+  if (eligible.length === 0) return
+
+  // Route the whole batch to one container instance keyed by sorted job ids. Deterministic
+  // naming lets retries hit the same warm container when the batch shape is unchanged.
+  const batchKey = `batch_${eligible
+    .map((item) => item.job.jobId)
+    .sort()
+    .join('_')
+    .slice(0, 64)}`
+
+  let containerResponse: Response
+  try {
+    const container = env.KOTLIN_EXTRACTOR.getByName(batchKey)
+    containerResponse = await container.fetch(
+      new Request('https://kotlin-extractor.internal/internal/extract-batch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jobs: eligible.map((item) => ({
+            jobId: item.job.jobId,
+            pdfBase64: item.pdfBase64,
+          })),
+        }),
+      }),
+    )
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Kotlin extractor batch call failed.'
+    for (const item of eligible) {
+      try {
+        await putJobState(env, failedJob(item.job, reason))
+      } catch {
+        // fall through to retry
+      }
+      item.message.retry?.()
+    }
+    return
+  }
+
+  if (!containerResponse.ok) {
+    for (const item of eligible) {
+      try {
+        await putJobState(
+          env,
+          failedJob(item.job, `Kotlin extractor returned HTTP ${containerResponse.status}.`),
+        )
+        if (containerResponse.status >= 500) {
+          item.message.retry?.()
+        } else {
+          item.message.ack?.()
+        }
+      } catch {
+        item.message.retry?.()
+      }
+    }
+    return
+  }
+
+  let payload: unknown
+  try {
+    payload = await containerResponse.json()
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message : 'Kotlin extractor returned invalid batch JSON.'
+    for (const item of eligible) {
+      try {
+        await putJobState(env, failedJob(item.job, reason))
+        item.message.ack?.()
+      } catch {
+        item.message.retry?.()
+      }
+    }
+    return
+  }
+
+  if (!isRecord(payload) || !Array.isArray(payload.results)) {
+    for (const item of eligible) {
+      try {
+        await putJobState(
+          env,
+          failedJob(item.job, 'Kotlin extractor returned invalid batch JSON shape.'),
+        )
+        item.message.ack?.()
+      } catch {
+        item.message.retry?.()
+      }
+    }
+    return
+  }
+
+  const resultByJobId = new Map<string, unknown>()
+  for (const result of payload.results) {
+    if (isRecord(result) && typeof result.jobId === 'string') {
+      resultByJobId.set(result.jobId, result)
+    }
+  }
+
+  for (const item of eligible) {
+    const result = resultByJobId.get(item.job.jobId)
+    if (!result || !isRecord(result)) {
+      try {
+        await putJobState(env, failedJob(item.job, 'Batch result missing for jobId.'))
+        item.message.ack?.()
+      } catch {
+        item.message.retry?.()
+      }
+      continue
+    }
+    const normalized = normalizeWorkerPollResponse(result, item.job)
+    try {
+      await putJobState(env, {
+        ...normalized,
+        documentId: item.job.documentId,
+        storageBucket: item.job.storageBucket,
+        storageKey: item.job.storageKey,
+        updatedAt: new Date().toISOString(),
+      })
+      item.message.ack?.()
+    } catch {
+      item.message.retry?.()
+    }
+  }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  const chunks: string[] = []
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const slice = bytes.subarray(index, Math.min(index + chunkSize, bytes.length))
+    chunks.push(String.fromCharCode(...slice))
+  }
+  return btoa(chunks.join(''))
 }
 
 async function healthCheck(env: CloudflareExtractorEnv): Promise<Response> {

@@ -19,14 +19,14 @@ export async function sendDeletionReceiptEmail(
     const result = await getResendClient().emails.send({
       from: getFromAddress(),
       to: input.to,
-      subject: 'PRIZM deletion receipt',
+      subject: 'StatementStudio deletion receipt',
       text: [
-        'Your PRIZM document has been deleted.',
+        'Your StatementStudio document has been deleted.',
         '',
         `Document: ${input.filename}`,
         `Deleted at: ${input.deletedAt}`,
         '',
-        'This receipt confirms the uploaded PDF and derived statement data were removed from PRIZM runtime storage.',
+        'This receipt confirms the uploaded PDF and derived statement data were removed from StatementStudio runtime storage.',
       ].join('\n'),
     })
 

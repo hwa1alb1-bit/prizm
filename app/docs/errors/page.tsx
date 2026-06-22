@@ -2,13 +2,13 @@ import { TrustPage, TrustSection } from '@/components/trust/trust-page'
 
 export const metadata = {
   title: 'Error Responses',
-  description: 'PRIZM API error response format.',
+  description: 'StatementStudio API error response format.',
 }
 
 export default function ErrorDocsPage() {
   return (
     <TrustPage
-      eyebrow="PRIZM Docs"
+      eyebrow="StatementStudio Docs"
       title="Error Responses"
       intro="Public API errors use RFC 7807 problem documents so client integrations can handle failures predictably."
     >
