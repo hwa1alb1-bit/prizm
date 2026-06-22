@@ -72,4 +72,25 @@ test.describe('Auth password screens', () => {
       await expect(page.getByText(/Send magic/i)).toHaveCount(0)
     }
   })
+
+  test('/auth/confirm with no token_hash redirects to login with error', async ({ page }) => {
+    const response = await page.goto('/auth/confirm?type=recovery&next=/reset')
+    expect(response?.url()).toMatch(/\/login\?error=auth_callback_failed/)
+  })
+
+  test('/auth/confirm with invalid type redirects to login with error', async ({ page }) => {
+    const response = await page.goto('/auth/confirm?token_hash=anything&type=bogus&next=/reset')
+    expect(response?.url()).toMatch(/\/login\?error=auth_callback_failed/)
+  })
+
+  test('/auth/confirm with a bad token_hash surfaces verifyOtp error description', async ({
+    page,
+  }) => {
+    const response = await page.goto(
+      '/auth/confirm?token_hash=clearlyinvalidtokenhashvalue&type=recovery&next=/reset',
+    )
+    const finalUrl = response?.url() ?? ''
+    expect(finalUrl).toMatch(/\/login\?error=auth_callback_failed/)
+    expect(finalUrl).toMatch(/error_description=/)
+  })
 })

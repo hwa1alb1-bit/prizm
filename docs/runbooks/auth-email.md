@@ -14,19 +14,27 @@ or DNS change.
 
 ## Auth flow
 
-User auth uses Supabase email + password with email confirmation on. The
-client (`@supabase/ssr` `createBrowserClient`) initiates flows in PKCE
-mode. The Supabase project must be configured for PKCE so the recovery
-link delivers `?code=` to `/auth/callback`. If it delivers an implicit-
-flow URL fragment instead (`#access_token=...`), the server route
-forwards to `/auth/finish` (client) which calls `getSession()` so
-`detectSessionInUrl` consumes the fragment.
+User auth uses Supabase email + password with email confirmation on.
+Sign-in uses PKCE via `@supabase/ssr` `createBrowserClient`. Password
+recovery uses the **token-hash + verifyOtp** flow so the verifier
+cookie is not required — the previous PKCE recovery flow failed when
+the verifier cookie was missing on the click (different storage
+partition, scanner prefetch, privacy mode), and the migration
+eliminates that class of failure.
 
 ### Routes
 
-- `app/auth/callback/route.ts` — PKCE exchange + ops audit. On error
-  redirects to `/login?error=auth_callback_failed&error_description=...`.
-- `app/auth/finish/page.tsx` — implicit-flow client handoff.
+- `app/auth/confirm/route.ts` — server-side `verifyOtp({ token_hash, type })`
+  for recovery (and any other OTP email types when their templates are
+  switched over). On error redirects to
+  `/login?error=auth_callback_failed&error_description=...` and logs
+  `[auth-confirm] verifyOtp failed` with `code/status/message/requestId`.
+- `app/auth/callback/route.ts` — PKCE exchange + ops audit, retained
+  for sign-in. On exchange error logs `[auth-callback]
+  exchangeCodeForSession failed` and redirects to
+  `/login?error=auth_callback_failed&error_description=...`.
+- `app/auth/finish/page.tsx` — implicit-flow client handoff for any
+  template not yet migrated to token-hash.
 - `app/(auth)/login/page.tsx` — surfaces `?error=` from the callback so
   silent failures stop.
 
@@ -38,6 +46,7 @@ In Supabase Studio for project `dcirauvtuvvokvcwczft`:
    - Site URL: `https://pdftoexcelstatementconverter.com`
    - Redirect URLs include:
      - `https://pdftoexcelstatementconverter.com/auth/callback`
+     - `https://pdftoexcelstatementconverter.com/auth/confirm`
      - `https://pdftoexcelstatementconverter.com/auth/finish`
      - `https://pdftoexcelstatementconverter.com/reset`
      - `https://pdftoexcelstatementconverter.com/app`
@@ -50,8 +59,11 @@ In Supabase Studio for project `dcirauvtuvvokvcwczft`:
      - Magic link: `magic-link.html`
      - Invite user: `invite.html`
      - Reset password: `recovery.html`
-   - Each template uses `{{ .ConfirmationURL }}` so the flow type is
-     determined by the project setting, not the template.
+   - The recovery template uses
+     `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset`
+     so the click hits our server route directly and runs
+     `verifyOtp` server-side. The other three templates still use
+     `{{ .ConfirmationURL }}` until they migrate.
 
 3. **Authentication → Providers → Email**
    - `Enable email signup`: ON
@@ -109,7 +121,7 @@ Record the run inline below.
 
 | Date | Operator | Reason |
 | ---- | -------- | ------ |
-|      |          |        |
+| 2026-06-19 | Hank | Paste updated `recovery.html` (token-hash flow) into Supabase Studio Reset Password template after PR for `fix/auth-recovery-link` merges. |
 
 ## How to verify end-to-end (5 min)
 
