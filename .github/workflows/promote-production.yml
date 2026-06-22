@@ -1,0 +1,136 @@
+name: Promote production alias
+
+# Vercel's GitHub integration ships a production deploy on every push to
+# main, but on this project the custom-domain aliases
+# (pdftoexcelstatementconverter.com + www) do NOT auto-follow it. The
+# edge then keeps serving the previous deploy's response for any path —
+# including 404s for routes that did not exist yet. This is what bit
+# /forgot-password, /reset, /faq, /auth/finish, and /login historically
+# and required the .vercel-cache-bust + manual Promote pattern.
+#
+# This workflow makes the alias auto-follow main: after CI succeeds it
+# polls Vercel for the new production deploy with the same SHA, then
+# assigns apex + www to it via the deployment-aliases API.
+#
+# Requirements:
+#   - repo secret VERCEL_TOKEN with at least "Read + Write Deployments"
+#     scope (https://vercel.com/account/tokens, scope to the team)
+#
+# Idempotent: re-running for the same SHA reassigns the same alias to
+# the same deploy and Vercel responds with the existing assignment.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA on main to promote (defaults to current HEAD)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Alias apex + www to latest production deploy
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'push'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TEAM_ID: team_uZERsB7RBuE8AlDoUPRlw5zz
+      VERCEL_PROJECT_ID: prj_PcZSm3UYukEIrL1LxsbdrRuiPaos
+      DOMAINS: 'pdftoexcelstatementconverter.com www.pdftoexcelstatementconverter.com'
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Guard — VERCEL_TOKEN must be set
+        run: |
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN secret is empty. Verify a *repository* secret"
+            echo "::error::named exactly 'VERCEL_TOKEN' exists at"
+            echo "::error::https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "::error::See docs/runbooks/vercel-alias.md for the one-time setup steps."
+            exit 1
+          fi
+          echo "VERCEL_TOKEN is set (length: ${#VERCEL_TOKEN})"
+
+      - name: Resolve commit SHA to promote
+        id: sha
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.sha }}"
+            if [ -z "$SHA" ]; then
+              SHA="${{ github.sha }}"
+            fi
+          else
+            SHA="${{ github.event.workflow_run.head_sha }}"
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Promoting SHA: $SHA"
+
+      - name: Wait for production deploy READY
+        id: deploy
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          DEPLOY=""
+          for i in $(seq 1 60); do
+            BODY=$(curl -fsS \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_TEAM_ID&target=production&state=READY&limit=20")
+            DEPLOY=$(echo "$BODY" | jq -r --arg sha "$SHA" '.deployments[] | select(.meta.githubCommitSha == $sha) | .uid' | head -1)
+            if [ -n "$DEPLOY" ] && [ "$DEPLOY" != "null" ]; then
+              echo "deploy=$DEPLOY" >> "$GITHUB_OUTPUT"
+              echo "Found READY production deploy for $SHA: $DEPLOY"
+              exit 0
+            fi
+            echo "[$i/60] No READY production deploy yet for $SHA. Sleeping 10s..."
+            sleep 10
+          done
+          echo "::error::No READY production deploy for SHA $SHA after 10 minutes" >&2
+          exit 1
+
+      - name: Assign apex + www aliases
+        env:
+          DEPLOY: ${{ steps.deploy.outputs.deploy }}
+        run: |
+          set -euo pipefail
+          for D in $DOMAINS; do
+            echo "::group::Aliasing $D -> $DEPLOY"
+            HTTP=$(curl -sS -o /tmp/resp -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              "https://api.vercel.com/v2/deployments/$DEPLOY/aliases?teamId=$VERCEL_TEAM_ID" \
+              -d "{\"alias\":\"$D\"}")
+            cat /tmp/resp
+            echo
+            if [ "$HTTP" != "200" ] && [ "$HTTP" != "201" ]; then
+              echo "::error::Alias assignment for $D returned HTTP $HTTP" >&2
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Verify alias serves new build
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Hit a path with a unique cache buster so we get origin-fresh response.
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "https://pdftoexcelstatementconverter.com/?cb=$SHA")
+          echo "Apex GET / returned HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Apex did not return 200 immediately after promote (HTTP $STATUS). Edge may still be propagating." >&2
+          fi

@@ -26,7 +26,7 @@ const execFileAsync = promisify(execFile)
 
 type JsonRecord = Record<string, unknown>
 
-const DEFAULT_SITE_URL = 'https://prizmview.app'
+const DEFAULT_SITE_URL = 'https://pdftoexcelstatementconverter.com'
 const PUBLIC_DNS_SERVERS = ['1.1.1.1', '8.8.8.8']
 const REQUIRED_STRIPE_WEBHOOK_EVENTS = [
   'checkout.session.completed',
@@ -79,7 +79,7 @@ function readConfig(): ReadinessConfig {
       process.env.SERVICE_READINESS_STRIPE_WEBHOOK_URL ?? `${siteUrl}/api/v1/webhooks/stripe`,
     cloudflareZonePath:
       process.env.SERVICE_READINESS_CLOUDFLARE_ZONE_PATH ??
-      resolve(process.cwd(), 'infra', 'cloudflare', 'prizmview-app.zone'),
+      resolve(process.cwd(), 'infra', 'cloudflare', 'pdftoexcelstatementconverter-com.zone'),
   }
 }
 

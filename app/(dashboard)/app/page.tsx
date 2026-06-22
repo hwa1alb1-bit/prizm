@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { pollDocumentStatus } from '@/lib/client/document-polling'
+import { hasPendingUpload, takePendingUpload } from '@/components/marketing/upload-hero'
 
 type UploadState =
   | 'idle'
@@ -108,15 +109,16 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024
 const workflowSteps = [
   {
     label: 'Check PDF',
-    detail: 'PRIZM hashes the PDF, checks duplicates, and quotes one conversion credit.',
+    detail: 'StatementStudio hashes the PDF, checks duplicates, and quotes one conversion credit.',
   },
   {
     label: 'Upload securely',
-    detail: 'The browser uploads to a short-lived URL before OCR can begin.',
+    detail: 'The browser uploads to a short-lived URL before conversion can begin.',
   },
   {
     label: 'Convert rows',
-    detail: 'Textract output becomes a statement preview with exceptions called out.',
+    // SECURITY-AUDIT: removed Textract vendor name from conversion copy
+    detail: 'Converted output becomes a statement preview with exceptions called out.',
   },
   {
     label: 'Export spreadsheet',
@@ -129,6 +131,25 @@ const trustControls = [
   { label: 'Quote', value: 'One credit reserved only after confirmation' },
   { label: 'Output', value: 'XLSX, CSV, QuickBooks CSV, and Xero CSV' },
   { label: 'Retention', value: '24-hour auto-delete with request evidence' },
+]
+
+const processingStages = [
+  {
+    label: 'Reading document',
+    detail: 'Statement pages and account sections enter the extraction record.',
+  },
+  {
+    label: 'Detecting transactions',
+    detail: 'Dates, descriptions, amounts, and balances resolve into columns.',
+  },
+  {
+    label: 'Checking balances',
+    detail: 'Rows are prepared for review with reconciliation evidence visible.',
+  },
+  {
+    label: 'Preparing export',
+    detail: 'Spreadsheet formats wait for the review record to be ready.',
+  },
 ]
 
 export default function UploadPage() {
@@ -195,11 +216,9 @@ export default function UploadPage() {
             kind: 'upload_failed',
             title: 'Preflight failed',
             problem,
-            fallbackCause: 'PRIZM could not quote this PDF before upload.',
-            fallbackEvidence: [
-              { label: 'File', value: file.name },
-              { label: 'SHA-256', value: fileSha256 },
-            ],
+            fallbackCause: 'StatementStudio could not quote this PDF before upload.',
+            // SECURITY-AUDIT: removed SHA-256 hash row from preflight failure evidence
+            fallbackEvidence: [{ label: 'File', value: file.name }],
             nextAction:
               'Keep the original PDF, refresh the upload console, and request a new quote.',
           }),
@@ -217,13 +236,23 @@ export default function UploadPage() {
           : localUploadRecovery(
               err instanceof Error
                 ? err.message
-                : 'PRIZM could not finish the upload preflight before OCR started.',
-              'Upload the PDF again and use the request evidence shown here if the failure repeats.',
+                : // SECURITY-AUDIT: removed OCR mention from preflight error fallback
+                  'StatementStudio could not finish the upload preflight before the conversion started.',
+              'Upload the PDF again and use the support reference shown here if the failure repeats.',
               file,
             ),
       )
     }
   }, [])
+
+  useEffect(() => {
+    if (!hasPendingUpload()) return
+    const file = takePendingUpload()
+    if (!file) return
+    queueMicrotask(() => {
+      void handleFile(file)
+    })
+  }, [handleFile])
 
   const confirmUpload = useCallback(async () => {
     if (!pendingPreflight) return
@@ -256,10 +285,10 @@ export default function UploadPage() {
             kind: 'upload_failed',
             title: 'Upload setup failed',
             problem,
-            fallbackCause: 'PRIZM could not create a secure upload URL for this PDF.',
+            fallbackCause: 'StatementStudio could not create a secure upload URL for this PDF.',
+            // SECURITY-AUDIT: removed SHA-256 hash row from upload-setup failure evidence
             fallbackEvidence: [
               { label: 'File', value: file.name },
-              { label: 'SHA-256', value: fileSha256 },
               { label: 'Quote', value: formatCredits(preflight.quote.costCredits) },
             ],
             nextAction:
@@ -283,12 +312,13 @@ export default function UploadPage() {
         throw uploadFlowError({
           kind: 'upload_failed',
           title: 'Upload failed',
-          plainCause: `The browser could not reach secure storage. Browser error: ${browserError}. No OCR job was started.`,
+          // SECURITY-AUDIT: removed OCR job + CORS/storage-provider internals from upload error copy
+          plainCause: `The browser could not reach secure storage. Browser error: ${browserError}. No conversion was started.`,
           evidence: uploadEvidenceIds(presign, [
             { label: 'Browser upload error', value: browserError },
           ]),
           nextAction:
-            'Ask ops to verify browser-upload CORS for prizmview.app and the active storage provider, then upload the same PDF again.',
+            'Check your network connection, then upload the same PDF again. Contact support with the support reference if it repeats.',
         })
       }
 
@@ -296,7 +326,8 @@ export default function UploadPage() {
         throw uploadFlowError({
           kind: 'upload_failed',
           title: 'Upload failed',
-          plainCause: `The browser upload to secure storage returned HTTP ${uploadRes.status}. No OCR job was started.`,
+          // SECURITY-AUDIT: removed OCR job mention from upload error copy
+          plainCause: `The browser upload to secure storage returned HTTP ${uploadRes.status}. No conversion was started.`,
           evidence: uploadEvidenceIds(presign, [
             { label: 'Storage response', value: String(uploadRes.status) },
           ]),
@@ -349,8 +380,9 @@ export default function UploadPage() {
           : localUploadRecovery(
               err instanceof Error
                 ? err.message
-                : 'PRIZM could not finish the upload flow before OCR started.',
-              'Upload the PDF again and use the request evidence shown here if the failure repeats.',
+                : // SECURITY-AUDIT: removed OCR mention from upload-flow error fallback
+                  'StatementStudio could not finish the upload flow before the conversion started.',
+              'Upload the PDF again and use the support reference shown here if the failure repeats.',
               file,
             ),
       )
@@ -388,7 +420,7 @@ export default function UploadPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <header className="grid gap-4 border-b border-[var(--border-subtle)] pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
+      <header className="border-b border-[var(--border-subtle)] pb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/50">
             Bank or credit-card statement converter
@@ -397,16 +429,11 @@ export default function UploadPage() {
             Convert PDF statements to Excel and CSV
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            Upload one bank or credit-card statement PDF. PRIZM checks the file, quotes the
-            conversion, starts OCR, and opens a review record for spreadsheet export.
+            {/* SECURITY-AUDIT: removed OCR term from intake copy */}
+            Upload one bank or credit-card statement PDF. StatementStudio checks the file, quotes
+            the conversion, starts the conversion, and opens a review record for spreadsheet export.
           </p>
         </div>
-        <Link
-          href="/app/history"
-          className="inline-flex min-h-10 items-center justify-center rounded-md border border-[var(--border-subtle)] px-4 text-sm font-medium hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-        >
-          View history
-        </Link>
       </header>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
@@ -446,7 +473,7 @@ export default function UploadPage() {
                   <p className="mt-1 text-sm text-foreground/60">
                     {selectedFile
                       ? `${formatBytes(selectedFile.size)} selected`
-                      : 'PRIZM checks the file hash before the secure upload starts.'}
+                      : 'StatementStudio checks the file hash before the secure upload starts.'}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
@@ -497,10 +524,11 @@ export default function UploadPage() {
                   pendingPreflight={pendingPreflight}
                 />
               </div>
+              <ProcessingAnimation state={state} />
             </div>
           </div>
 
-          <WorkflowPanel currentState={state} evidence={evidence} />
+          <WorkflowPanel currentState={state} />
           <CurrentDocumentHandoff evidence={evidence} />
         </section>
 
@@ -560,7 +588,10 @@ function UploadMessage({
   pendingPreflight: PendingPreflight | null
 }) {
   if (state === 'hashing') {
-    return <p className="text-sm text-foreground/65">Computing PDF SHA-256...</p>
+    {
+      /* SECURITY-AUDIT: removed SHA-256 hash mention */
+    }
+    return <p className="text-sm text-foreground/65">Verifying document...</p>
   }
   if (state === 'preflighting') {
     return <p className="text-sm text-foreground/65">Checking duplicate and one-credit quote...</p>
@@ -576,7 +607,8 @@ function UploadMessage({
   }
   if (state === 'completing') {
     return (
-      <p className="text-sm text-foreground/65">Verifying S3 object evidence and starting OCR...</p>
+      // SECURITY-AUDIT: removed S3 object evidence + OCR from verification copy
+      <p className="text-sm text-foreground/65">Verifying document and starting conversion...</p>
     )
   }
   if (state === 'converting') {
@@ -590,8 +622,8 @@ function UploadMessage({
       <div className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
         <p className="font-medium text-[var(--success)]">Conversion started.</p>
         <p className="mt-1 text-foreground/65">
-          Textract job {evidence.textractJobId} is attached to document{' '}
-          {shortId(evidence.documentId)}.
+          {/* SECURITY-AUDIT: removed Textract job id from success copy */}
+          Conversion is in progress for document {shortId(evidence.documentId)}.
         </p>
         <Link
           href={`/app/history/${evidence.documentId}`}
@@ -610,9 +642,11 @@ function UploadMessage({
         recovery={{
           kind: 'upload_failed',
           title: 'Upload failed',
-          plainCause: 'The upload flow stopped before PRIZM received a verified document.',
-          evidence: [{ label: 'Evidence ID', value: 'client-upload-flow' }],
-          nextAction: 'Upload the PDF again and keep this screen open until OCR starts.',
+          plainCause:
+            'The upload flow stopped before StatementStudio received a verified document.',
+          // SECURITY-AUDIT: relabeled Evidence ID to Support reference; removed OCR from next action
+          evidence: [{ label: 'Support reference', value: 'client-upload-flow' }],
+          nextAction: 'Upload the PDF again and keep this screen open until the conversion starts.',
         }}
       />
     )
@@ -625,7 +659,7 @@ function UploadMessage({
 }
 
 function PreflightConfirmation({ pendingPreflight }: { pendingPreflight: PendingPreflight }) {
-  const { preflight, fileSha256 } = pendingPreflight
+  const { preflight } = pendingPreflight
   const duplicateFound = preflight.duplicate.isDuplicate
   const balanceAfter = Math.max(0, preflight.currentBalance - preflight.quote.costCredits)
   const blockedReason = duplicateFound
@@ -648,7 +682,7 @@ function PreflightConfirmation({ pendingPreflight }: { pendingPreflight: Pending
         />
         <EvidenceRow label="Quote" value={formatCredits(preflight.quote.costCredits)} />
         <EvidenceRow label="Remaining" value={formatCredits(balanceAfter)} />
-        <EvidenceRow label="SHA-256" value={shortId(fileSha256)} />
+        {/* SECURITY-AUDIT: removed SHA-256 document hash row */}
       </dl>
     </section>
   )
@@ -688,9 +722,11 @@ function recoveryKindLabel(kind: UploadRecoveryKind): string {
     case 'upload_failed':
       return 'Upload failed'
     case 's3_verification_failed':
-      return 'S3 verification failed'
+      // SECURITY-AUDIT: removed S3 from recovery kind label
+      return 'Document verification failed'
     case 'ocr_start_failed':
-      return 'OCR start failed'
+      // SECURITY-AUDIT: removed OCR from recovery kind label
+      return 'Conversion start failed'
   }
 }
 
@@ -699,13 +735,44 @@ function localUploadRecovery(plainCause: string, nextAction: string, file: File)
     kind: 'upload_failed',
     title: 'Upload failed',
     plainCause,
+    // SECURITY-AUDIT: relabeled Evidence ID to Support reference
     evidence: [
-      { label: 'Evidence ID', value: 'local-upload-validation' },
+      { label: 'Support reference', value: 'local-upload-validation' },
       { label: 'Filename', value: file.name },
       { label: 'Size', value: formatBytes(file.size) },
     ],
     nextAction,
   }
+}
+
+// SECURITY-AUDIT: redact internal vendor/storage/OCR terms from server-supplied problem detail before display
+function redactInfra(text: string): string {
+  return text
+    .replace(
+      /The uploaded object size did not match the pending document\./gi,
+      'The uploaded document did not match the pending record.',
+    )
+    .replace(
+      /Textract could not start analysis for this PDF\./gi,
+      'The conversion could not be started for this PDF.',
+    )
+    .replace(
+      /S3 object metadata did not match the pending upload record/gi,
+      'The uploaded document did not match the pending record',
+    )
+    .replace(
+      /Textract analysis could not be started for the verified upload\./gi,
+      'Conversion could not be started for the verified upload.',
+    )
+    .replace(
+      /Textract job failed during OCR processing\./gi,
+      'Conversion failed while reading the document.',
+    )
+    .replace(/\buploaded object\b/gi, 'uploaded document')
+    .replace(/\bTextract\b/gi, 'the conversion')
+    .replace(/OCR processing/gi, 'document reading')
+    .replace(/\bOCR\b/gi, 'document reading')
+    .replace(/\bS3\b/gi, 'document')
 }
 
 async function readProblem(response: Response): Promise<ProblemResponse> {
@@ -743,7 +810,8 @@ function recoveryFromProblem({
   return {
     kind,
     title,
-    plainCause: problem.detail ?? fallbackCause,
+    // SECURITY-AUDIT: redact server problem detail before display
+    plainCause: problem.detail ? redactInfra(problem.detail) : fallbackCause,
     evidence: [...problemEvidence(problem), ...fallbackEvidence],
     nextAction,
   }
@@ -762,24 +830,27 @@ function recoveryFromCompletionProblem(
   ) {
     return {
       kind: 's3_verification_failed',
-      title: 'S3 verification failed',
-      plainCause:
-        problem.detail ??
-        'PRIZM could not prove that the uploaded object matched the pending document record.',
+      // SECURITY-AUDIT: removed S3 + storage object internals; redact server detail before display
+      title: 'Document verification failed',
+      plainCause: problem.detail
+        ? redactInfra(problem.detail)
+        : 'StatementStudio could not verify that the uploaded document matched the pending record.',
       evidence,
       nextAction:
-        'Upload the original PDF again so PRIZM can create a new verified object before OCR starts.',
+        'Upload the original PDF again so StatementStudio can verify it again before conversion starts.',
     }
   }
 
   return {
     kind: 'ocr_start_failed',
-    title: 'OCR start failed',
-    plainCause:
-      problem.detail ?? 'The PDF reached secure storage, but PRIZM could not start OCR analysis.',
+    // SECURITY-AUDIT: removed OCR + secure storage internals; redact server detail before display
+    title: 'Conversion start failed',
+    plainCause: problem.detail
+      ? redactInfra(problem.detail)
+      : 'The PDF reached storage, but StatementStudio could not start the conversion.',
     evidence,
     nextAction:
-      'Open the review record, keep the document ID, and upload again if no retry action is available.',
+      'Open the review record, keep the support reference, and upload again if no retry action is available.',
   }
 }
 
@@ -788,18 +859,16 @@ function uploadEvidenceIds(
   extra: RecoveryEvidence[] = [],
 ): RecoveryEvidence[] {
   return [
-    { label: 'Document ID', value: presign.documentId },
-    { label: 'Upload request ID', value: presign.request_id },
-    { label: 'Trace ID', value: presign.trace_id },
+    // SECURITY-AUDIT: relabeled Document ID to Support reference; removed Upload request ID + Trace ID rows
+    { label: 'Support reference', value: presign.documentId },
     ...extra,
   ]
 }
 
 function problemEvidence(problem: ProblemResponse): RecoveryEvidence[] {
   return [
+    // SECURITY-AUDIT: removed Request ID + Trace ID correlation rows
     problem.code ? { label: 'Error code', value: problem.code } : null,
-    problem.request_id ? { label: 'Request ID', value: problem.request_id } : null,
-    problem.trace_id ? { label: 'Trace ID', value: problem.trace_id } : null,
   ].filter((item): item is RecoveryEvidence => item !== null)
 }
 
@@ -811,13 +880,7 @@ function isUploadFlowError(err: unknown): err is UploadFlowError {
   return err instanceof Error && 'recovery' in err
 }
 
-function WorkflowPanel({
-  currentState,
-  evidence,
-}: {
-  currentState: UploadState
-  evidence: UploadEvidence | null
-}) {
+function WorkflowPanel({ currentState }: { currentState: UploadState }) {
   const activeIndex = currentState === 'done' ? 1 : currentState === 'uploading' ? 0 : -1
   const reachedIndex = currentState === 'completing' ? 0 : activeIndex
 
@@ -830,7 +893,7 @@ function WorkflowPanel({
             Simple by design. Each step leaves evidence without slowing the converter.
           </p>
         </div>
-        {evidence && <ToneBadge tone="info">Trace {shortId(evidence.traceId)}</ToneBadge>}
+        {/* SECURITY-AUDIT: removed workflow trace-id badge */}
       </div>
       <ol className="mt-5 grid gap-3 lg:grid-cols-4">
         {workflowSteps.map((step, index) => {
@@ -853,6 +916,78 @@ function WorkflowPanel({
           )
         })}
       </ol>
+    </section>
+  )
+}
+
+function ProcessingAnimation({ state }: { state: UploadState }) {
+  const active =
+    state === 'completing' || state === 'converting' || state === 'polling' || state === 'done'
+  const activeIndex =
+    state === 'completing'
+      ? 0
+      : state === 'converting'
+        ? 1
+        : state === 'polling'
+          ? 2
+          : state === 'done'
+            ? 3
+            : -1
+
+  return (
+    <section
+      className="mt-5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4"
+      aria-label="Processing animation"
+    >
+      <div className="grid gap-4 lg:grid-cols-[13rem_1fr] lg:items-center">
+        <div className="relative overflow-hidden rounded-md border border-[var(--border-subtle)] bg-background p-3">
+          <div
+            className={`processing-scan-line absolute inset-y-0 w-12 bg-[color-mix(in_oklch,var(--accent)_22%,transparent)] ${
+              active ? '' : 'opacity-0'
+            }`}
+            aria-hidden="true"
+          />
+          <div className="space-y-2" aria-hidden="true">
+            {[0, 1, 2, 3].map((row) => (
+              <div
+                key={row}
+                className={`processing-row grid grid-cols-[2.8rem_1fr_3.5rem] gap-2 ${
+                  active ? '' : 'opacity-70'
+                }`}
+                style={{ '--row-index': row } as React.CSSProperties}
+              >
+                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
+                <span className="h-2 rounded-full bg-[var(--border-subtle)]" />
+                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
+            Document to table
+          </p>
+          <p className="mt-1 text-sm text-foreground/65">
+            The extraction record stays visible while rows resolve into spreadsheet columns.
+          </p>
+          <ol className="mt-4 grid gap-2 sm:grid-cols-2">
+            {processingStages.map((stage, index) => (
+              <li
+                key={stage.label}
+                className={`rounded-md border px-3 py-2 ${
+                  index <= activeIndex
+                    ? 'border-[var(--accent)] bg-background'
+                    : 'border-[var(--border-subtle)] bg-transparent'
+                }`}
+              >
+                <p className="text-sm font-semibold">{stage.label}</p>
+                <p className="mt-1 text-xs leading-5 text-foreground/60">{stage.detail}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
     </section>
   )
 }
@@ -892,7 +1027,8 @@ function CurrentDocumentHandoff({ evidence }: { evidence: UploadEvidence | null 
                 <td className="py-3 pr-4">
                   <ToneBadge tone="info">Processing</ToneBadge>
                 </td>
-                <td className="py-3 pr-4 text-foreground/65">Textract {evidence.textractJobId}</td>
+                {/* SECURITY-AUDIT: removed Textract job id from handoff evidence cell */}
+                <td className="py-3 pr-4 text-foreground/65">Conversion in progress</td>
                 <td className="py-3 text-foreground/65">{formatDateTime(evidence.expiresAt)}</td>
               </tr>
             ) : (
@@ -924,20 +1060,11 @@ function EvidencePanel({ evidence }: { evidence: UploadEvidence | null }) {
           label="Size"
           value={evidence ? formatBytes(evidence.sizeBytes) : 'Checked before upload'}
         />
+        {/* SECURITY-AUDIT: relabeled Document to Support reference; removed Request ID, Complete request, Trace ID, Textract job correlation rows */}
         <EvidenceRow
-          label="Document"
+          label="Support reference"
           value={evidence ? shortId(evidence.documentId) : 'Not created'}
         />
-        <EvidenceRow
-          label="Request ID"
-          value={evidence ? shortId(evidence.requestId) : 'Waiting'}
-        />
-        <EvidenceRow
-          label="Complete request"
-          value={evidence ? shortId(evidence.completionRequestId) : 'Waiting'}
-        />
-        <EvidenceRow label="Trace ID" value={evidence ? shortId(evidence.traceId) : 'Waiting'} />
-        <EvidenceRow label="Textract job" value={evidence ? evidence.textractJobId : 'Waiting'} />
         <EvidenceRow
           label="Expires"
           value={evidence ? formatDateTime(evidence.expiresAt) : '24 hours after upload'}

@@ -9,7 +9,7 @@ describe('OpenAPI contract route', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('application/json')
     expect(spec.openapi).toBe('3.1.0')
-    expect(spec.info.title).toBe('PRIZM API')
+    expect(spec.info.title).toBe('StatementStudio API')
 
     for (const path of [
       '/api/v1/documents/preflight',

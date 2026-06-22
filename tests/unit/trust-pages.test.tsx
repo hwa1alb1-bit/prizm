@@ -15,7 +15,7 @@ describe('public trust pages', () => {
     expect(screen.getByRole('heading', { name: 'Security' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Active Controls' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Planned Controls' })).toBeInTheDocument()
-    expect(screen.getByText('security@prizmview.app')).toBeInTheDocument()
+    expect(screen.getByText('security@pdftoexcelstatementconverter.com')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Security policy' })).toHaveAttribute(
       'href',
       '/security/policy',
