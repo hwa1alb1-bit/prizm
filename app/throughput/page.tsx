@@ -32,10 +32,10 @@ export default function ThroughputPage() {
             Fast, even when everyone shows up at once.
           </h1>
           <p className="mt-6 max-w-3xl text-base leading-7 text-[var(--text-secondary)]">
-            We measure how StatementStudio holds up when 100, 250, and 500 statements arrive at
-            the same time. The numbers below come from the latest run. If conversions ever take
-            longer than two seconds, or a single file goes missing, we hold the release back
-            before it reaches you.
+            We measure how StatementStudio holds up when 100, 250, and 500 statements arrive at the
+            same time. The numbers below come from the latest run. If conversions ever take longer
+            than two seconds, or a single file goes missing, we hold the release back before it
+            reaches you.
           </p>
         </section>
 
@@ -115,10 +115,10 @@ export default function ThroughputPage() {
               <div className="mx-auto max-w-5xl px-6 py-12 lg:px-8">
                 <h2 className="text-xl font-semibold">What this means for you</h2>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
-                  Your statement converts in well under two seconds, even during peak hours.
-                  You will not be charged twice for the same file, and rows will not be
-                  duplicated in your export. The numbers above are real, not targets. Every
-                  release has to clear them before it goes live.
+                  Your statement converts in well under two seconds, even during peak hours. You
+                  will not be charged twice for the same file, and rows will not be duplicated in
+                  your export. The numbers above are real, not targets. Every release has to clear
+                  them before it goes live.
                 </p>
               </div>
             </section>

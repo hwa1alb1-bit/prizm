@@ -389,40 +389,40 @@ function EditableRow({
         <form onSubmit={handleSubmit} className="flex gap-3">
           <FieldIcon src={iconSrc} />
           <div className="flex-1 space-y-2">
-          <label htmlFor={inputId} className="text-foreground/50">
-            {label}
-          </label>
-          <input
-            id={inputId}
-            type={inputType}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            autoFocus
-            className="block h-10 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
-            {...inputProps}
-          />
-          {error ? (
-            <p className="text-xs font-medium text-red-600" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="flex gap-2 pt-1">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-sm font-semibold text-background hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={cancel}
-              disabled={saving}
-              className="inline-flex h-9 items-center rounded-md border border-foreground/20 px-3 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
+            <label htmlFor={inputId} className="text-foreground/50">
+              {label}
+            </label>
+            <input
+              id={inputId}
+              type={inputType}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              autoFocus
+              className="block h-10 w-full rounded-md border border-foreground/20 bg-background px-3 text-sm focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/30"
+              {...inputProps}
+            />
+            {error ? (
+              <p className="text-xs font-medium text-red-600" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex h-9 items-center rounded-md bg-foreground px-3 text-sm font-semibold text-background hover:opacity-90 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={cancel}
+                disabled={saving}
+                className="inline-flex h-9 items-center rounded-md border border-foreground/20 px-3 text-sm font-medium hover:bg-foreground/5 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </form>
       </div>
