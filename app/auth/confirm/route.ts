@@ -43,9 +43,7 @@ export async function GET(request: NextRequest) {
           return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          )
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
         },
       },
     },
@@ -62,10 +60,7 @@ export async function GET(request: NextRequest) {
     })
     const params = new URLSearchParams({ error: 'auth_callback_failed' })
     if (error.message) params.set('error_description', error.message)
-    return applyRouteHeaders(
-      context,
-      NextResponse.redirect(`${origin}/login?${params.toString()}`),
-    )
+    return applyRouteHeaders(context, NextResponse.redirect(`${origin}/login?${params.toString()}`))
   }
 
   return applyRouteHeaders(context, NextResponse.redirect(`${origin}${next}`))

@@ -31,7 +31,7 @@ eliminates that class of failure.
   `[auth-confirm] verifyOtp failed` with `code/status/message/requestId`.
 - `app/auth/callback/route.ts` — PKCE exchange + ops audit, retained
   for sign-in. On exchange error logs `[auth-callback]
-  exchangeCodeForSession failed` and redirects to
+exchangeCodeForSession failed` and redirects to
   `/login?error=auth_callback_failed&error_description=...`.
 - `app/auth/finish/page.tsx` — implicit-flow client handoff for any
   template not yet migrated to token-hash.
@@ -119,9 +119,9 @@ recovery email flow now landing in inbox under StatementStudio branding.
 
 Record the run inline below.
 
-| Date | Operator | Reason |
-| ---- | -------- | ------ |
-| 2026-06-19 | Hank | Paste updated `recovery.html` (token-hash flow) into Supabase Studio Reset Password template after PR for `fix/auth-recovery-link` merges. |
+| Date       | Operator | Reason                                                                                                                                     |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-06-19 | Hank     | Paste updated `recovery.html` (token-hash flow) into Supabase Studio Reset Password template after PR for `fix/auth-recovery-link` merges. |
 
 ## How to verify end-to-end (5 min)
 
