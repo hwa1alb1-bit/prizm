@@ -1,3 +1,5 @@
+import { StepNumeral } from './step-numeral'
+
 const STEPS = [
   {
     title: 'Securely upload your PDF',
@@ -54,16 +56,7 @@ export function HowItWorks() {
           {STEPS.map((step, index) => (
             <li key={step.title} className="flex flex-1 items-start gap-4 lg:contents lg:gap-0">
               <div className="flex flex-1 items-start gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--elevation-card)] lg:flex-col lg:items-center lg:gap-3 lg:text-center">
-                <span
-                  aria-hidden="true"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-[0_3px_8px_rgba(79,70,229,0.24)]"
-                  style={{
-                    background:
-                      'radial-gradient(circle at 28% 26%, #2DD4BF 0%, #4F46E5 55%, #3730A3 100%)',
-                  }}
-                >
-                  {index + 1}
-                </span>
+                <StepNumeral n={index + 1} />
                 <div className="min-w-0">
                   <h3 className="text-base font-semibold text-[var(--text-primary)]">
                     {step.title}
