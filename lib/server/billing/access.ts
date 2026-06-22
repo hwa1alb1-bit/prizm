@@ -3,11 +3,13 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { serverEnv } from '@/lib/shared/env'
 import type { Database } from '@/lib/shared/db-types'
+import { getDailyUsage, todayInUtc } from './daily-usage'
 import { evaluateBillingGate, getPlanAllowance, type BillingPlan } from './plan'
 
 type BillingAccessInput = {
   supabase: SupabaseClient<Database>
   userId: string
+  requestedPages?: number
 }
 
 type BillingLookupClient = {
@@ -103,6 +105,16 @@ export async function getUploadBillingGate(input: BillingAccessInput) {
   const allowance = getPlanAllowance(plan)
   const creditBalance = ledger?.data?.balance_after ?? allowance.monthlyCredits
 
+  let dailyPagesUsed: number | undefined
+  if (plan === 'free') {
+    const usage = await getDailyUsage({
+      supabase: input.supabase,
+      userId: input.userId,
+      date: todayInUtc(),
+    })
+    if (usage.ok) dailyPagesUsed = usage.pagesUsed
+  }
+
   return evaluateBillingGate({
     plan,
     status,
@@ -110,5 +122,7 @@ export async function getUploadBillingGate(input: BillingAccessInput) {
     overageMeterConfigured: Boolean(
       serverEnv.STRIPE_PRICE_OVERAGE_PAGE && serverEnv.STRIPE_METER_OVERAGE,
     ),
+    dailyPagesUsed,
+    requestedPages: input.requestedPages ?? 1,
   })
 }

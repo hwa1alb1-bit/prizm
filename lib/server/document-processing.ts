@@ -3,6 +3,13 @@ import 'server-only'
 import type { Json } from '../shared/db-types'
 import { recordAuditEventOrThrow, type AuditEventInput } from './audit'
 import {
+  debitFreePlanPagesForDocument,
+  todayInUtc,
+  type DebitFreePlanPagesForDocumentResult,
+} from './billing/daily-usage'
+import { getBillingSummaryForUser } from './billing/summary'
+import type { BillingPlan } from '@/lib/shared/billing'
+import {
   consumeDocumentConversionCredit,
   releaseDocumentConversionCredit,
 } from './credit-reservation'
@@ -19,6 +26,7 @@ import { getServiceRoleClient } from './supabase'
 export type ProcessingDocument = {
   id: string
   workspaceId: string
+  uploadedBy: string
   extractionEngine: string | null
   extractionJobId: string | null
   textractJobId: string | null
@@ -62,11 +70,19 @@ export type DocumentProcessingDependencies = {
   consumeCreditReservation: (input: { documentId: string; consumedAt: string }) => Promise<void>
   releaseCreditReservation: (input: { documentId: string; releasedAt: string }) => Promise<void>
   recordAuditEvent: (input: AuditEventInput) => Promise<void>
+  resolveBillingPlan: (userId: string) => Promise<BillingPlan>
+  debitFreePlanPages: (input: {
+    documentId: string
+    userId: string
+    pages: number
+    date: string
+  }) => Promise<DebitFreePlanPagesForDocumentResult>
 }
 
 type ProcessingDocumentRow = {
   id: string
   workspace_id: string
+  uploaded_by: string
   extraction_engine: string | null
   extraction_job_id: string | null
   textract_job_id: string | null
@@ -198,6 +214,18 @@ export async function processExtractionDocuments(
     }
 
     await deps.consumeCreditReservation({ documentId: document.id, consumedAt: nowIso })
+
+    const billablePages = extraction.statements.reduce(
+      (sum, statement) => sum + statement.billablePageCount,
+      0,
+    )
+    const debitOutcome = await debitFreePlanIfNeeded({
+      deps,
+      document,
+      pages: billablePages,
+      date: todayInUtc(now),
+    })
+
     await deps.markDocumentReady({ documentId: document.id, convertedAt: nowIso })
     await deps.recordAuditEvent({
       eventType: 'document.processing_ready',
@@ -207,6 +235,7 @@ export async function processExtractionDocuments(
       targetId: document.id,
       metadata: auditMetadata(input, document, {
         statement_count: extraction.statements.length,
+        ...debitOutcome.audit,
       }),
     })
     ready += 1
@@ -237,6 +266,18 @@ function createDocumentProcessingDependencies(): DocumentProcessingDependencies 
     markDocumentFailed,
     consumeCreditReservation,
     releaseCreditReservation,
+    resolveBillingPlan: async (userId) => {
+      const summary = await getBillingSummaryForUser({ userId })
+      return summary.plan
+    },
+    debitFreePlanPages: ({ documentId, userId, pages, date }) =>
+      debitFreePlanPagesForDocument({
+        supabase: getServiceRoleClient(),
+        documentId,
+        userId,
+        date,
+        pages,
+      }),
     recordAuditEvent: async (input) => {
       await recordAuditEventOrThrow(input)
     },
@@ -250,7 +291,7 @@ async function listProcessingDocuments(input: {
   let query = getProcessingStoreClient()
     .from('document')
     .select<ProcessingDocumentRow>(
-      'id, workspace_id, extraction_engine, extraction_job_id, textract_job_id',
+      'id, workspace_id, uploaded_by, extraction_engine, extraction_job_id, textract_job_id',
     )
     .eq('status', 'processing')
     .is('deleted_at', null)
@@ -264,6 +305,7 @@ async function listProcessingDocuments(input: {
   return (data ?? []).map((row) => ({
     id: row.id,
     workspaceId: row.workspace_id,
+    uploadedBy: row.uploaded_by,
     extractionEngine: row.extraction_engine,
     extractionJobId: row.extraction_job_id,
     textractJobId: row.textract_job_id,
@@ -325,6 +367,69 @@ function extractionIdentity(document: ProcessingDocument): {
 
 function hasUsableStatements(statements: ParsedStatement[]): boolean {
   return statements.some((statement) => statement.transactions.length > 0)
+}
+
+type DebitOutcome = {
+  audit: Record<string, Json>
+}
+
+async function debitFreePlanIfNeeded({
+  deps,
+  document,
+  pages,
+  date,
+}: {
+  deps: DocumentProcessingDependencies
+  document: ProcessingDocument
+  pages: number
+  date: string
+}): Promise<DebitOutcome> {
+  if (pages <= 0) return { audit: {} }
+
+  try {
+    const plan = await deps.resolveBillingPlan(document.uploadedBy)
+    if (plan !== 'free') return { audit: {} }
+
+    const result = await deps.debitFreePlanPages({
+      documentId: document.id,
+      userId: document.uploadedBy,
+      pages,
+      date,
+    })
+
+    if (!result.ok) {
+      return {
+        audit: {
+          billable_pages_debited: 0,
+          daily_usage_debit_failed: result.reason,
+        },
+      }
+    }
+
+    if (result.pagesUsed === null) {
+      return {
+        audit: {
+          billable_pages_debited: 0,
+          daily_pages_used_after: null,
+          daily_usage_debit_already_recorded: true,
+        },
+      }
+    }
+
+    return {
+      audit: {
+        billable_pages_debited: pages,
+        daily_pages_used_after: result.pagesUsed,
+      },
+    }
+  } catch (error) {
+    return {
+      audit: {
+        billable_pages_debited: 0,
+        daily_usage_debit_failed: error instanceof Error ? error.message : 'debit_threw',
+      },
+    }
+  }
 }
 
 export async function storeParsedStatement(input: {

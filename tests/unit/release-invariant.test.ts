@@ -17,14 +17,14 @@ describe('release invariant', () => {
             aliases: ['prizm-plknokos-projects.vercel.app'],
             requiredHosts: [
               {
-                host: 'prizmview.app',
+                host: 'pdftoexcelstatementconverter.com',
                 readyState: 'READY',
                 target: 'production',
                 url: 'prizm-lh20glonj-plknokos-projects.vercel.app',
                 githubCommitSha: '',
               },
               {
-                host: 'www.prizmview.app',
+                host: 'www.pdftoexcelstatementconverter.com',
                 readyState: 'READY',
                 target: 'production',
                 url: 'prizm-lh20glonj-plknokos-projects.vercel.app',
@@ -58,7 +58,7 @@ describe('release invariant', () => {
       'GitHub main aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa does not match local HEAD 10e1087c59ff9a59c455799459df7b81d80b160e.',
       'Vercel production bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb does not match local HEAD 10e1087c59ff9a59c455799459df7b81d80b160e.',
       'Live health version dev does not match local HEAD 10e1087c59ff9a59c455799459df7b81d80b160e.',
-      'Vercel production aliases are missing prizmview.app, www.prizmview.app.',
+      'Vercel production aliases are missing pdftoexcelstatementconverter.com, www.pdftoexcelstatementconverter.com.',
     ])
   })
 })
@@ -73,7 +73,7 @@ function goodEvidence(overrides: Partial<ReleaseEvidence> = {}): ReleaseEvidence
       target: 'production',
       url: 'prizm-lh20glonj-plknokos-projects.vercel.app',
       githubCommitSha: sha,
-      aliases: ['prizmview.app', 'www.prizmview.app'],
+      aliases: ['pdftoexcelstatementconverter.com', 'www.pdftoexcelstatementconverter.com'],
       requiredHosts: [],
     },
     liveHealth: {

@@ -217,6 +217,7 @@ describe('processExtractionDocuments', () => {
       ready: true,
       confidence: { overall: 0.98, fields: 0.98, transactions: 0.98 },
       reviewFlags: [],
+      billablePageCount: 1,
       transactions: [
         {
           date: '2026-04-15',
@@ -462,12 +463,228 @@ describe('processExtractionDocuments', () => {
       }),
     )
   })
+
+  it('debits the free-plan daily meter by billablePageCount for free-plan documents', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn().mockResolvedValue({ ok: true, pagesUsed: 3 })
+    const resolveBillingPlan = vi.fn().mockResolvedValue('free')
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan,
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(resolveBillingPlan).toHaveBeenCalledWith('user_owner_123')
+    expect(debit).toHaveBeenCalledWith({
+      documentId: 'doc_123',
+      userId: 'user_owner_123',
+      pages: 3,
+      date: '2026-06-16',
+    })
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          billable_pages_debited: 3,
+          daily_pages_used_after: 3,
+        }),
+      }),
+    )
+  })
+
+  it('does not debit the daily meter for paid-plan documents', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn()
+    const resolveBillingPlan = vi.fn().mockResolvedValue('pro')
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan,
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(resolveBillingPlan).toHaveBeenCalledWith('user_owner_123')
+    expect(debit).not.toHaveBeenCalled()
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+  })
+
+  it('does not call resolveBillingPlan or debit when billablePageCount is zero', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn()
+    const resolveBillingPlan = vi.fn()
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 0 })],
+      },
+      resolveBillingPlan,
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(resolveBillingPlan).not.toHaveBeenCalled()
+    expect(debit).not.toHaveBeenCalled()
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+  })
+
+  it('sums billablePageCount across multiple statements in one document', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn().mockResolvedValue({ ok: true, pagesUsed: 7 })
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [
+          parsedStatement({ billablePageCount: 2 }),
+          parsedStatement({ billablePageCount: 5 }),
+        ],
+      },
+      resolveBillingPlan: vi.fn().mockResolvedValue('free'),
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(debit).toHaveBeenCalledWith(
+      expect.objectContaining({ pages: 7, userId: 'user_owner_123' }),
+    )
+  })
+
+  it('still marks the document ready and records the failure when the debit RPC errors', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn().mockResolvedValue({ ok: false, reason: 'rls_denied' })
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan: vi.fn().mockResolvedValue('free'),
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          billable_pages_debited: 0,
+          daily_usage_debit_failed: 'rls_denied',
+        }),
+      }),
+    )
+  })
+
+  it('still marks the document ready when resolveBillingPlan throws', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const resolveBillingPlan = vi.fn().mockRejectedValue(new Error('supabase_outage'))
+    const debit = vi.fn()
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan,
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(deps.consumeCreditReservation).toHaveBeenCalled()
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+    expect(debit).not.toHaveBeenCalled()
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          billable_pages_debited: 0,
+          daily_usage_debit_failed: 'supabase_outage',
+        }),
+      }),
+    )
+  })
+
+  it('still marks the document ready when debitFreePlanPages throws', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn().mockRejectedValue(new Error('rpc_unreachable'))
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan: vi.fn().mockResolvedValue('free'),
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(deps.markDocumentReady).toHaveBeenCalled()
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          billable_pages_debited: 0,
+          daily_usage_debit_failed: 'rpc_unreachable',
+        }),
+      }),
+    )
+  })
+
+  it('records no-op metadata when the document was already debited', async () => {
+    const now = new Date('2026-06-16T18:00:00.000Z')
+    const debit = vi.fn().mockResolvedValue({ ok: true, pagesUsed: null })
+    const deps = createDependencies({
+      pollResult: {
+        status: 'succeeded',
+        engine: 'textract',
+        jobId: 'textract_job_123',
+        statements: [parsedStatement({ billablePageCount: 3 })],
+      },
+      resolveBillingPlan: vi.fn().mockResolvedValue('free'),
+      debitFreePlanPages: debit,
+    })
+
+    await processExtractionDocuments({ now, limit: 25, trigger: 'test' }, deps)
+
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          billable_pages_debited: 0,
+          daily_pages_used_after: null,
+          daily_usage_debit_already_recorded: true,
+        }),
+      }),
+    )
+  })
 })
 
 function createDependencies(
   overrides: {
     document?: ProcessingDocument
     pollResult?: Awaited<ReturnType<DocumentProcessingDependencies['pollExtraction']>>
+    resolveBillingPlan?: DocumentProcessingDependencies['resolveBillingPlan']
+    debitFreePlanPages?: DocumentProcessingDependencies['debitFreePlanPages']
   } = {},
 ): DocumentProcessingDependencies {
   return {
@@ -488,6 +705,9 @@ function createDependencies(
     consumeCreditReservation: vi.fn().mockResolvedValue(undefined),
     releaseCreditReservation: vi.fn().mockResolvedValue(undefined),
     recordAuditEvent: vi.fn().mockResolvedValue(undefined),
+    resolveBillingPlan: overrides.resolveBillingPlan ?? vi.fn().mockResolvedValue('pro'),
+    debitFreePlanPages:
+      overrides.debitFreePlanPages ?? vi.fn().mockResolvedValue({ ok: true, pagesUsed: 1 }),
   }
 }
 
@@ -495,6 +715,7 @@ function processingDocument(overrides: Partial<ProcessingDocument> = {}): Proces
   return {
     id: 'doc_123',
     workspaceId: 'workspace_123',
+    uploadedBy: 'user_owner_123',
     extractionEngine: 'textract',
     extractionJobId: 'textract_job_123',
     textractJobId: 'textract_job_123',
@@ -518,6 +739,7 @@ function parsedStatement(overrides: Partial<ParsedStatement> = {}): ParsedStatem
     ready: true,
     confidence: { overall: 0.96, fields: 0.98, transactions: 0.89 },
     reviewFlags: ['low_confidence_transactions'],
+    billablePageCount: 1,
     transactions: [
       {
         date: '2026-04-03',

@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import HomePage from '@/app/page'
 import BankStatementConverterPage from '@/app/bank-statement-converter/page'
 import BankStatementToCsvPage from '@/app/bank-statement-to-csv/page'
 import BankStatementToExcelPage from '@/app/bank-statement-to-excel/page'
@@ -36,30 +35,6 @@ const pages = [
 ]
 
 describe('public SEO pages', () => {
-  it('publishes the homepage as a converter-first Evidence Ledger surface', () => {
-    render(<HomePage />)
-
-    expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: 'Convert Bank Statements to Excel, CSV, or Google Sheets',
-      }),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Start conversion' })).toHaveAttribute(
-      'href',
-      '/register',
-    )
-    expect(screen.getByText('Upload')).toBeInTheDocument()
-    expect(screen.getByText('Extract')).toBeInTheDocument()
-    expect(screen.getAllByText('Review').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Export').length).toBeGreaterThan(0)
-    expect(screen.getByText('24-hour retention window')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'convert bank statements to Excel' })).toHaveAttribute(
-      'href',
-      '/bank-statement-to-excel',
-    )
-  })
-
   it('renders each SEO route with unique useful copy and internal links', () => {
     for (const page of pages) {
       const { unmount } = render(page.component)

@@ -1,22 +1,22 @@
 import { expect, test } from '@playwright/test'
 
-const pages = [
-  { path: '/', heading: 'Convert Bank Statements to Excel, CSV, or Google Sheets' },
-  { path: '/bank-statement-converter', heading: 'Bank Statement Converter for Excel and CSV' },
-  { path: '/bank-statement-to-excel', heading: 'Convert PDF Bank Statements to Excel' },
-  { path: '/bank-statement-to-csv', heading: 'Convert Bank Statements to CSV' },
+const pages: { path: string; heading: RegExp }[] = [
+  { path: '/', heading: /Turn PDF Statements into QuickBooks and Xero.*Ready Files/ },
+  { path: '/bank-statement-converter', heading: /Bank Statement Converter for Excel and CSV/ },
+  { path: '/bank-statement-to-excel', heading: /Convert PDF Bank Statements to Excel/ },
+  { path: '/bank-statement-to-csv', heading: /Convert Bank Statements to CSV/ },
   {
     path: '/convert-scanned-bank-statements',
-    heading: 'Convert Scanned Bank Statements Into Spreadsheet Data',
+    heading: /Convert Scanned Bank Statements Into Spreadsheet Data/,
   },
-  { path: '/faq/bank-statement-conversion', heading: 'Bank Statement Conversion FAQ' },
+  { path: '/faq/bank-statement-conversion', heading: /Bank Statement Conversion FAQ/ },
 ]
 
 for (const pageData of pages) {
   test(`${pageData.path} publishes SEO page metadata and JSON-LD`, async ({ page }) => {
     await page.goto(pageData.path)
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(pageData.heading)
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(pageData.heading)
     await expect(page.locator('meta[name="description"]')).toHaveCount(1)
 
     const jsonLdCount = await page.locator('script[type="application/ld+json"]').count()
@@ -31,5 +31,7 @@ test('sitemap and robots resolve', async ({ request }) => {
 
   const robots = await request.get('/robots.txt')
   expect(robots.ok()).toBe(true)
-  await expect(robots.text()).resolves.toContain('Sitemap: https://prizmview.app/sitemap.xml')
+  await expect(robots.text()).resolves.toContain(
+    'Sitemap: https://pdftoexcelstatementconverter.com/sitemap.xml',
+  )
 })

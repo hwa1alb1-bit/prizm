@@ -86,7 +86,7 @@ aws s3api put-bucket-cors \
     "CORSRules": [{
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["PUT", "GET"],
-      "AllowedOrigins": ["https://prizmview.app", "https://*.vercel.app", "http://localhost:3030"],
+      "AllowedOrigins": ["https://pdftoexcelstatementconverter.com", "https://www.pdftoexcelstatementconverter.com", "https://*.vercel.app", "http://localhost:3030"],
       "ExposeHeaders": ["ETag"],
       "MaxAgeSeconds": 3000
     }]

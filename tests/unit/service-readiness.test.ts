@@ -43,7 +43,7 @@ describe('service readiness evidence', () => {
         stripe: {
           webhookEndpoint: {
             registered: true,
-            url: 'https://prizmview.app/api/v1/webhooks/stripe',
+            url: 'https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe',
             subscribedEvents: ['checkout.session.completed'],
             deliverySuccess: false,
           },
@@ -716,7 +716,7 @@ function readyEvidence(
     stripe: {
       webhookEndpoint: {
         registered: true,
-        url: 'https://prizmview.app/api/v1/webhooks/stripe',
+        url: 'https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe',
         subscribedEvents: [
           'checkout.session.completed',
           'customer.subscription.created',

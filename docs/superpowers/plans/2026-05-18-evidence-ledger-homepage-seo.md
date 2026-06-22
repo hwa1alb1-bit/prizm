@@ -60,7 +60,9 @@ describe('SEO metadata helpers', () => {
     })
 
     expect(metadata.alternates?.canonical).toBe('/bank-statement-converter')
-    expect(metadata.openGraph?.url).toBe('https://prizmview.app/bank-statement-converter')
+    expect(metadata.openGraph?.url).toBe(
+      'https://pdftoexcelstatementconverter.com/bank-statement-converter',
+    )
     expect(metadata.twitter?.card).toBe('summary_large_image')
   })
 

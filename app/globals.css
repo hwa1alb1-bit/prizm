@@ -1,53 +1,71 @@
 @import 'tailwindcss';
 
 :root {
-  --background: oklch(98.7% 0.006 185);
-  --foreground: oklch(19% 0.018 185);
-  --surface-muted: oklch(96% 0.008 185);
-  --surface-strong: oklch(92% 0.01 185);
-  --border-subtle: oklch(84% 0.012 185);
-  --accent: oklch(52% 0.11 185);
-  --accent-foreground: oklch(98% 0.006 185);
-  --success: oklch(45% 0.12 150);
-  --warning: oklch(57% 0.13 78);
-  --danger: oklch(54% 0.16 28);
-  --info: oklch(49% 0.1 230);
+  --background: #fffafa;
+  --surface: #ffffff;
+  --surface-soft: #f8f7ff;
+  --surface-muted: #f3f1ff;
+
+  --border: #e4e1f5;
+  --border-strong: #c9c2ff;
+
+  --text-primary: #07122f;
+  --text-secondary: #516079;
+  --text-muted: #7a8499;
+
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-active: #3730a3;
+  --primary-soft: #eef0ff;
+
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --error: #dc2626;
+
+  --surface-success-soft: #ecfdf5;
+  --surface-warning-soft: #fef3c7;
+  --surface-danger-soft: #fee2e2;
+
+  --focus-ring: rgba(79, 70, 229, 0.28);
+
+  --elevation-card: 0 1px 2px rgba(7, 18, 47, 0.04), 0 8px 24px rgba(79, 70, 229, 0.06);
+  --elevation-hover: 0 2px 6px rgba(7, 18, 47, 0.06), 0 14px 32px rgba(79, 70, 229, 0.1);
+
+  --easing-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+
+  /* Legacy aliases retained so existing components keep working until migrated. */
+  --foreground: var(--text-primary);
+  --accent: var(--primary);
+  --accent-foreground: #ffffff;
+  --border-subtle: var(--border);
+  --danger: var(--error);
+  --info: var(--primary);
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-product);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(15% 0.012 185);
-    --foreground: oklch(92% 0.008 185);
-    --surface-muted: oklch(19% 0.014 185);
-    --surface-strong: oklch(24% 0.016 185);
-    --border-subtle: oklch(34% 0.018 185);
-    --accent: oklch(64% 0.105 185);
-    --accent-foreground: oklch(14% 0.012 185);
-    --success: oklch(69% 0.12 150);
-    --warning: oklch(76% 0.12 78);
-    --danger: oklch(69% 0.14 28);
-    --info: oklch(72% 0.1 230);
-  }
+html {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--text-primary);
   --font-product: var(--font-montserrat), Arial, Helvetica, sans-serif;
   font-family: var(--font-product);
   font-variant-numeric: tabular-nums;
 }
 
 ::selection {
-  background: oklch(78% 0.08 185);
-  color: oklch(15% 0.012 185);
+  background: var(--primary-soft);
+  color: var(--primary-active);
 }
 
 @keyframes prizm-row-resolve {
@@ -80,12 +98,12 @@ body {
 }
 
 .processing-row {
-  animation: prizm-row-resolve 1800ms cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  animation: prizm-row-resolve 1800ms var(--easing-out) infinite;
   animation-delay: calc(var(--row-index, 0) * 140ms);
 }
 
 .processing-scan-line {
-  animation: prizm-scan-line 2200ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation: prizm-scan-line 2200ms var(--easing-out) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

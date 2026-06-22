@@ -145,6 +145,9 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
 
           <EvidenceSection title="Editable review">
             <EditableReviewWorkflow
+              key={
+                primaryStatement ? `${primaryStatement.id}:${primaryStatement.revision}` : 'none'
+              }
               documentId={document.id}
               statement={primaryStatement}
               exceptions={exceptions.map((exception) => ({
@@ -230,8 +233,8 @@ function EmptyHistory() {
       <div className="max-w-xl">
         <h2 className="text-xl font-semibold">No statements yet</h2>
         <p className="mt-2 text-sm leading-6 text-foreground/65">
-          Upload a PDF statement to start. PRIZM shows processing, review, failure, expiration, and
-          deletion evidence as the work advances.
+          Upload a PDF statement to start. StatementStudio shows processing, review, failure,
+          expiration, and deletion evidence as the work advances.
         </p>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
           <Link
@@ -469,9 +472,9 @@ function StatementSummary({
         <p className="text-sm font-semibold">Statement extraction pending</p>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/60">
           {/* SECURITY-AUDIT: removed S3 object verification + extraction job id from processing copy */}
-          PRIZM has proven the upload request, document verification, and conversion start. It is
-          waiting on the conversion to finish before showing balances, transactions, and
-          reconciliation evidence.
+          StatementStudio has proven the upload request, document verification, and conversion
+          start. It is waiting on the conversion to finish before showing balances, transactions,
+          and reconciliation evidence.
         </p>
       </div>
       <EvidenceGrid>
@@ -637,7 +640,7 @@ function evidenceTimelineFor(
       id: 'upload_requested',
       label: 'Upload requested',
       status: 'complete',
-      detail: 'PRIZM created a pending document record for secure browser upload.',
+      detail: 'StatementStudio created a pending document record for secure browser upload.',
       timestamp: uploadRequestedAudit?.createdAt ?? document.createdAt,
       // SECURITY-AUDIT: removed Request id evidence row; kept opaque document id as Support reference
       evidence: [{ label: 'Support reference', value: document.id }],
@@ -657,8 +660,8 @@ function evidenceTimelineFor(
         recoveryKind === 's3_verification_failed'
           ? redactInfra(document.failureReason ?? 'Document verification failed.')
           : hasVerifiedS3
-            ? 'PRIZM verified the uploaded document against the pending record.'
-            : 'PRIZM is waiting for the upload to finish and for document verification.',
+            ? 'StatementStudio verified the uploaded document against the pending record.'
+            : 'StatementStudio is waiting for the upload to finish and for document verification.',
       timestamp: uploadCompletedAudit?.createdAt ?? null,
       // SECURITY-AUDIT: removed Bucket + S3 key evidence rows
       evidence: [],
@@ -680,7 +683,7 @@ function evidenceTimelineFor(
           : hasOcrStarted
             ? 'Conversion is in progress for this document.'
             : hasVerifiedS3
-              ? 'PRIZM has proven storage and is waiting to start the conversion.'
+              ? 'StatementStudio has proven storage and is waiting to start the conversion.'
               : 'Conversion waits until the document is verified.',
       timestamp: processingStartedAudit?.createdAt ?? null,
       // SECURITY-AUDIT: removed Conversion reference (job id) + Trace ID evidence rows
@@ -706,7 +709,7 @@ function evidenceTimelineFor(
             ? 'Extraction has produced reviewable output for this document.'
             : document.state === 'processing'
               ? // SECURITY-AUDIT: removed S3 verification + extraction job id from processing copy
-                'PRIZM has proven upload, document verification, and conversion start. It is waiting for the conversion to complete.'
+                'StatementStudio has proven upload, document verification, and conversion start. It is waiting for the conversion to complete.'
               : 'Extraction completion waits on a running job.',
       timestamp: ocrCompletedAudit?.createdAt ?? statement?.createdAt ?? null,
       evidence: [{ label: 'Pages', value: document.pages?.toString() ?? 'Not counted' }],
@@ -722,7 +725,7 @@ function evidenceTimelineFor(
           )}.`
         : document.state === 'ready'
           ? 'The document is ready, but no statement record is attached.'
-          : 'PRIZM is waiting for extraction output to create statement fields and transaction rows.',
+          : 'StatementStudio is waiting for extraction output to create statement fields and transaction rows.',
       timestamp: statement?.createdAt ?? null,
       evidence: [
         { label: 'Statement ID', value: statement?.id ?? 'Not created' },
@@ -745,7 +748,7 @@ function evidenceTimelineFor(
       detail: exportGeneratedAudit
         ? 'Your export is ready for download.'
         : exportReadiness.label === 'Ready to export'
-          ? 'Statement evidence is ready. PRIZM is waiting for a generated export event.'
+          ? 'Statement evidence is ready. StatementStudio is waiting for a generated export event.'
           : exportReadiness.cause,
       timestamp: exportGeneratedAudit?.createdAt ?? null,
       // SECURITY-AUDIT: removed Request id evidence row; kept opaque audit event id as Support reference
@@ -770,7 +773,7 @@ function evidenceTimelineFor(
               document.deletionEvidence.receiptErrorCode ?? 'no error code'
             }.`
           : document.state === 'expired'
-            ? 'Retention has expired. PRIZM is waiting for the deletion sweep and receipt evidence.'
+            ? 'Retention has expired. StatementStudio is waiting for the deletion sweep and receipt evidence.'
             : `Retention is open until ${formatDateTime(document.expiresAt)}.`,
       timestamp: deletionTimestamp,
       evidence: [
@@ -946,7 +949,7 @@ function TransactionTable({
         <div className="space-y-3">
           <QuietStatusPanel
             title="Transaction rows pending extraction"
-            detail="PRIZM has a verified upload and a running extraction job. It is waiting for statement rows before review can start."
+            detail="StatementStudio has a verified upload and a running extraction job. It is waiting for statement rows before review can start."
           />
           <QuietSkeletonRows rows={4} />
         </div>
@@ -1007,9 +1010,6 @@ function TransactionTable({
               <td className="py-3 pr-4 align-top">
                 <p className="break-all font-mono text-xs">
                   {transaction.source ?? transaction.id}
-                </p>
-                <p className="mt-1 text-xs text-foreground/50">
-                  Confidence {formatConfidence(transaction.confidence)}
                 </p>
               </td>
               <td className="py-3 align-top">
@@ -1264,7 +1264,7 @@ function reviewExceptionsFor(statement: StatementEvidenceView | null): ReviewExc
     exceptions.push({
       id: 'reconciliation:not-checked',
       title: 'Reconciliation not checked',
-      cause: 'PRIZM has not recorded a reconciliation result for this statement.',
+      cause: 'StatementStudio has not recorded a reconciliation result for this statement.',
       evidence: `Statement ${statement.id}`,
       nextAction: 'Run reconciliation before marking the statement export ready.',
       tone: 'warning',
@@ -1415,7 +1415,7 @@ function recoveryFallbackCause(kind: RecoveryKind): string {
       return 'The document did not complete the upload intake flow.'
     case 's3_verification_failed':
       // SECURITY-AUDIT: removed S3 object reference from recovery cause
-      return 'PRIZM could not verify the uploaded document.'
+      return 'StatementStudio could not verify the uploaded document.'
     case 'ocr_start_failed':
       return 'The file reached storage, but extraction did not start.'
     case 'ocr_processing_failed':
@@ -1433,7 +1433,7 @@ function recoveryNextAction(kind: RecoveryKind): string {
       return 'Upload the original PDF again. If it repeats, export a fresh PDF from the issuer portal.'
     case 's3_verification_failed':
       // SECURITY-AUDIT: removed storage object reference from recovery next action
-      return 'Upload the original PDF again so PRIZM can verify it again.'
+      return 'Upload the original PDF again so StatementStudio can verify it again.'
     case 'ocr_start_failed':
       return 'Keep the document ID, then upload again or retry extraction when a retry action is available.'
     case 'ocr_processing_failed':
@@ -1669,11 +1669,6 @@ function metadataMoneyValue(metadata: StatementMetadata, key: string): number | 
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim().length > 0) return value.trim()
   return null
-}
-
-function formatConfidence(value: number | null): string {
-  if (value === null) return 'Not recorded'
-  return `${Math.round(value * 100)}%`
 }
 
 function reconciliationDelta(statement: StatementEvidenceView): number | null {

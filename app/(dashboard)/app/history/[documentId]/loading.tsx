@@ -6,7 +6,8 @@ export default function DocumentReviewLoading() {
           <p className="text-sm font-medium text-[var(--accent)]">History</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Document review</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/65">
-            PRIZM is loading document evidence, extracted rows, and audit records for this review.
+            StatementStudio is loading document evidence, extracted rows, and audit records for this
+            review.
           </p>
         </div>
         <span className="inline-flex min-h-7 w-fit items-center rounded-full bg-[var(--surface-muted)] px-2.5 text-xs font-semibold text-foreground/60">
@@ -39,7 +40,8 @@ function EvidenceTimelineSkeleton() {
     <section className="rounded-lg border border-[var(--border-subtle)] p-4 sm:p-5">
       <h2 className="text-base font-semibold">Evidence timeline</h2>
       <p className="mt-2 text-sm leading-6 text-foreground/65">
-        PRIZM is loading what it has already proven and the next document event it is waiting on.
+        StatementStudio is loading what it has already proven and the next document event it is
+        waiting on.
       </p>
       <ol className="mt-4 grid gap-3" aria-label="Evidence timeline loading">
         {/* SECURITY-AUDIT: redacted S3/OCR/Export-generated skeleton timeline labels */}
@@ -102,7 +104,7 @@ function TransactionTableSkeleton() {
     <section className="rounded-lg border border-[var(--border-subtle)] p-4 sm:p-5">
       <h2 className="text-base font-semibold">Transaction table</h2>
       <p className="mt-2 text-sm leading-6 text-foreground/65">
-        PRIZM is loading extracted transaction evidence for this statement.
+        StatementStudio is loading extracted transaction evidence for this statement.
       </p>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[76rem] text-left text-sm">

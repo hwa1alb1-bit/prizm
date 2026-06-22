@@ -29,7 +29,10 @@ describe('R2 CORS verification script', () => {
       rules: [
         {
           allowed: {
-            origins: ['https://prizmview.app', 'https://www.prizmview.app'],
+            origins: [
+              'https://pdftoexcelstatementconverter.com',
+              'https://www.pdftoexcelstatementconverter.com',
+            ],
             methods: ['PUT', 'HEAD', 'GET'],
             headers: ['*'],
           },
@@ -42,7 +45,10 @@ describe('R2 CORS verification script', () => {
       rules: [
         {
           allowed: {
-            origins: ['https://www.prizmview.app', 'https://prizmview.app'],
+            origins: [
+              'https://www.pdftoexcelstatementconverter.com',
+              'https://pdftoexcelstatementconverter.com',
+            ],
             methods: ['get', 'put', 'head'],
             headers: ['*'],
           },
@@ -62,7 +68,10 @@ describe('R2 CORS verification script', () => {
         rules: [
           {
             allowed: {
-              origins: ['https://prizmview.app', 'https://www.prizmview.app'],
+              origins: [
+                'https://pdftoexcelstatementconverter.com',
+                'https://www.pdftoexcelstatementconverter.com',
+              ],
               methods: ['PUT'],
               headers: ['*'],
             },
@@ -75,7 +84,7 @@ describe('R2 CORS verification script', () => {
         rules: [
           {
             allowed: {
-              origins: ['https://www.prizmview.app'],
+              origins: ['https://www.pdftoexcelstatementconverter.com'],
               methods: ['PUT'],
               headers: ['*'],
             },
@@ -87,7 +96,7 @@ describe('R2 CORS verification script', () => {
     )
 
     expect(diffs).toEqual([
-      'rules[0].allowed.origins expected ["https://prizmview.app","https://www.prizmview.app"], got ["https://www.prizmview.app"]',
+      'rules[0].allowed.origins expected ["https://pdftoexcelstatementconverter.com","https://www.pdftoexcelstatementconverter.com"], got ["https://www.pdftoexcelstatementconverter.com"]',
     ])
   })
 
@@ -99,7 +108,7 @@ describe('R2 CORS verification script', () => {
           rules: [
             {
               allowed: {
-                origins: ['https://prizmview.app'],
+                origins: ['https://pdftoexcelstatementconverter.com'],
                 methods: ['PUT'],
                 headers: ['*'],
               },
@@ -111,7 +120,7 @@ describe('R2 CORS verification script', () => {
       rules: [
         {
           allowed: {
-            origins: ['https://prizmview.app'],
+            origins: ['https://pdftoexcelstatementconverter.com'],
             methods: ['PUT'],
             headers: ['*'],
           },

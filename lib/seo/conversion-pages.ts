@@ -53,7 +53,8 @@ export const relatedConversionLinks = [
 const sharedFaq: FaqItem[] = [
   {
     question: 'Can I review transactions before export?',
-    answer: 'Yes. PrizmView opens extracted rows in review before users export spreadsheet files.',
+    answer:
+      'Yes. StatementStudio opens extracted rows in review before users export spreadsheet files.',
   },
   {
     question: 'What export formats are supported?',
@@ -65,13 +66,13 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
   converter: {
     key: 'converter',
     path: '/bank-statement-converter',
-    title: 'Convert Bank Statements to Excel or CSV | PrizmView',
+    title: 'Convert Bank Statements to Excel or CSV | StatementStudio',
     description:
       'Convert PDF bank statements into reviewable Excel or CSV exports with secure upload, extraction evidence, and clear retention.',
     eyebrow: 'Bank statement converter',
     h1: 'Bank Statement Converter for Excel and CSV',
     intro:
-      'Use PrizmView to move a PDF statement through a secure upload, extraction, review, and export path without burying the evidence.',
+      'Use StatementStudio to move a PDF statement through a secure upload, extraction, review, and export path without burying the evidence.',
     primaryCta: 'Start conversion',
     evidence: [
       { label: 'Input', value: 'One PDF statement per conversion' },
@@ -82,7 +83,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
     sections: [
       {
         title: 'What the converter does',
-        body: 'PrizmView converts bank and credit-card statement PDFs into structured rows with dates, descriptions, debits, credits, balances, and statement metadata.',
+        body: 'StatementStudio converts bank and credit-card statement PDFs into structured rows with dates, descriptions, debits, credits, balances, and statement metadata.',
       },
       {
         title: 'Three-step operating path',
@@ -103,7 +104,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
   excel: {
     key: 'excel',
     path: '/bank-statement-to-excel',
-    title: 'Bank Statement to Excel Converter | PrizmView',
+    title: 'Bank Statement to Excel Converter | StatementStudio',
     description:
       'Convert PDF bank statements to Excel with reviewable transaction columns, balance checks, and export-ready spreadsheet output.',
     eyebrow: 'Excel conversion',
@@ -136,7 +137,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
   csv: {
     key: 'csv',
     path: '/bank-statement-to-csv',
-    title: 'Bank Statement to CSV Converter | PrizmView',
+    title: 'Bank Statement to CSV Converter | StatementStudio',
     description:
       'Convert bank statements to CSV for accounting imports, custom workflows, and spreadsheet review before export.',
     eyebrow: 'CSV conversion',
@@ -157,7 +158,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
       },
       {
         title: 'Clean column structure',
-        body: 'PrizmView keeps statement data in predictable columns so downstream tools can map dates, descriptions, amounts, and balances.',
+        body: 'StatementStudio keeps statement data in predictable columns so downstream tools can map dates, descriptions, amounts, and balances.',
       },
       {
         title: 'Review before import',
@@ -169,13 +170,13 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
   scanned: {
     key: 'scanned',
     path: '/convert-scanned-bank-statements',
-    title: 'Convert Scanned Bank Statements to Spreadsheet | PrizmView',
+    title: 'Convert Scanned Bank Statements to Spreadsheet | StatementStudio',
     description:
       'Convert scanned bank statements into spreadsheet data with honest OCR limits, review steps, and balance-check evidence.',
     eyebrow: 'Scanned statements',
     h1: 'Convert Scanned Bank Statements Into Spreadsheet Data',
     intro:
-      'Scanned statements need OCR-backed extraction and a careful review pass. PrizmView keeps quality limits visible before export.',
+      'Scanned statements need OCR-backed extraction and a careful review pass. StatementStudio keeps quality limits visible before export.',
     primaryCta: 'Start conversion',
     evidence: [
       { label: 'Best input', value: 'Clear pages with readable dates and amounts' },
@@ -194,7 +195,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
       },
       {
         title: 'Review is still required',
-        body: 'OCR can misread characters. PrizmView keeps review and balance checks in the workflow so users can correct rows before export.',
+        body: 'OCR can misread characters. StatementStudio keeps review and balance checks in the workflow so users can correct rows before export.',
       },
     ],
     faq: [
@@ -209,7 +210,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
   faq: {
     key: 'faq',
     path: '/faq/bank-statement-conversion',
-    title: 'Bank Statement Conversion FAQ | PrizmView',
+    title: 'Bank Statement Conversion FAQ | StatementStudio',
     description:
       'Answers about bank statement conversion, Excel and CSV exports, scanned PDFs, review, accuracy, and secure document handling.',
     eyebrow: 'Conversion FAQ',
@@ -238,7 +239,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
       {
         question: 'Can I convert a PDF bank statement to CSV?',
         answer:
-          'Yes. PrizmView can export reviewed transaction rows as CSV, QuickBooks CSV, or Xero CSV.',
+          'Yes. StatementStudio can export reviewed transaction rows as CSV, QuickBooks CSV, or Xero CSV.',
       },
       {
         question: 'Can scanned bank statements be converted?',
@@ -252,7 +253,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
       {
         question: 'How accurate is bank statement conversion?',
         answer:
-          'Accuracy depends on statement quality and layout. PrizmView keeps review and balance checks visible before export.',
+          'Accuracy depends on statement quality and layout. StatementStudio keeps review and balance checks visible before export.',
       },
       {
         question: 'How are my financial documents handled?',
@@ -264,7 +265,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
         answer: 'Yes. Extracted rows open in review before spreadsheet export.',
       },
       {
-        question: 'Does PrizmView support accountants and bookkeepers?',
+        question: 'Does StatementStudio support accountants and bookkeepers?',
         answer: 'Yes. The workflow is built for repetitive client statement conversion and review.',
       },
       {

@@ -6,7 +6,7 @@ This runbook records the live Stripe cutover for PRIZM production. It is for swi
 
 ## Scope
 
-Use this runbook when `prizmview.app` is ready to receive live Stripe billing events at `https://prizmview.app/api/v1/webhooks/stripe`.
+Use this runbook when `pdftoexcelstatementconverter.com` is ready to receive live Stripe billing events at `https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe`.
 
 The live webhook endpoint must subscribe to:
 
@@ -71,7 +71,7 @@ vercel env run -e production --scope plknokos-projects -- pnpm check:launch-gate
 Confirm the webhook route rejects unsigned traffic. This checks that the route is reachable and fails closed before Stripe signature verification:
 
 ```powershell
-curl.exe -s -o NUL -w "status=%{http_code}" -X POST https://prizmview.app/api/v1/webhooks/stripe -H "Content-Type: application/json" --data "{}"
+curl.exe -s -o NUL -w "status=%{http_code}" -X POST https://pdftoexcelstatementconverter.com/api/v1/webhooks/stripe -H "Content-Type: application/json" --data "{}"
 ```
 
 Expected result: `status=400`.
