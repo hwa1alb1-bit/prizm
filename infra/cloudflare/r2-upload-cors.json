@@ -3,8 +3,8 @@
     {
       "allowed": {
         "origins": [
-          "https://prizmview.app",
-          "https://www.prizmview.app",
+          "https://pdftoexcelstatementconverter.com",
+          "https://www.pdftoexcelstatementconverter.com",
           "https://*.vercel.app",
           "http://localhost:3030"
         ],

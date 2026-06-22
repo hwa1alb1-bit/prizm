@@ -291,6 +291,171 @@ describe('Cloudflare extractor Worker contract', () => {
     expect(batch.messages[0].retry).toHaveBeenCalled()
     expect(batch.messages[0].ack).not.toHaveBeenCalled()
   })
+
+  it('routes a multi-message queue batch to one container at /internal/extract-batch', async () => {
+    const env = createEnv()
+    await env.UPLOAD_BUCKET.put('uploads/a.pdf', new Blob(['%PDF-A']))
+    await env.UPLOAD_BUCKET.put('uploads/b.pdf', new Blob(['%PDF-B']))
+    vi.mocked(env.container.fetch).mockResolvedValueOnce(
+      Response.json({
+        results: [
+          { status: 'succeeded', jobId: 'cf_job_a', statements: [normalizedStatement()] },
+          { status: 'succeeded', jobId: 'cf_job_b', statements: [normalizedStatement()] },
+        ],
+      }),
+    )
+
+    await handleCloudflareExtractorQueue(
+      queueBatch([
+        {
+          jobId: 'cf_job_a',
+          documentId: 'doc_a',
+          storageBucket: 'prizm-r2-uploads',
+          storageKey: 'uploads/a.pdf',
+        },
+        {
+          jobId: 'cf_job_b',
+          documentId: 'doc_b',
+          storageBucket: 'prizm-r2-uploads',
+          storageKey: 'uploads/b.pdf',
+        },
+      ]),
+      env,
+    )
+
+    expect(env.KOTLIN_EXTRACTOR.getByName).toHaveBeenCalledWith(
+      expect.stringMatching(/^batch_cf_job_a_cf_job_b/),
+    )
+    const containerRequest = vi.mocked(env.container.fetch).mock.calls[0][0] as Request
+    expect(new URL(containerRequest.url).pathname).toBe('/internal/extract-batch')
+
+    const stateA = JSON.parse(env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_a.json') ?? '')
+    const stateB = JSON.parse(env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_b.json') ?? '')
+    expect(stateA).toMatchObject({ status: 'succeeded', jobId: 'cf_job_a' })
+    expect(stateB).toMatchObject({ status: 'succeeded', jobId: 'cf_job_b' })
+  })
+
+  it('writes failed state for missing R2 objects in a batch but still processes eligible jobs', async () => {
+    const env = createEnv()
+    await env.UPLOAD_BUCKET.put('uploads/exists.pdf', new Blob(['%PDF-test']))
+    vi.mocked(env.container.fetch).mockResolvedValueOnce(
+      Response.json({
+        results: [
+          {
+            status: 'succeeded',
+            jobId: 'cf_job_exists',
+            statements: [normalizedStatement()],
+          },
+        ],
+      }),
+    )
+
+    await handleCloudflareExtractorQueue(
+      queueBatch([
+        {
+          jobId: 'cf_job_exists',
+          documentId: 'doc_exists',
+          storageBucket: 'prizm-r2-uploads',
+          storageKey: 'uploads/exists.pdf',
+        },
+        {
+          jobId: 'cf_job_missing',
+          documentId: 'doc_missing',
+          storageBucket: 'prizm-r2-uploads',
+          storageKey: 'uploads/missing.pdf',
+        },
+      ]),
+      env,
+    )
+
+    const stateExists = JSON.parse(
+      env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_exists.json') ?? '',
+    )
+    const stateMissing = JSON.parse(
+      env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_missing.json') ?? '',
+    )
+    expect(stateExists).toMatchObject({ status: 'succeeded', jobId: 'cf_job_exists' })
+    expect(stateMissing).toMatchObject({
+      status: 'failed',
+      jobId: 'cf_job_missing',
+      failureReason: 'Uploaded PDF was not found in R2.',
+    })
+  })
+
+  it('retries eligible batch messages when the container returns a 5xx', async () => {
+    const env = createEnv()
+    await env.UPLOAD_BUCKET.put('uploads/a.pdf', new Blob(['%PDF-A']))
+    await env.UPLOAD_BUCKET.put('uploads/b.pdf', new Blob(['%PDF-B']))
+    vi.mocked(env.container.fetch).mockResolvedValueOnce(
+      new Response('upstream error', { status: 502 }),
+    )
+    const batch = queueBatch([
+      {
+        jobId: 'cf_job_a',
+        documentId: 'doc_a',
+        storageBucket: 'prizm-r2-uploads',
+        storageKey: 'uploads/a.pdf',
+      },
+      {
+        jobId: 'cf_job_b',
+        documentId: 'doc_b',
+        storageBucket: 'prizm-r2-uploads',
+        storageKey: 'uploads/b.pdf',
+      },
+    ])
+
+    await handleCloudflareExtractorQueue(batch, env)
+
+    expect(batch.messages[0].retry).toHaveBeenCalled()
+    expect(batch.messages[1].retry).toHaveBeenCalled()
+    const stateA = JSON.parse(env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_a.json') ?? '')
+    expect(stateA.failureReason).toMatch(/HTTP 502/)
+  })
+
+  it('maps batch results back to per-job state by jobId', async () => {
+    const env = createEnv()
+    await env.UPLOAD_BUCKET.put('uploads/a.pdf', new Blob(['%PDF-A']))
+    await env.UPLOAD_BUCKET.put('uploads/b.pdf', new Blob(['%PDF-B']))
+    vi.mocked(env.container.fetch).mockResolvedValueOnce(
+      Response.json({
+        results: [
+          { status: 'succeeded', jobId: 'cf_job_b', statements: [normalizedStatement()] },
+          {
+            status: 'failed',
+            jobId: 'cf_job_a',
+            failureReason: 'Unsupported text statement layout.',
+          },
+        ],
+      }),
+    )
+
+    await handleCloudflareExtractorQueue(
+      queueBatch([
+        {
+          jobId: 'cf_job_a',
+          documentId: 'doc_a',
+          storageBucket: 'prizm-r2-uploads',
+          storageKey: 'uploads/a.pdf',
+        },
+        {
+          jobId: 'cf_job_b',
+          documentId: 'doc_b',
+          storageBucket: 'prizm-r2-uploads',
+          storageKey: 'uploads/b.pdf',
+        },
+      ]),
+      env,
+    )
+
+    const stateA = JSON.parse(env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_a.json') ?? '')
+    const stateB = JSON.parse(env.JOB_STATE_BUCKET.objects.get('jobs/cf_job_b.json') ?? '')
+    expect(stateA).toMatchObject({
+      status: 'failed',
+      jobId: 'cf_job_a',
+      failureReason: 'Unsupported text statement layout.',
+    })
+    expect(stateB).toMatchObject({ status: 'succeeded', jobId: 'cf_job_b' })
+  })
 })
 
 function extractionRequest() {

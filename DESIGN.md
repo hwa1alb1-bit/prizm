@@ -15,25 +15,25 @@ colors:
   info: 'oklch(49% 0.1 230)'
 typography:
   headline:
-    fontFamily: 'Geist, Geist Fallback, Arial, Helvetica, sans-serif'
+    fontFamily: 'Montserrat, Arial, Helvetica, sans-serif'
     fontSize: '1.875rem'
     fontWeight: 600
     lineHeight: 1.2
     letterSpacing: '0'
   title:
-    fontFamily: 'Geist, Geist Fallback, Arial, Helvetica, sans-serif'
+    fontFamily: 'Montserrat, Arial, Helvetica, sans-serif'
     fontSize: '1.125rem'
     fontWeight: 600
     lineHeight: 1.35
     letterSpacing: '0'
   body:
-    fontFamily: 'Geist, Geist Fallback, Arial, Helvetica, sans-serif'
+    fontFamily: 'Montserrat, Arial, Helvetica, sans-serif'
     fontSize: '0.875rem'
     fontWeight: 400
     lineHeight: 1.7
     letterSpacing: '0'
   label:
-    fontFamily: 'Geist, Geist Fallback, Arial, Helvetica, sans-serif'
+    fontFamily: 'Montserrat, Arial, Helvetica, sans-serif'
     fontSize: '0.75rem'
     fontWeight: 600
     lineHeight: 1.35
@@ -125,8 +125,8 @@ The palette is a cool, low-chroma teal system that makes financial evidence feel
 
 ## 3. Typography
 
-**Display Font:** Geist, Geist Fallback, Arial, Helvetica, sans-serif
-**Body Font:** Geist, Geist Fallback, Arial, Helvetica, sans-serif
+**Display Font:** Montserrat, Arial, Helvetica, sans-serif
+**Body Font:** Montserrat, Arial, Helvetica, sans-serif
 **Label/Mono Font:** Geist Mono is available through `--font-geist-mono`; use it for IDs only when fixed-width scanning is useful.
 
 **Character:** The type system is compact, steady, and native-feeling. It should support repeated review work rather than call attention to itself.

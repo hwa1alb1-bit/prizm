@@ -2,20 +2,20 @@ import { TrustPage, TrustSection } from '@/components/trust/trust-page'
 
 export const metadata = {
   title: 'Terms',
-  description: 'PRIZM alpha service terms.',
+  description: 'StatementStudio alpha service terms.',
 }
 
 export default function TermsPage() {
   return (
     <TrustPage
       title="Terms"
-      intro="These alpha service terms describe acceptable use and operational limits while PRIZM moves toward production launch."
+      intro="These alpha service terms describe acceptable use and operational limits while StatementStudio moves toward production launch."
     >
       <TrustSection title="Alpha service terms">
         <p>
-          PRIZM is available for controlled alpha testing. Do not upload production bank statements
-          unless your workspace has been explicitly approved for that use. The service may change as
-          conversion, deletion, billing, and audit controls are hardened.
+          StatementStudio is available for controlled alpha testing. Do not upload production bank
+          statements unless your workspace has been explicitly approved for that use. The service
+          may change as conversion, deletion, billing, and audit controls are hardened.
         </p>
       </TrustSection>
 

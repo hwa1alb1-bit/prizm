@@ -12,7 +12,7 @@ const config = {
   githubRepo: process.env.RELEASE_GITHUB_REPO ?? 'hwa1alb1-bit/prizm',
   vercelProject: process.env.RELEASE_VERCEL_PROJECT ?? 'prizm',
   vercelScope: process.env.RELEASE_VERCEL_SCOPE ?? 'plknokos-projects',
-  liveSiteUrl: process.env.RELEASE_LIVE_SITE_URL ?? 'https://prizmview.app',
+  liveSiteUrl: process.env.RELEASE_LIVE_SITE_URL ?? 'https://pdftoexcelstatementconverter.com',
 }
 
 type VercelListDeployment = {

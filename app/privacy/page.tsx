@@ -3,14 +3,14 @@ import { TrustPage, TrustSection } from '@/components/trust/trust-page'
 
 export const metadata = {
   title: 'Privacy',
-  description: 'PRIZM privacy commitments, retention, and data rights workflows.',
+  description: 'StatementStudio privacy commitments, retention, and data rights workflows.',
 }
 
 export default function PrivacyPage() {
   return (
     <TrustPage
       title="Privacy"
-      intro="PRIZM limits bank statement handling to conversion workflows and keeps public privacy claims tied to implemented product behavior."
+      intro="StatementStudio limits bank statement handling to conversion workflows and keeps public privacy claims tied to implemented product behavior."
     >
       <TrustSection title="Data We Process">
         <ul className="space-y-3">
@@ -31,10 +31,10 @@ export default function PrivacyPage() {
 
       <TrustSection title="User Rights">
         <p>
-          Workspace owners and admins can request account data export through{' '}
-          <code>/api/v1/account/data-export</code> and account deletion through{' '}
-          <code>/api/v1/account/delete</code>. These requests are recorded, audited, and handled as
-          workflows rather than silent background mutations.
+          {/* SECURITY-AUDIT: removed internal /api/v1 export and delete endpoint paths */}
+          Workspace owners and admins can request account data export and account deletion from
+          workspace settings. These requests are recorded, audited, and handled as workflows rather
+          than silent background mutations.
         </p>
         <p className="mt-4">
           See the machine-readable manifest at{' '}

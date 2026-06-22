@@ -28,12 +28,44 @@ describe('statement export service', () => {
     expect(result).toMatchObject({
       ok: true,
       contentType: 'text/csv; charset=utf-8',
-      filename: 'statement.csv',
+      filename: 'StatementStudio - 05-26.csv',
     })
     expect(result.ok && result.body).toBe(
       'Date,Description,Debit,Credit,Amount,Balance\r\n2026-05-01,ACH Payroll,,2500,2500,3500\r\n',
     )
     expect(recordAudit).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['xlsx', 'StatementStudio - 05-26.xlsx'],
+    ['quickbooks_csv', 'StatementStudio - 05-26.quickbooks-csv'],
+    ['xero_csv', 'StatementStudio - 05-26.xero-csv'],
+  ])('names %s exports with the StatementStudio - MM-YY convention', async (format, expected) => {
+    const result = await buildStatementExport({
+      documentId: 'doc_123',
+      format: format as 'xlsx' | 'quickbooks_csv' | 'xero_csv',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      store: exportStore({}),
+    })
+
+    expect(result).toMatchObject({ ok: true, filename: expected })
+  })
+
+  it('falls back to a generic StatementStudio name when period_start is missing', async () => {
+    const result = await buildStatementExport({
+      documentId: 'doc_123',
+      format: 'csv',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      store: exportStore({ statement: { period_start: null } }),
+    })
+
+    expect(result).toMatchObject({ ok: true, filename: 'StatementStudio - statement.csv' })
   })
 
   it('blocks unreviewed statements before writing export audit', async () => {
@@ -61,7 +93,7 @@ describe('statement export service', () => {
     expect(recordAudit).not.toHaveBeenCalled()
   })
 
-  it('streams XLSX with the canonical statement columns', async () => {
+  it('streams XLSX with the customer-facing conversion columns', async () => {
     const result = await buildStatementExport({
       documentId: 'doc_123',
       format: 'xlsx',
@@ -69,13 +101,36 @@ describe('statement export service', () => {
       actorIp: null,
       actorUserAgent: null,
       routeContext: routeContext(),
-      store: exportStore(),
+      store: exportStore({
+        statement: {
+          statement_type: 'credit_card',
+          transactions: [
+            {
+              id: 'cc_payment',
+              posted_at: '2026-01-19',
+              description: 'Payment Thank You-Mobile',
+              debit: null,
+              credit: 1013,
+              needs_review: false,
+            },
+            {
+              id: 'cc_purchase',
+              posted_at: '2026-01-06',
+              merchant: 'AMAZON MKTPL*V76D36OJ3 Amzn.com/bill WA',
+              description: 'AMAZON MKTPL*V76D36OJ3 Amzn.com/bill WA',
+              debit: 6.84,
+              credit: null,
+              needs_review: false,
+            },
+          ],
+        },
+      }),
     })
 
     expect(result).toMatchObject({
       ok: true,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      filename: 'statement.xlsx',
+      filename: 'StatementStudio - 05-26.xlsx',
     })
     if (!result.ok || !(result.body instanceof Uint8Array)) {
       throw new Error('expected xlsx export bytes')
@@ -88,22 +143,72 @@ describe('statement export service', () => {
     const worksheet = workbook.getWorksheet('Statement')
     expect(worksheet?.getRow(1).values).toEqual([
       ,
-      'Date',
-      'Description',
-      'Debit',
-      'Credit',
-      'Amount',
-      'Balance',
+      'Date ofTransaction',
+      'Merchant Name or Transaction Description',
+      '$ Amount',
     ])
-    expect(worksheet?.getRow(2).values).toEqual([
+    expect(worksheet?.getRow(2).values).toEqual([, '01/19', 'Payment Thank You-Mobile', -1013])
+    expect(worksheet?.getRow(3).values).toEqual([
       ,
-      '2026-05-01',
-      'ACH Payroll',
-      '',
-      '2500',
-      '2500',
-      '3500',
+      '01/06',
+      'AMAZON MKTPL*V76D36OJ3 Amzn.com/bill WA',
+      6.84,
     ])
+  })
+
+  it('uses the same XLSX conversion format for bank statements', async () => {
+    const result = await buildStatementExport({
+      documentId: 'doc_123',
+      format: 'xlsx',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      store: exportStore({
+        statement: {
+          statement_type: 'bank',
+          transactions: [
+            {
+              id: 'bank_debit',
+              posted_at: '2026-01-08',
+              description: 'Client supplies',
+              debit: 42.5,
+              credit: null,
+              amount: -42.5,
+              needs_review: false,
+            },
+            {
+              id: 'bank_credit',
+              posted_at: '2026-01-10',
+              description: 'Client deposit',
+              debit: null,
+              credit: 250,
+              amount: 250,
+              needs_review: false,
+            },
+          ],
+        },
+      }),
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    if (!result.ok || !(result.body instanceof Uint8Array)) {
+      throw new Error('expected xlsx export bytes')
+    }
+
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(
+      result.body.buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
+    )
+    const worksheet = workbook.getWorksheet('Statement')
+    expect(worksheet?.getRow(1).values).toEqual([
+      ,
+      'Date ofTransaction',
+      'Merchant Name or Transaction Description',
+      '$ Amount',
+    ])
+    expect(worksheet?.getRow(2).values).toEqual([, '01/08', 'Client supplies', 42.5])
+    expect(worksheet?.getRow(3).values).toEqual([, '01/10', 'Client deposit', -250])
   })
 
   it.each([
@@ -171,6 +276,71 @@ describe('statement export service', () => {
       'Date,Description,Amount\r\n2026-05-02,Bank service fee,10\r\n',
     )
   })
+
+  it.each([
+    [
+      'csv' as const,
+      'Date,Description,Debit,Credit,Amount,Balance\r\n2026-05-01,ACH Payroll,,2500,2500,3500\r\n2026-05-03,Bank service fee,12.5,,-12.5,3487.5\r\n2026-05-05,Utility bill,87.25,,-87.25,\r\n',
+    ],
+    [
+      'quickbooks_csv' as const,
+      'Date,Description,Amount\r\n2026-05-01,ACH Payroll,2500\r\n2026-05-03,Bank service fee,-12.5\r\n2026-05-05,Utility bill,-87.25\r\n',
+    ],
+    [
+      'xero_csv' as const,
+      'Date,Amount,Payee,Description,Reference\r\n2026-05-01,2500,,ACH Payroll,txn_1\r\n2026-05-03,-12.5,,Bank service fee,txn_2\r\n2026-05-05,-87.25,Power Co,Utility bill,txn_3\r\n',
+    ],
+  ])(
+    'streams %s for bank statements with debits negative, credits positive, and payee blank unless explicit',
+    async (format, body) => {
+      const result = await buildStatementExport({
+        documentId: 'doc_123',
+        format,
+        actorUserId: 'user_123',
+        actorIp: null,
+        actorUserAgent: null,
+        routeContext: routeContext(),
+        store: exportStore({
+          statement: {
+            statement_type: 'bank',
+            transactions: [
+              {
+                id: 'txn_1',
+                posted_at: '2026-05-01',
+                description: 'ACH Payroll',
+                amount: 2500,
+                debit: null,
+                credit: 2500,
+                balance: 3500,
+                needs_review: false,
+              },
+              {
+                id: 'txn_2',
+                posted_at: '2026-05-03',
+                description: 'Bank service fee',
+                debit: 12.5,
+                credit: null,
+                balance: 3487.5,
+                needs_review: false,
+              },
+              {
+                id: 'txn_3',
+                posted_at: '2026-05-05',
+                description: 'Utility bill',
+                payee: 'Power Co',
+                debit: 87.25,
+                credit: null,
+                needs_review: false,
+              },
+            ],
+          },
+        }),
+      })
+
+      expect(result).toMatchObject({ ok: true })
+      expect(result.ok && result.body).toBe(body)
+    },
+  )
 })
 
 describe('statement export artifacts', () => {
@@ -196,7 +366,7 @@ describe('statement export artifacts', () => {
       exportId: 'export_123',
       documentId: 'doc_123',
       format: 'csv',
-      filename: 'statement.csv',
+      filename: 'StatementStudio - 05-26.csv',
       contentType: 'text/csv; charset=utf-8',
       expiresAt: expect.any(String),
     })
@@ -213,7 +383,7 @@ describe('statement export artifacts', () => {
         documentId: 'doc_123',
         statementId: 'statement_123',
         format: 'csv',
-        filename: 'statement.csv',
+        filename: 'StatementStudio - 05-26.csv',
         s3Bucket: 'prizm-uploads-test',
         s3Key: 'workspace_123/exports/doc_123/export_123.csv',
         contentType: 'text/csv; charset=utf-8',
@@ -300,6 +470,7 @@ function exportStore(
       id: 'statement_123',
       review_status: 'reviewed',
       reconciles: true,
+      period_start: '2026-05-01',
       transactions: [
         {
           id: 'txn_1',
@@ -341,6 +512,7 @@ function exportArtifactStore(
       statement_type: 'bank',
       review_status: 'reviewed',
       reconciles: true,
+      period_start: '2026-05-01',
       transactions: [
         {
           id: 'txn_1',
