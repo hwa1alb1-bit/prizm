@@ -43,7 +43,7 @@
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
     "@upstash/redis": "^1.37.0",
-    "@vercel/oidc-aws-credentials-provider": "^3.1.0",
+    "@vercel/oidc-aws-credentials-provider": "^3.1.3",
     "exceljs": "^4.4.0",
     "next": "16.2.6",
     "pino": "^10.3.1",
@@ -53,13 +53,13 @@
     "resend": "^6.12.2",
     "server-only": "^0.0.1",
     "stripe": "^22.1.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/containers": "^0.3.3",
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.60.0",
     "@sentry/cli": "^3.4.1",
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -74,7 +74,7 @@
     "jsdom": "^29.1.1",
     "prettier": "^3.8.3",
     "tailwindcss": "^4",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.5",
     "wrangler": "^4.90.0"
