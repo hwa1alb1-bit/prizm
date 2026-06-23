@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { TrustCards } from '@/components/marketing/trust-cards'
 
 describe('TrustCards', () => {
-  it('renders the four evidence cards with their new titles', () => {
+  it('renders the four evidence tiles with their titles', () => {
     render(<TrustCards />)
     for (const title of [
       'Reconciled to the cent',
@@ -15,22 +15,32 @@ describe('TrustCards', () => {
     }
   })
 
-  it('uses no nested cards (each card is a single bordered surface)', () => {
+  it('uses no nested cards (each tile is a single bordered surface)', () => {
     const { container } = render(<TrustCards />)
-    const cards = container.querySelectorAll('article[data-card]')
-    expect(cards.length).toBe(4)
-    cards.forEach((card) => {
-      expect(card.querySelectorAll('article[data-card]').length).toBe(0)
+    const tiles = container.querySelectorAll('[data-card]')
+    expect(tiles.length).toBe(4)
+    tiles.forEach((tile) => {
+      expect(tile.querySelectorAll('[data-card]').length).toBe(0)
     })
   })
 
-  it('surfaces the reconciliation rule and a mismatch counter-example', () => {
+  it('routes each tile to its evidence artifact', () => {
     render(<TrustCards />)
-    expect(screen.getByText(/deterministic reconciliation math/i)).toBeInTheDocument()
-    expect(screen.getByText(/Mismatch flagged/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /How reconciliation works/i })).toHaveAttribute(
+      'href',
+      '/how-we-verify',
+    )
+    expect(screen.getByRole('link', { name: /See the full benchmark/i })).toHaveAttribute(
+      'href',
+      '/throughput',
+    )
+    expect(screen.getByRole('link', { name: /Retention policy/i })).toHaveAttribute(
+      'href',
+      '/security/policy',
+    )
   })
 
-  it('links the Observatory card to the live security report', () => {
+  it('links the Observatory tile to the live security report', () => {
     render(<TrustCards />)
     const link = screen.getByRole('link', { name: /View the report/i })
     expect(link).toHaveAttribute(
