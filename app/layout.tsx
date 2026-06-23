@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono, Montserrat } from 'next/font/google'
+import { headers } from 'next/headers'
 import './globals.css'
 
 const geistMono = Geist_Mono({
@@ -45,6 +46,11 @@ export const metadata: Metadata = {
     description,
   },
   robots: { index: true, follow: true },
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
+  },
 }
 
 export const viewport: Viewport = {
@@ -52,11 +58,15 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Reading the nonce here ensures Next.js propagates it to framework scripts.
+  // The middleware sets x-nonce on the request; the CSP header carries the
+  // matching nonce-{value} + strict-dynamic so hydration scripts pass.
+  await headers()
   return (
     <html lang="en" className={`${montserrat.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>

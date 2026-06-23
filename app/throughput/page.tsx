@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { AppHeader } from '@/components/layout/app-header'
 import { SiteFooter } from '@/components/marketing/site-footer'
 import { JsonLd } from '@/components/marketing/json-ld'
@@ -27,15 +26,16 @@ export default function ThroughputPage() {
       <main className="flex-1 bg-[var(--background)] text-[var(--text-primary)]">
         <section className="mx-auto max-w-5xl px-6 py-16 lg:px-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
-            Real numbers, not adjectives
+            Speed you can count on
           </p>
           <h1 className="mt-2 text-3xl font-bold leading-[1.1] tracking-[-0.02em] sm:text-4xl">
-            Throughput, measured under load.
+            Fast, even when everyone shows up at once.
           </h1>
           <p className="mt-6 max-w-3xl text-base leading-7 text-[var(--text-secondary)]">
-            Every release runs a load test at 100, 250, and 500 concurrent statement submissions.
-            The release is blocked unless the P95 conversion acceptance stays under two seconds and
-            no jobs are lost. Below is the latest passing run.
+            We measure how StatementStudio holds up when 100, 250, and 500 statements arrive at the
+            same time. The numbers below come from the latest run. If conversions ever take longer
+            than two seconds, or a single file goes missing, we hold the release back before it
+            reaches you.
           </p>
         </section>
 
@@ -113,20 +113,12 @@ export default function ThroughputPage() {
 
             <section className="border-t border-[var(--border)] bg-[var(--surface)]">
               <div className="mx-auto max-w-5xl px-6 py-12 lg:px-8">
-                <h2 className="text-xl font-semibold">Why these numbers</h2>
+                <h2 className="text-xl font-semibold">What this means for you</h2>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
-                  Documented in{' '}
-                  <Link
-                    href="https://github.com/hwa1alb1-bit/prizm/blob/main/docs/adr/009-cloudflare-r2-kotlin-extraction.md"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-semibold text-[var(--primary)] underline-offset-4 hover:underline"
-                  >
-                    ADR-009
-                  </Link>
-                  . The gate fails closed: zero lost jobs, zero duplicate credit charges, zero
-                  duplicate statement rows, P95 conversion acceptance under two seconds. Numbers
-                  below the threshold are still gate-passing, the threshold is the ceiling.
+                  Your statement converts in well under two seconds, even during peak hours. You
+                  will not be charged twice for the same file, and rows will not be duplicated in
+                  your export. The numbers above are real, not targets. Every release has to clear
+                  them before it goes live.
                 </p>
               </div>
             </section>
