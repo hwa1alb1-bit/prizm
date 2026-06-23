@@ -11,28 +11,28 @@ type TrustTile = {
 const TILES: TrustTile[] = [
   {
     key: 'reconciliation',
-    icon: '/marketing/icons/coin.png',
+    icon: '/marketing/icons/dollar.png',
     title: 'Reconciled to the cent',
     body: 'Deterministic math. Opening plus credits minus debits has to equal the printed close, or we flag the export.',
     link: { href: '/how-we-verify', label: 'How reconciliation works →' },
   },
   {
     key: 'throughput',
-    icon: '/marketing/icons/chart.png',
+    icon: '/marketing/icons/delivery.png',
     title: 'Throughput, measured',
     body: 'P95 acceptance latency from the live benchmark gate, published with every release.',
     link: { href: '/throughput', label: 'See the full benchmark →' },
   },
   {
     key: 'retention',
-    icon: '/marketing/icons/error.png',
+    icon: '/marketing/icons/delete.png',
     title: 'Files auto-delete in 24h',
     body: 'PDF and converted output are removed once the retention deadline passes. The audit event stays.',
     link: { href: '/security/policy', label: 'Retention policy →' },
   },
   {
     key: 'observatory',
-    icon: '/marketing/icons/password.png',
+    icon: '/marketing/icons/security.png',
     title: 'Mozilla Observatory A+',
     body: 'Independent third-party audit of TLS, headers, CSP, and cross-origin posture. Reverified each release.',
     link: {
