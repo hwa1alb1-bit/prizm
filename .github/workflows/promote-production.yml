@@ -85,6 +85,25 @@ jobs:
           set -euo pipefail
           DEPLOY=""
           for i in $(seq 1 60); do
+            # Fail fast if any deployment for this SHA is BLOCKED. This is the
+            # signature of a paused Vercel project (Spend Management cap, manual
+            # pause, billing issue). Polling 10 min for a BLOCKED deploy to go
+            # READY is wasted time — the project needs human intervention first.
+            ANY_BODY=$(curl -fsS \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_TEAM_ID&limit=20")
+            BLOCKED=$(echo "$ANY_BODY" | jq -r --arg sha "$SHA" '.deployments[] | select(.meta.githubCommitSha == $sha) | select(.state == "BLOCKED") | .uid' | head -1)
+            if [ -n "$BLOCKED" ] && [ "$BLOCKED" != "null" ]; then
+              echo "::error::Vercel deployment $BLOCKED for SHA $SHA is BLOCKED."
+              echo "::error::The Vercel project is paused. Resume it at:"
+              echo "::error::https://vercel.com/$VERCEL_TEAM_ID/$VERCEL_PROJECT_ID/settings"
+              echo "::error::Most common cause: Spend Management cap. Check:"
+              echo "::error::https://vercel.com/teams/$VERCEL_TEAM_ID/usage"
+              echo "::error::After resuming, redeploy the BLOCKED build from its inspector page,"
+              echo "::error::then re-run this workflow via workflow_dispatch with the SHA."
+              exit 1
+            fi
+
             BODY=$(curl -fsS \
               -H "Authorization: Bearer $VERCEL_TOKEN" \
               "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_TEAM_ID&target=production&state=READY&limit=20")
@@ -115,7 +134,16 @@ jobs:
               -d "{\"alias\":\"$D\"}")
             cat /tmp/resp
             echo
-            if [ "$HTTP" != "200" ] && [ "$HTTP" != "201" ]; then
+            # 200/201 = alias newly assigned or reassigned (success).
+            # 409 with code:not_modified = alias already points at this deploy
+            # (Vercel auto-aliases on production redeploy). Treat as success so
+            # re-runs are idempotent — this is the intended invariant of this
+            # workflow per the file header.
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "201" ]; then
+              :
+            elif [ "$HTTP" = "409" ] && jq -e '.error.code == "not_modified"' /tmp/resp >/dev/null 2>&1; then
+              echo "Alias for $D already points at $DEPLOY — no-op success."
+            else
               echo "::error::Alias assignment for $D returned HTTP $HTTP" >&2
               exit 1
             fi
