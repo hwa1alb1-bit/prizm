@@ -1,5 +1,4 @@
-// Shared numeral pill used by the marketing "From PDF to clean spreadsheet
-// in four steps" section and the dashboard's Conversion path.
+// Shared numeral pill used by the marketing workflow steps rail on the landing page.
 
 export function StepNumeral({ n }: { n: number }) {
   return (

@@ -112,26 +112,6 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024
 
 const workflowSteps = [
   {
-    label: 'Check PDF',
-    detail: 'StatementStudio hashes the PDF, checks duplicates, and quotes one conversion credit.',
-  },
-  {
-    label: 'Upload securely',
-    detail: 'The browser uploads to a short-lived URL before conversion can begin.',
-  },
-  {
-    label: 'Convert rows',
-    // SECURITY-AUDIT: removed Textract vendor name from conversion copy
-    detail: 'Converted output becomes a statement preview with exceptions called out.',
-  },
-  {
-    label: 'Export spreadsheet',
-    detail: 'Reviewed rows export to XLSX or CSV before the 24-hour deletion window closes.',
-  },
-]
-
-const processingStages = [
-  {
     label: 'Reading document',
     detail: 'Statement pages and account sections enter the extraction record.',
   },
@@ -521,7 +501,6 @@ export default function UploadPage() {
                   pendingPreflight={pendingPreflight}
                 />
               </div>
-              <ProcessingAnimation state={state} />
             </div>
           </div>
 
@@ -877,12 +856,12 @@ function workflowStageIndex(state: UploadState): number {
     case 'hashing':
     case 'preflighting':
     case 'confirming':
-      return 0
     case 'presigning':
     case 'uploading':
+      return 0
     case 'completing':
-      return 1
     case 'converting':
+      return 1
     case 'polling':
       return 2
     case 'done':
@@ -932,46 +911,6 @@ function WorkflowPanel({ currentState }: { currentState: UploadState }) {
       </div>
       <div className="mt-6">
         <HorizontalStepper steps={steps} ariaLabel="Conversion path" />
-      </div>
-    </section>
-  )
-}
-
-function ProcessingAnimation({ state }: { state: UploadState }) {
-  const activeIndex =
-    state === 'completing'
-      ? 0
-      : state === 'converting'
-        ? 1
-        : state === 'polling'
-          ? 2
-          : state === 'done'
-            ? 3
-            : -1
-  const blocked = state === 'error'
-  const steps = processingStages.map((stage, index) => ({
-    id: stage.label,
-    label: stage.label,
-    sublabel: stage.detail,
-    status:
-      state === 'done'
-        ? ('complete' as HorizontalStepperStatus)
-        : stepStatusFor(index, activeIndex, blocked),
-  }))
-
-  return (
-    <section
-      className="mt-5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 sm:p-5"
-      aria-label="Document to table"
-    >
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
-        Document to table
-      </p>
-      <p className="mt-1 text-sm text-foreground/65">
-        The extraction record stays visible while rows resolve into spreadsheet columns.
-      </p>
-      <div className="mt-5">
-        <HorizontalStepper steps={steps} ariaLabel="Document to table" />
       </div>
     </section>
   )
