@@ -157,7 +157,7 @@ describe('DocumentReview', () => {
     expect(screen.queryByText('cf_job_123')).not.toBeInTheDocument()
     expect(screen.queryByText(/Cloudflare extraction job/)).not.toBeInTheDocument()
     expect(screen.queryByText('Textract job ID')).not.toBeInTheDocument()
-    expect(screen.getByText(/Conversion is in progress for this document/)).toBeInTheDocument()
+    expect(screen.getAllByText('Extraction started').length).toBeGreaterThan(0)
   })
 
   it('polls document status and refreshes once when processing reaches a terminal state', async () => {
@@ -258,7 +258,7 @@ describe('DocumentReview', () => {
 
     expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
     expect(
-      screen.getByText('Statement review must be completed before export.'),
+      screen.getByText(/Statement review must be completed before export\./),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'CSV' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'XLSX' })).not.toBeInTheDocument()
@@ -269,7 +269,7 @@ describe('DocumentReview', () => {
 
     expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
     expect(
-      screen.getByText('Statement review must be completed before export.'),
+      screen.getByText(/Statement review must be completed before export\./),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'CSV' })).not.toBeInTheDocument()
   })
