@@ -34,7 +34,7 @@ describe('HorizontalStepper', () => {
     )
     const active = container.querySelectorAll('.prizm-stepper-active')
     expect(active).toHaveLength(1)
-    expect(active[0].textContent).toMatch(/Step 2/)
+    expect(active[0].closest('li')?.textContent).toMatch(/Step 2/)
   })
 
   it('paints rails consistently across a complete→blocked→waiting failure sequence', () => {
