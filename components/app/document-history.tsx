@@ -3,6 +3,10 @@ import { EditableReviewWorkflow } from './editable-review-workflow'
 import { ExportActions } from './export-actions'
 import { ProcessingStatusRefresh } from './processing-status-refresh'
 import {
+  HorizontalStepper,
+  type HorizontalStepperStatus,
+} from '@/components/marketing/horizontal-stepper'
+import {
   documentStateLabel,
   type AuditEventEvidenceView,
   type DocumentState,
@@ -107,7 +111,7 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
   const timeline = evidenceTimelineFor(document, primaryStatement, exportReadiness)
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-screen-2xl space-y-6">
       {document.state === 'processing' && <ProcessingStatusRefresh documentId={document.id} />}
       <header className="grid gap-4 border-b border-[var(--border-subtle)] pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
@@ -127,67 +131,59 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
         <DocumentStateBadge state={document.state} />
       </header>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_23rem]">
-        <div className="space-y-5">
-          {recoveryCards.length > 0 && <FailureRecoveryStack cards={recoveryCards} />}
+      <div className="space-y-5">
+        {recoveryCards.length > 0 && <FailureRecoveryStack cards={recoveryCards} />}
 
-          <EvidenceSection title="Evidence timeline">
-            <EvidenceTimeline steps={timeline} />
-          </EvidenceSection>
+        <EvidenceSection title="Evidence timeline">
+          <EvidenceTimeline steps={timeline} />
+        </EvidenceSection>
 
-          <EvidenceSection title="Statement summary">
-            <StatementSummary
-              document={document}
-              statement={primaryStatement}
-              processingAudit={processingAudit}
-            />
-          </EvidenceSection>
+        <EvidenceSection title="Statement summary">
+          <StatementSummary
+            document={document}
+            statement={primaryStatement}
+            processingAudit={processingAudit}
+          />
+        </EvidenceSection>
 
-          <EvidenceSection title="Editable review">
-            <EditableReviewWorkflow
-              key={
-                primaryStatement ? `${primaryStatement.id}:${primaryStatement.revision}` : 'none'
-              }
-              documentId={document.id}
-              statement={primaryStatement}
-              exceptions={exceptions.map((exception) => ({
-                id: exception.id,
-                title: exception.title,
-                cause: exception.cause,
-              }))}
-            />
-          </EvidenceSection>
+        <EvidenceSection title="Editable review">
+          <EditableReviewWorkflow
+            key={primaryStatement ? `${primaryStatement.id}:${primaryStatement.revision}` : 'none'}
+            documentId={document.id}
+            statement={primaryStatement}
+            exceptions={exceptions.map((exception) => ({
+              id: exception.id,
+              title: exception.title,
+              cause: exception.cause,
+            }))}
+          />
+        </EvidenceSection>
 
-          <EvidenceSection title="Transaction table">
-            <TransactionTable document={document} statement={primaryStatement} />
-          </EvidenceSection>
+        <EvidenceSection title="Transaction table">
+          <TransactionTable document={document} statement={primaryStatement} />
+        </EvidenceSection>
 
-          <EvidenceSection title="Export readiness">
-            <ExportReadinessPanel document={document} readiness={exportReadiness} />
-          </EvidenceSection>
+        <EvidenceSection title="Export readiness">
+          <ExportReadinessPanel document={document} readiness={exportReadiness} />
+        </EvidenceSection>
 
-          <DisclosureSection
-            title="Exceptions"
-            hint={exceptions.length > 0 ? `${exceptions.length} open` : 'Clear'}
-            defaultOpen={exceptions.length > 0}
-          >
-            <ExceptionsPanel exceptions={exceptions} statement={primaryStatement} />
-          </DisclosureSection>
+        <DisclosureSection
+          title="Exceptions"
+          hint={exceptions.length > 0 ? `${exceptions.length} open` : 'Clear'}
+          defaultOpen={exceptions.length > 0}
+        >
+          <ExceptionsPanel exceptions={exceptions} statement={primaryStatement} />
+        </DisclosureSection>
 
-          <DisclosureSection
-            title="Reconciliation result"
-            hint={reconciliationLabel(primaryStatement?.reconciles ?? null)}
-            defaultOpen={primaryStatement ? primaryStatement.reconciles !== true : false}
-          >
-            <ReconciliationResult statement={primaryStatement} />
-          </DisclosureSection>
+        <DisclosureSection
+          title="Reconciliation result"
+          hint={reconciliationLabel(primaryStatement?.reconciles ?? null)}
+          defaultOpen={primaryStatement ? primaryStatement.reconciles !== true : false}
+        >
+          <ReconciliationResult statement={primaryStatement} />
+        </DisclosureSection>
 
-          <DisclosureSection title="Audit trail" hint={`${document.auditEvents.length} events`}>
-            <AuditTrail events={document.auditEvents} />
-          </DisclosureSection>
-        </div>
-
-        <aside className="space-y-5">
+        <div className="grid gap-5 lg:grid-cols-2">
           <DisclosureSection
             title="Document record"
             hint={documentIsDeleted(document) ? 'Removed' : 'Retained'}
@@ -209,7 +205,11 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
               <EvidenceRow label="Export state" value={exportReadiness.label} />
             </dl>
           </DisclosureSection>
-        </aside>
+        </div>
+
+        <DisclosureSection title="Audit trail" hint={`${document.auditEvents.length} events`}>
+          <AuditTrail events={document.auditEvents} />
+        </DisclosureSection>
       </div>
     </div>
   )
@@ -523,70 +523,56 @@ function EvidenceTimeline({
   variant?: EvidenceTimelineVariant
   ariaLabel?: string
 }) {
+  if (variant === 'full') {
+    const stepperSteps = steps.map((step) => ({
+      id: step.id,
+      label: step.label,
+      status: timelineStepperStatus(step.status),
+    }))
+    return <HorizontalStepper steps={stepperSteps} ariaLabel={ariaLabel} />
+  }
+
   return (
-    <ol aria-label={ariaLabel} className={variant === 'compact' ? 'space-y-2' : 'grid gap-3'}>
+    <ol aria-label={ariaLabel} className="space-y-2">
       {steps.map((step) => (
-        <EvidenceTimelineItem key={step.id} step={step} variant={variant} />
+        <EvidenceTimelineItem key={step.id} step={step} />
       ))}
     </ol>
   )
 }
 
-function EvidenceTimelineItem({
-  step,
-  variant,
-}: {
-  step: EvidenceTimelineStep
-  variant: EvidenceTimelineVariant
-}) {
-  if (variant === 'compact') {
-    return (
-      <li className="grid grid-cols-[0.75rem_minmax(0,8.5rem)_minmax(0,1fr)] gap-2 text-xs">
-        <span
-          aria-hidden="true"
-          className={`mt-1 h-2.5 w-2.5 rounded-full ${timelineDotClass(step.status)}`}
-        />
-        <span className="font-medium text-foreground">{step.label}</span>
-        <span className="min-w-0 text-foreground/60">
-          <span className={`font-semibold ${timelineTextClass(step.status)}`}>
-            {timelineStatusLabel(step.status)}
-          </span>
-          {step.timestamp ? (
-            <span className="text-foreground/50"> at {formatDateTime(step.timestamp)}</span>
-          ) : (
-            <span className="text-foreground/50">: {step.detail}</span>
-          )}
-        </span>
-      </li>
-    )
+function timelineStepperStatus(status: EvidenceTimelineStatus): HorizontalStepperStatus {
+  switch (status) {
+    case 'complete':
+      return 'complete'
+    case 'active':
+      return 'active'
+    case 'blocked':
+      return 'blocked'
+    case 'waiting':
+    default:
+      return 'waiting'
   }
+}
 
+function EvidenceTimelineItem({ step }: { step: EvidenceTimelineStep }) {
   return (
-    <li className="rounded-lg border border-[var(--border-subtle)] bg-background p-3">
-      <div className="grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-start">
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className={`h-2.5 w-2.5 rounded-full ${timelineDotClass(step.status)}`}
-          />
-          <p className="text-sm font-semibold">{step.label}</p>
-        </div>
-        <p className="text-sm leading-6 text-foreground/70">{step.detail}</p>
-        <ReviewToneBadge tone={timelineStatusTone(step.status)}>
+    <li className="grid grid-cols-[0.75rem_minmax(0,8.5rem)_minmax(0,1fr)] gap-2 text-xs">
+      <span
+        aria-hidden="true"
+        className={`mt-1 h-2.5 w-2.5 rounded-full ${timelineDotClass(step.status)}`}
+      />
+      <span className="font-medium text-foreground">{step.label}</span>
+      <span className="min-w-0 text-foreground/60">
+        <span className={`font-semibold ${timelineTextClass(step.status)}`}>
           {timelineStatusLabel(step.status)}
-        </ReviewToneBadge>
-      </div>
-
-      {(step.timestamp || step.evidence.length > 0) && (
-        <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-          {step.timestamp && (
-            <EvidenceRow label="Recorded" value={formatDateTime(step.timestamp)} />
-          )}
-          {step.evidence.map((item) => (
-            <EvidenceRow key={`${step.id}:${item.label}:${item.value}`} {...item} />
-          ))}
-        </dl>
-      )}
+        </span>
+        {step.timestamp ? (
+          <span className="text-foreground/50"> at {formatDateTime(step.timestamp)}</span>
+        ) : (
+          <span className="text-foreground/50">: {step.detail}</span>
+        )}
+      </span>
     </li>
   )
 }
@@ -810,19 +796,6 @@ function timelineStatusLabel(status: EvidenceTimelineStatus): string {
   }
 }
 
-function timelineStatusTone(status: EvidenceTimelineStatus): ReviewTone {
-  switch (status) {
-    case 'complete':
-      return 'success'
-    case 'active':
-      return 'info'
-    case 'waiting':
-      return 'neutral'
-    case 'blocked':
-      return 'danger'
-  }
-}
-
 function timelineDotClass(status: EvidenceTimelineStatus): string {
   switch (status) {
     case 'complete':
@@ -973,17 +946,17 @@ function TransactionTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[76rem] text-left text-sm">
+      <table className="w-full text-left text-sm">
         <thead className="border-y border-[var(--border-subtle)] text-xs uppercase tracking-[0.08em] text-foreground/45">
           <tr>
-            <th className="py-2 pr-4 font-semibold">Date</th>
-            <th className="py-2 pr-4 font-semibold">Description</th>
-            <th className="py-2 pr-4 text-right font-semibold">Debit</th>
-            <th className="py-2 pr-4 text-right font-semibold">Credit</th>
-            <th className="py-2 pr-4 text-right font-semibold">Amount</th>
-            <th className="py-2 pr-4 text-right font-semibold">Balance</th>
-            <th className="py-2 pr-4 font-semibold">Evidence</th>
-            <th className="py-2 font-semibold">Review</th>
+            <th className="min-w-[6rem] py-2 pr-4 font-semibold">Date</th>
+            <th className="min-w-[14rem] py-2 pr-4 font-semibold">Description</th>
+            <th className="min-w-[7rem] py-2 pr-4 text-right font-semibold">Debit</th>
+            <th className="min-w-[7rem] py-2 pr-4 text-right font-semibold">Credit</th>
+            <th className="min-w-[7rem] py-2 pr-4 text-right font-semibold">Amount</th>
+            <th className="min-w-[7rem] py-2 pr-4 text-right font-semibold">Balance</th>
+            <th className="min-w-[10rem] py-2 pr-4 font-semibold">Evidence</th>
+            <th className="min-w-[8rem] py-2 font-semibold">Review</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--border-subtle)]">

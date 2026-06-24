@@ -37,11 +37,13 @@ describe('UploadHero', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders the three trust pills', () => {
+  it('renders the four supported export formats inline', () => {
     render(<UploadHero isAuthenticated={false} />)
-    expect(screen.getByText('Secure & private')).toBeInTheDocument()
-    expect(screen.getByText('Highly accurate')).toBeInTheDocument()
-    expect(screen.getByText('Audit-ready output')).toBeInTheDocument()
+    const formats = screen.getByRole('list', { name: /Supported export formats/i })
+    expect(within(formats).getByText('CSV')).toBeInTheDocument()
+    expect(within(formats).getByText('Excel (XLSX)')).toBeInTheDocument()
+    expect(within(formats).getByText('QuickBooks CSV')).toBeInTheDocument()
+    expect(within(formats).getByText('Xero CSV')).toBeInTheDocument()
   })
 
   it('renders an accessible dropzone with file input', () => {
