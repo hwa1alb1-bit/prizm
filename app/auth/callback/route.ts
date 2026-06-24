@@ -45,6 +45,12 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
+      console.error('[auth-callback] exchangeCodeForSession failed', {
+        code: error.code,
+        status: error.status,
+        message: error.message,
+        requestId: context.requestId,
+      })
       const params = new URLSearchParams({ error: 'auth_callback_failed' })
       if (error.message) params.set('error_description', error.message)
       return applyRouteHeaders(
