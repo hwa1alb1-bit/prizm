@@ -1,11 +1,6 @@
 package com.prizm.extractor
 
 import java.time.LocalDate
-import java.time.Month
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-
-data class StatementPeriod(val start: LocalDate, val end: LocalDate)
 
 data class ExtractedRow(
   val date: LocalDate,
@@ -23,11 +18,6 @@ data class ExtractedRow(
 data class CreditCardLayout(
   val periodPatterns: List<PeriodPattern>,
   val rowExtraction: RowExtraction,
-)
-
-data class PeriodPattern(
-  val regex: Regex,
-  val parse: (MatchResult) -> StatementPeriod,
 )
 
 sealed class RowExtraction {
@@ -52,8 +42,66 @@ object CreditCardLayouts {
     when (layoutKey) {
       LayoutKey.CHASE -> CHASE
       LayoutKey.BANK_OF_AMERICA -> BANK_OF_AMERICA
-      else -> CHASE
+      LayoutKey.GENERIC -> GENERIC
+      else -> GENERIC
     }
+
+  /**
+   * Best-effort layout for credit-card statements from issuers we haven't profiled. Section
+   * markers, period patterns, and row regexes cover the common shapes used by Capital One,
+   * Citi, Discover, Wells Fargo, US Bank, Amex, and most community-bank cards. Selecting this
+   * layout causes the engine to raise the `unknown_issuer` review flag so reviewers verify
+   * rows before exporting.
+   */
+  private val GENERIC = CreditCardLayout(
+    periodPatterns = listOf(
+      // "04/01/26 - 04/30/26" / "04/01/26 to 04/30/26"
+      PeriodPattern(
+        regex = Regex("""(\d{2}/\d{2}/\d{2})\s+(?:-|to|through)\s+(\d{2}/\d{2}/\d{2})"""),
+        parse = ::parseSlashDateRange,
+      ),
+      // "04/01/2026 - 04/30/2026" / "04/01/2026 to 04/30/2026"
+      PeriodPattern(
+        regex = Regex("""(\d{1,2})/(\d{1,2})/(\d{4})\s+(?:-|to|through)\s+(\d{1,2})/(\d{1,2})/(\d{4})"""),
+        parse = ::parseSlashFullYearDateRange,
+      ),
+      // "April 1, 2026 - April 30, 2026"
+      PeriodPattern(
+        regex = Regex("""([A-Za-z]+)\s+(\d{1,2})\s+-\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})"""),
+        parse = ::parseMonthDateRange,
+      ),
+      // "April 1, 2026 to April 30, 2026"
+      PeriodPattern(
+        regex = Regex("""([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s+(?:to|through)\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})"""),
+        parse = ::parseMonthNameRange,
+      ),
+    ),
+    rowExtraction = RowExtraction.SectionScan(
+      sections = listOf(
+        NamedSection("Payments and Other Credits", "Total Payments", "Payments and Credits"),
+        NamedSection("Payments, Credits", "Total Payments", "Payments and Credits"),
+        NamedSection("Payments/Credits", "Total Payments", "Payments and Credits"),
+        NamedSection("Payments and Credits", "Total Payments", "Payments and Credits"),
+        NamedSection("Payments", "Total Payments", "Payments and Credits"),
+        NamedSection("Credits", "Total Credits", "Payments and Credits"),
+        NamedSection("Purchases and Adjustments", "Total Purchases", "Purchases"),
+        NamedSection("Purchases", "Total Purchases", "Purchases"),
+        NamedSection("New Charges", "Total New Charges", "Purchases"),
+        NamedSection("Charges", "Total Charges", "Purchases"),
+        NamedSection("Transactions", "Total Transactions", "Purchases"),
+      ),
+      // "MM/DD <description> <amount>" — most permissive credit-card row shape.
+      rowPattern = Regex(
+        """^(\d{2})/(\d{2})(?:\s+\d{2}/\d{2})?\s+(.+?)\s+(-?\$?\d[\d,]*\.\d{2})$""",
+      ),
+      parse = { match, period, sectionLabel ->
+        val date = dateInPeriod(match.groupValues[1].toInt(), match.groupValues[2].toInt(), period)
+        val description = cleanDescriptionForCc(match.groupValues[3])
+        val rawAmount = parseMoney(match.groupValues[4])
+        ExtractedRow(date, description, rawAmount, sectionLabel, reference = null)
+      },
+    ),
+  )
 
   private val CHASE = CreditCardLayout(
     periodPatterns = listOf(
@@ -110,35 +158,6 @@ object CreditCardLayouts {
   )
 }
 
-private fun parseSlashDateRange(match: MatchResult): StatementPeriod {
-  val formatter = DateTimeFormatter.ofPattern("MM/dd/yy")
-  return StatementPeriod(
-    start = LocalDate.parse(match.groupValues[1], formatter),
-    end = LocalDate.parse(match.groupValues[2], formatter),
-  )
-}
-
-private fun parseMonthDateRange(match: MatchResult): StatementPeriod {
-  val endYear = match.groupValues[5].toInt()
-  val startMonth = Month.valueOf(match.groupValues[1].uppercase(Locale.US))
-  val endMonth = Month.valueOf(match.groupValues[3].uppercase(Locale.US))
-  val startYear = if (startMonth.value > endMonth.value) endYear - 1 else endYear
-  return StatementPeriod(
-    start = LocalDate.of(startYear, startMonth, match.groupValues[2].toInt()),
-    end = LocalDate.of(endYear, endMonth, match.groupValues[4].toInt()),
-  )
-}
-
-private fun dateInPeriod(month: Int, day: Int, period: StatementPeriod): LocalDate {
-  val endYearCandidate = LocalDate.of(period.end.year, month, day)
-  if (!endYearCandidate.isBefore(period.start) && !endYearCandidate.isAfter(period.end)) {
-    return endYearCandidate
-  }
-  val startYearCandidate = LocalDate.of(period.start.year, month, day)
-  if (!startYearCandidate.isBefore(period.start) && !startYearCandidate.isAfter(period.end)) {
-    return startYearCandidate
-  }
-  return endYearCandidate
-}
-
 private fun cleanDescription(value: String): String = value.replace(Regex("""\s+"""), " ").trim()
+
+private fun cleanDescriptionForCc(value: String): String = cleanDescription(value)

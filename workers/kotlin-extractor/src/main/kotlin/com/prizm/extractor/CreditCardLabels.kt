@@ -10,6 +10,11 @@ import java.time.format.DateTimeParseException
  * runs — it only widens what we recognise as the same family-level total.
  */
 object CreditCardLabels {
+  // Synonyms ordered most-specific first because [optionalMoney] returns on the first match.
+  // Profiled-issuer label sets stay narrow to avoid false positives on Chase/BOA PDFs whose
+  // transaction descriptions may mention common synonym phrases (e.g. "Payments" appears in
+  // transaction text). Generic-layout extraction uses [GENERIC_*] supersets injected through
+  // its own layout module.
   val PREVIOUS_BALANCE = listOf("Previous Balance")
   val NEW_BALANCE = listOf("New Balance Total", "New Balance:?")
   val PAYMENTS = listOf("Payments and Other Credits", """Payment,\s*Credits""")
@@ -17,6 +22,33 @@ object CreditCardLabels {
   val FEES = listOf("Fees Charged")
   val INTEREST = listOf("Interest Charged")
   val MINIMUM_PAYMENT_DUE = listOf("Total Minimum Payment Due", "Minimum Payment Due:?")
+
+  // Generic supersets — used only by the GENERIC layout's totals reader. Order: profiled
+  // synonyms first (so a generic-routed PDF that still contains profiled labels reads them),
+  // then broader phrasing for un-profiled issuers.
+  val GENERIC_PREVIOUS_BALANCE = PREVIOUS_BALANCE + listOf(
+    "Last Statement Balance",
+    "Prior Balance",
+    "Balance Forward",
+  )
+  val GENERIC_NEW_BALANCE = NEW_BALANCE + listOf(
+    "Statement Balance",
+    "Current Balance",
+    "Total Balance",
+  )
+  val GENERIC_PAYMENTS = PAYMENTS + listOf(
+    "Total Payments and Credits",
+    "Payments, Credits",
+    "Payments/Credits",
+  )
+  val GENERIC_PURCHASES = PURCHASES + listOf(
+    "Total Purchases and Adjustments",
+    "New Charges",
+    "Total New Charges",
+    "Charges",
+  )
+  val GENERIC_FEES = FEES + listOf("Total Fees", "Fees")
+  val GENERIC_INTEREST = INTEREST + listOf("Total Interest", "Interest")
 
   private val PAYMENT_DUE_DATE = listOf(
     """Payment Due Date\s+(\d{2}/\d{2}/\d{4})""" to "MM/dd/yyyy",

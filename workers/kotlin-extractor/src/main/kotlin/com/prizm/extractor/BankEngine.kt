@@ -94,7 +94,7 @@ class BankEngine : FamilyEngine {
       reconciles = reconciliation.reconciles,
       ready = transactions.isNotEmpty() && reconciliation.reconciles,
       confidence = confidence,
-      reviewFlags = reviewFlags(transactions, reconciliation.reconciles),
+      reviewFlags = reviewFlags(transactions, reconciliation.reconciles, issuer),
       metadata = metadata(issuer, totals),
       transactions = scoredTransactions,
     )
@@ -116,10 +116,15 @@ class BankEngine : FamilyEngine {
     )
   }
 
-  private fun reviewFlags(transactions: List<ParsedTransaction>, reconciles: Boolean): List<String> {
+  private fun reviewFlags(
+    transactions: List<ParsedTransaction>,
+    reconciles: Boolean,
+    issuer: IssuerProfile?,
+  ): List<String> {
     val flags = mutableListOf<String>()
     if (transactions.isEmpty()) flags += "transactions_missing"
     if (!reconciles) flags += "reconciliation_mismatch"
+    if (issuer?.layoutKey == LayoutKey.GENERIC) flags += "unknown_issuer"
     return flags
   }
 
@@ -128,5 +133,6 @@ class BankEngine : FamilyEngine {
       "issuer" to issuer?.name,
       "beginningBalance" to totals.beginningBalance,
       "endingBalance" to totals.endingBalance,
+      "genericLayoutUsed" to (issuer?.layoutKey == LayoutKey.GENERIC),
     ).filterValues { it != null }
 }

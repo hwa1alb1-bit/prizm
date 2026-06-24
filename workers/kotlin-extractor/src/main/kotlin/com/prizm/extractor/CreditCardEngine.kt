@@ -11,12 +11,13 @@ class CreditCardEngine : FamilyEngine {
   override fun extract(text: String, issuer: IssuerProfile?): ExtractionOutcome {
     val collapsed = collapse(text)
     val layout = CreditCardLayouts.forIssuer(issuer?.layoutKey)
+    val useGeneric = issuer?.layoutKey == LayoutKey.GENERIC
 
     val period = PeriodExtractor.extract(collapsed, layout)
       ?: return ExtractionOutcome.MissingField(StatementFamily.CreditCard, "period")
 
     val totals = try {
-      readTotals(collapsed)
+      readTotals(collapsed, useGeneric)
     } catch (error: MissingFieldException) {
       return ExtractionOutcome.MissingField(StatementFamily.CreditCard, error.field)
     }
@@ -52,7 +53,7 @@ class CreditCardEngine : FamilyEngine {
       reconciles = reconciliation.reconciles,
       ready = transactions.isNotEmpty() && reconciliation.reconciles,
       confidence = confidence,
-      reviewFlags = reviewFlags(transactions, reconciliation.reconciles),
+      reviewFlags = reviewFlags(transactions, reconciliation.reconciles, issuer),
       metadata = metadata(issuer, collapsed, totals),
       transactions = scoredTransactions,
     )
@@ -60,14 +61,22 @@ class CreditCardEngine : FamilyEngine {
     return ExtractionOutcome.Success(statement)
   }
 
-  private fun readTotals(collapsed: String): CreditCardTotals = CreditCardTotals(
-    previousBalance = CreditCardLabels.requireMoney(collapsed, CreditCardLabels.PREVIOUS_BALANCE, "previousBalance"),
-    newBalance = CreditCardLabels.requireMoney(collapsed, CreditCardLabels.NEW_BALANCE, "newBalance"),
-    payments = CreditCardLabels.requireMoney(collapsed, CreditCardLabels.PAYMENTS, "payments"),
-    purchases = CreditCardLabels.requireMoney(collapsed, CreditCardLabels.PURCHASES, "purchases"),
-    fees = CreditCardLabels.requireMoney(collapsed, CreditCardLabels.FEES, "fees"),
-    interest = CreditCardLabels.requireMoney(collapsed, CreditCardLabels.INTEREST, "interest"),
-  )
+  private fun readTotals(collapsed: String, useGeneric: Boolean): CreditCardTotals {
+    val previousBalance = if (useGeneric) CreditCardLabels.GENERIC_PREVIOUS_BALANCE else CreditCardLabels.PREVIOUS_BALANCE
+    val newBalance = if (useGeneric) CreditCardLabels.GENERIC_NEW_BALANCE else CreditCardLabels.NEW_BALANCE
+    val payments = if (useGeneric) CreditCardLabels.GENERIC_PAYMENTS else CreditCardLabels.PAYMENTS
+    val purchases = if (useGeneric) CreditCardLabels.GENERIC_PURCHASES else CreditCardLabels.PURCHASES
+    val fees = if (useGeneric) CreditCardLabels.GENERIC_FEES else CreditCardLabels.FEES
+    val interest = if (useGeneric) CreditCardLabels.GENERIC_INTEREST else CreditCardLabels.INTEREST
+    return CreditCardTotals(
+      previousBalance = CreditCardLabels.requireMoney(collapsed, previousBalance, "previousBalance"),
+      newBalance = CreditCardLabels.requireMoney(collapsed, newBalance, "newBalance"),
+      payments = CreditCardLabels.requireMoney(collapsed, payments, "payments"),
+      purchases = CreditCardLabels.requireMoney(collapsed, purchases, "purchases"),
+      fees = CreditCardLabels.requireMoney(collapsed, fees, "fees"),
+      interest = CreditCardLabels.requireMoney(collapsed, interest, "interest"),
+    )
+  }
 
   private fun toParsedTransaction(row: ExtractedRow): ParsedTransaction {
     val isCredit = row.rawAmount < 0 || row.section.contains("payment", ignoreCase = true)
@@ -84,10 +93,15 @@ class CreditCardEngine : FamilyEngine {
     )
   }
 
-  private fun reviewFlags(transactions: List<ParsedTransaction>, reconciles: Boolean): List<String> {
+  private fun reviewFlags(
+    transactions: List<ParsedTransaction>,
+    reconciles: Boolean,
+    issuer: IssuerProfile?,
+  ): List<String> {
     val flags = mutableListOf<String>()
     if (transactions.isEmpty()) flags += "transactions_missing"
     if (!reconciles) flags += "reconciliation_mismatch"
+    if (issuer?.layoutKey == LayoutKey.GENERIC) flags += "unknown_issuer"
     return flags
   }
 

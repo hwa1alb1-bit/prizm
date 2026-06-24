@@ -1,10 +1,5 @@
 package com.prizm.extractor
 
-import java.time.LocalDate
-import java.time.Month
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-
 /**
  * Bank-family layout. Describes how a single issuer renders period dates, account anchors,
  * balance labels, transaction-section markers, and row patterns. Identity affects only metadata;
@@ -13,7 +8,7 @@ import java.util.Locale
  */
 data class BankLayout(
   /** Regex variants for "April 18, 2026 to May 15, 2026" style period strings. */
-  val periodPatterns: List<BankPeriodPattern>,
+  val periodPatterns: List<PeriodPattern>,
   /** Section markers under which transaction rows are listed, in order. */
   val sections: List<BankSection>,
   /** Regex that anchors the start of a per-account block. */
@@ -26,11 +21,6 @@ data class BankLayout(
   val rowDatePattern: Regex,
   /** Pattern that matches a money value (with optional leading sign, thousands separators). */
   val amountPattern: Regex,
-)
-
-data class BankPeriodPattern(
-  val regex: Regex,
-  val parse: (MatchResult) -> StatementPeriod,
 )
 
 /**
@@ -49,13 +39,107 @@ object BankLayouts {
   fun forIssuer(layoutKey: String?): BankLayout =
     when (layoutKey) {
       LayoutKey.BANK_OF_AMERICA -> BANK_OF_AMERICA
-      else -> BANK_OF_AMERICA
+      LayoutKey.GENERIC -> GENERIC
+      else -> GENERIC
     }
+
+  /**
+   * Best-effort layout for bank statements from issuers we haven't profiled. Section markers,
+   * balance labels, account anchors, and date patterns use synonym-broad regexes that cover
+   * Wells Fargo, USAA, Capital One, Citi, US Bank, PNC, and the long tail of community
+   * banks. When this layout is selected, the engine raises `unknown_issuer` in `reviewFlags`
+   * so reviewers verify rows before exporting.
+   */
+  private val GENERIC = BankLayout(
+    periodPatterns = listOf(
+      // "April 18, 2026 to May 15, 2026" / "through May 15, 2026"
+      PeriodPattern(
+        regex = Regex("""([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s+(?:to|through|-)\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})"""),
+        parse = ::parseMonthNameRange,
+      ),
+      // "04/18/2026 to 05/15/2026" / "04/18/2026 - 05/15/2026"
+      PeriodPattern(
+        regex = Regex("""(\d{1,2})/(\d{1,2})/(\d{4})\s+(?:to|through|-)\s+(\d{1,2})/(\d{1,2})/(\d{4})"""),
+        parse = ::parseSlashFullYearDateRange,
+      ),
+    ),
+    sections = listOf(
+      // Deposit-side section names across issuers. Order: most specific first to avoid early
+      // matches stealing rows from a more specific section.
+      BankSection(
+        startMarker = Regex(
+          """^(?:Deposits and other additions|Deposits and Credits|Deposits and Additions|Deposits|Credits|Electronic Deposits)(?: - continued)?$""",
+          RegexOption.IGNORE_CASE,
+        ),
+        endMarker = Regex(
+          """^(?:Total deposits|Total credits)""",
+          RegexOption.IGNORE_CASE,
+        ),
+        label = "Deposits",
+        signMultiplier = 1,
+      ),
+      // Withdrawal-side: subtractions / debits / withdrawals.
+      BankSection(
+        startMarker = Regex(
+          """^(?:Other subtractions|Withdrawals and Other Subtractions|Withdrawals and Other Deductions|Other Deductions|Electronic Withdrawals|Withdrawals|Debits)(?: - continued)?$""",
+          RegexOption.IGNORE_CASE,
+        ),
+        endMarker = Regex(
+          """^(?:Total (?:other subtractions|withdrawals|deductions|debits))""",
+          RegexOption.IGNORE_CASE,
+        ),
+        label = "Withdrawals",
+        signMultiplier = -1,
+      ),
+      // Card-debits and ATM-debits when issuer breaks them out separately.
+      BankSection(
+        startMarker = Regex(
+          """^(?:ATM and debit card subtractions|ATM Withdrawals|Card Withdrawals|Debit Card Purchases)$""",
+          RegexOption.IGNORE_CASE,
+        ),
+        endMarker = Regex(
+          """^Total (?:ATM|card|debit)""",
+          RegexOption.IGNORE_CASE,
+        ),
+        label = "Card and ATM",
+        signMultiplier = -1,
+      ),
+      // Checks paid.
+      BankSection(
+        startMarker = Regex("""^Checks(?: Paid| Cleared)?$""", RegexOption.IGNORE_CASE),
+        endMarker = Regex("""^Total checks""", RegexOption.IGNORE_CASE),
+        label = "Checks",
+        signMultiplier = -1,
+      ),
+      // Service fees.
+      BankSection(
+        startMarker = Regex("""^(?:Service fees|Fees Charged|Bank Fees)$""", RegexOption.IGNORE_CASE),
+        endMarker = Regex("""^Total (?:service )?fees""", RegexOption.IGNORE_CASE),
+        label = "Service fees",
+        signMultiplier = -1,
+      ),
+    ),
+    accountAnchor = Regex(
+      """(?:Account(?:\s*(?:#|number|no\.?))?|Acct(?:\s*(?:#|no\.?))?)\s*:?\s*([X\d][X\d\s\-]{6,})""",
+      RegexOption.IGNORE_CASE,
+    ),
+    beginningBalanceLabel = Regex(
+      """(?:Beginning|Opening|Starting|Previous|Prior)\s+balance(?:\s+on\s+.+?)?\s+\$?(-?[\d,]+\.\d{2})""",
+      RegexOption.IGNORE_CASE,
+    ),
+    endingBalanceLabel = Regex(
+      """(?:Ending|Closing|Final|New)\s+balance(?:\s+on\s+.+?)?\s+\$?(-?[\d,]+\.\d{2})""",
+      RegexOption.IGNORE_CASE,
+    ),
+    // Accept both MM/DD/YY and MM/DD/YYYY at the start of a row.
+    rowDatePattern = Regex("""^(\d{1,2}/\d{1,2}/(?:\d{2}|\d{4}))\s+(.*)$"""),
+    amountPattern = Regex("""^-?\$?[\d,]+\.\d{2}$"""),
+  )
 
   private val BANK_OF_AMERICA = BankLayout(
     periodPatterns = listOf(
       // "April 18, 2026 to May 15, 2026"
-      BankPeriodPattern(
+      PeriodPattern(
         regex = Regex("""([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})\s+to\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})"""),
         parse = ::parseMonthNameRange,
       ),
@@ -101,19 +185,6 @@ object BankLayouts {
   )
 }
 
-private fun parseMonthNameRange(match: MatchResult): StatementPeriod {
-  val startMonth = Month.valueOf(match.groupValues[1].uppercase(Locale.US))
-  val startDay = match.groupValues[2].toInt()
-  val startYear = match.groupValues[3].toInt()
-  val endMonth = Month.valueOf(match.groupValues[4].uppercase(Locale.US))
-  val endDay = match.groupValues[5].toInt()
-  val endYear = match.groupValues[6].toInt()
-  return StatementPeriod(
-    start = LocalDate.of(startYear, startMonth, startDay),
-    end = LocalDate.of(endYear, endMonth, endDay),
-  )
-}
-
 internal object BankPeriodExtractor {
   fun extract(text: String, layout: BankLayout): StatementPeriod? {
     for (pattern in layout.periodPatterns) {
@@ -121,17 +192,5 @@ internal object BankPeriodExtractor {
       return pattern.parse(match)
     }
     return null
-  }
-}
-
-private val SLASH_DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yy")
-
-internal fun parseSlashYyDate(raw: String, period: StatementPeriod): LocalDate {
-  val candidate = LocalDate.parse(raw, SLASH_DATE_FORMATTER)
-  // Two-digit years can land in the wrong century — clamp to the statement period when needed.
-  return when {
-    candidate.isBefore(period.start.minusYears(1)) -> candidate.plusYears(100)
-    candidate.isAfter(period.end.plusYears(1)) -> candidate.minusYears(100)
-    else -> candidate
   }
 }

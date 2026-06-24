@@ -67,7 +67,7 @@ object BankRowExtractor {
       val dateMatch = layout.rowDatePattern.find(line)
       if (dateMatch != null) {
         // New row anchor — discard any in-flight row that never found its amount.
-        pendingDate = parseSlashYyDate(dateMatch.groupValues[1], period)
+        pendingDate = parseRowDate(dateMatch.groupValues[1], period)
         pendingDescription = StringBuilder()
         val rest = dateMatch.groupValues[2]
         val trailing = trailingAmountOrNull(rest)
