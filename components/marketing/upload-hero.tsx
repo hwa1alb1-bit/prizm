@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } fr
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ConversionStatusCard } from './conversion-status-card'
+import { OUTPUTS } from './output-formats'
 
 export type UploadStatus =
   | { kind: 'idle' }
@@ -19,8 +20,6 @@ type UploadHeroProps = {
   rightRailExtras?: ReactNode
   initialStatus?: UploadStatus
 }
-
-const TRUST_PILLS = ['Secure & private', 'Highly accurate', 'Audit-ready output'] as const
 
 export const PENDING_UPLOAD_KEY = 'ss:pending-upload'
 let pendingUpload: File | null = null
@@ -217,11 +216,21 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
           QuickBooks, Xero, CSV, and Excel, without manual data entry.
         </p>
 
-        <ul className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm font-medium text-[var(--text-secondary)]">
-          {TRUST_PILLS.map((pill) => (
-            <li key={pill} className="flex items-center gap-2">
-              <CheckCircle />
-              <span>{pill}</span>
+        <ul
+          aria-label="Supported export formats"
+          className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-[var(--text-secondary)]"
+        >
+          {OUTPUTS.map((format) => (
+            <li key={format.label} className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={format.icon}
+                alt={format.alt}
+                width={20}
+                height={20}
+                className="h-5 w-5 shrink-0 rounded-sm object-contain"
+              />
+              <span>{format.label}</span>
             </li>
           ))}
         </ul>

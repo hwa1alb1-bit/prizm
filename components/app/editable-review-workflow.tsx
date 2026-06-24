@@ -237,17 +237,17 @@ export function EditableReviewWorkflow({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[70rem] text-left text-sm">
+        <table className="w-full text-left text-sm">
           <thead className="border-y border-[var(--border-subtle)] text-xs uppercase tracking-[0.08em] text-foreground/45">
             <tr>
-              <th className="py-2 pr-3 font-semibold">Date</th>
-              <th className="py-2 pr-3 font-semibold">Description</th>
-              <th className="py-2 pr-3 font-semibold">Debit</th>
-              <th className="py-2 pr-3 font-semibold">Credit</th>
-              <th className="py-2 pr-3 font-semibold">Amount</th>
-              <th className="py-2 pr-3 font-semibold">Balance</th>
-              <th className="py-2 pr-3 font-semibold">Review</th>
-              <th className="py-2 font-semibold">Actions</th>
+              <th className="min-w-[9rem] py-2 pr-3 font-semibold">Date</th>
+              <th className="min-w-[14rem] py-2 pr-3 font-semibold">Description</th>
+              <th className="min-w-[7rem] py-2 pr-3 font-semibold">Debit</th>
+              <th className="min-w-[7rem] py-2 pr-3 font-semibold">Credit</th>
+              <th className="min-w-[7rem] py-2 pr-3 font-semibold">Amount</th>
+              <th className="min-w-[7rem] py-2 pr-3 font-semibold">Balance</th>
+              <th className="min-w-[9rem] py-2 pr-3 font-semibold">Review</th>
+              <th className="min-w-[6rem] py-2 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)]">

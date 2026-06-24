@@ -5,7 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { pollDocumentStatus } from '@/lib/client/document-polling'
 import { hasPendingUpload, takePendingUpload } from '@/components/marketing/upload-hero'
-import { StepNumeral } from '@/components/marketing/step-numeral'
+import {
+  HorizontalStepper,
+  type HorizontalStepperStatus,
+} from '@/components/marketing/horizontal-stepper'
 
 type UploadState =
   | 'idle'
@@ -869,9 +872,52 @@ function isUploadFlowError(err: unknown): err is UploadFlowError {
   return err instanceof Error && 'recovery' in err
 }
 
+function workflowStageIndex(state: UploadState): number {
+  switch (state) {
+    case 'hashing':
+    case 'preflighting':
+    case 'confirming':
+      return 0
+    case 'presigning':
+    case 'uploading':
+    case 'completing':
+      return 1
+    case 'converting':
+    case 'polling':
+      return 2
+    case 'done':
+      return 3
+    case 'idle':
+    case 'error':
+    default:
+      return -1
+  }
+}
+
+function stepStatusFor(
+  index: number,
+  activeIndex: number,
+  blocked: boolean,
+): HorizontalStepperStatus {
+  if (activeIndex === -1) return 'waiting'
+  if (index < activeIndex) return 'complete'
+  if (index === activeIndex) return blocked ? 'blocked' : 'active'
+  return 'waiting'
+}
+
 function WorkflowPanel({ currentState }: { currentState: UploadState }) {
-  const activeIndex = currentState === 'done' ? 1 : currentState === 'uploading' ? 0 : -1
-  const reachedIndex = currentState === 'completing' ? 0 : activeIndex
+  const stageIndex =
+    currentState === 'done' ? 3 : currentState === 'error' ? -1 : workflowStageIndex(currentState)
+  const blocked = currentState === 'error'
+  const steps = workflowSteps.map((step, index) => ({
+    id: step.label,
+    label: step.label,
+    sublabel: step.detail,
+    status:
+      currentState === 'done'
+        ? ('complete' as HorizontalStepperStatus)
+        : stepStatusFor(index, stageIndex, blocked),
+  }))
 
   return (
     <section className="rounded-lg border border-[var(--border-subtle)] p-4 sm:p-5">
@@ -884,35 +930,14 @@ function WorkflowPanel({ currentState }: { currentState: UploadState }) {
         </div>
         {/* SECURITY-AUDIT: removed workflow trace-id badge */}
       </div>
-      <ol className="mt-5 grid gap-3 lg:grid-cols-4">
-        {workflowSteps.map((step, index) => {
-          const reached = index <= reachedIndex
-          return (
-            <li
-              key={step.label}
-              className={`flex flex-col items-center rounded-md border p-4 text-center ${
-                reached
-                  ? 'border-[var(--accent)] bg-[var(--surface-muted)]'
-                  : 'border-[var(--border-subtle)]'
-              }`}
-            >
-              <StepNumeral n={index + 1} />
-              <span className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
-                Step {index + 1}
-              </span>
-              <h3 className="mt-1 text-sm font-semibold">{step.label}</h3>
-              <p className="mt-2 text-xs leading-5 text-foreground/60">{step.detail}</p>
-            </li>
-          )
-        })}
-      </ol>
+      <div className="mt-6">
+        <HorizontalStepper steps={steps} ariaLabel="Conversion path" />
+      </div>
     </section>
   )
 }
 
 function ProcessingAnimation({ state }: { state: UploadState }) {
-  const active =
-    state === 'completing' || state === 'converting' || state === 'polling' || state === 'done'
   const activeIndex =
     state === 'completing'
       ? 0
@@ -923,60 +948,30 @@ function ProcessingAnimation({ state }: { state: UploadState }) {
           : state === 'done'
             ? 3
             : -1
+  const blocked = state === 'error'
+  const steps = processingStages.map((stage, index) => ({
+    id: stage.label,
+    label: stage.label,
+    sublabel: stage.detail,
+    status:
+      state === 'done'
+        ? ('complete' as HorizontalStepperStatus)
+        : stepStatusFor(index, activeIndex, blocked),
+  }))
 
   return (
     <section
-      className="mt-5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4"
-      aria-label="Processing animation"
+      className="mt-5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 sm:p-5"
+      aria-label="Document to table"
     >
-      <div className="grid gap-4 lg:grid-cols-[13rem_1fr] lg:items-center">
-        <div className="relative overflow-hidden rounded-md border border-[var(--border-subtle)] bg-background p-3">
-          <div
-            className={`processing-scan-line absolute inset-y-0 w-12 bg-[color-mix(in_oklch,var(--accent)_22%,transparent)] ${
-              active ? '' : 'opacity-0'
-            }`}
-            aria-hidden="true"
-          />
-          <div className="space-y-2" aria-hidden="true">
-            {[0, 1, 2, 3].map((row) => (
-              <div
-                key={row}
-                className={`processing-row grid grid-cols-[2.8rem_1fr_3.5rem] gap-2 ${
-                  active ? '' : 'opacity-70'
-                }`}
-                style={{ '--row-index': row } as React.CSSProperties}
-              >
-                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
-                <span className="h-2 rounded-full bg-[var(--border-subtle)]" />
-                <span className="h-2 rounded-full bg-[var(--surface-strong)]" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
-            Document to table
-          </p>
-          <p className="mt-1 text-sm text-foreground/65">
-            The extraction record stays visible while rows resolve into spreadsheet columns.
-          </p>
-          <ol className="mt-4 grid gap-2 sm:grid-cols-2">
-            {processingStages.map((stage, index) => (
-              <li
-                key={stage.label}
-                className={`rounded-md border px-3 py-2 ${
-                  index <= activeIndex
-                    ? 'border-[var(--accent)] bg-background'
-                    : 'border-[var(--border-subtle)] bg-transparent'
-                }`}
-              >
-                <p className="text-sm font-semibold">{stage.label}</p>
-                <p className="mt-1 text-xs leading-5 text-foreground/60">{stage.detail}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/45">
+        Document to table
+      </p>
+      <p className="mt-1 text-sm text-foreground/65">
+        The extraction record stays visible while rows resolve into spreadsheet columns.
+      </p>
+      <div className="mt-5">
+        <HorizontalStepper steps={steps} ariaLabel="Document to table" />
       </div>
     </section>
   )

@@ -1,12 +1,10 @@
 import { Suspense } from 'react'
 import { createServerSupabaseClient } from '@/lib/server/supabase-middleware'
 import { JsonLd } from '@/components/marketing/json-ld'
-import { HowItWorks } from '@/components/marketing/how-it-works'
-import { HeroClaimRow } from '@/components/marketing/hero-claim-row'
 import { PricingSection } from '@/components/marketing/pricing-section'
 import { SiteFooter } from '@/components/marketing/site-footer'
 import { AppHeader } from '@/components/layout/app-header'
-import { SupportedOutputs } from '@/components/marketing/supported-outputs'
+import { WorkflowStepsRail } from '@/components/marketing/workflow-steps-rail'
 import { TrustCards } from '@/components/marketing/trust-cards'
 import { UploadHero } from '@/components/marketing/upload-hero'
 import { getBillingSummaryForUser } from '@/lib/server/billing/summary'
@@ -84,11 +82,9 @@ export default async function Home() {
         <Suspense fallback={null}>
           <UploadHero
             isAuthenticated={visitor.authenticated}
-            rightRailExtras={<SupportedOutputs />}
+            rightRailExtras={<WorkflowStepsRail />}
           />
         </Suspense>
-        <HeroClaimRow />
-        <HowItWorks />
         <TrustCards />
         <PricingSection isAuthenticated={visitor.authenticated} />
       </main>
