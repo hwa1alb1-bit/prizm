@@ -67,3 +67,24 @@ body {
   background: var(--primary-soft);
   color: var(--primary-active);
 }
+
+@keyframes prizm-stepper-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 40%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px color-mix(in oklch, var(--primary) 0%, transparent);
+  }
+}
+
+.prizm-stepper-active {
+  animation: prizm-stepper-pulse 1.6s var(--easing-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prizm-stepper-active {
+    animation: none;
+  }
+}

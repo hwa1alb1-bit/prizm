@@ -53,7 +53,7 @@ function nodeClass(status: HorizontalStepperStatus): string {
     case 'complete':
       return 'bg-[var(--success)] text-white border-[var(--success)]'
     case 'active':
-      return 'bg-[var(--primary)] text-white border-[var(--primary)] ring-4 ring-[color-mix(in_oklch,var(--primary)_28%,transparent)]'
+      return 'prizm-stepper-active bg-[var(--primary)] text-white border-[var(--primary)]'
     case 'blocked':
       return 'bg-[var(--error)] text-white border-[var(--error)]'
     case 'waiting':
@@ -62,17 +62,11 @@ function nodeClass(status: HorizontalStepperStatus): string {
   }
 }
 
-function railColorFor(status: HorizontalStepperStatus | undefined): string {
-  switch (status) {
-    case 'complete':
-    case 'active':
-      return 'bg-[var(--success)]'
-    case 'blocked':
-      return 'bg-[var(--error)]'
-    case 'waiting':
-    default:
-      return 'bg-[var(--border)]'
+function gapColor(prev: HorizontalStepperStatus, next: HorizontalStepperStatus): string {
+  if (prev === 'complete' && (next === 'complete' || next === 'active' || next === 'blocked')) {
+    return 'bg-[var(--success)]'
   }
+  return 'bg-[var(--border)]'
 }
 
 function nodeGlyph(status: HorizontalStepperStatus, index: number): ReactNode {
@@ -96,17 +90,17 @@ function statusLabel(status: HorizontalStepperStatus): string {
 }
 
 export function HorizontalStepper({ steps, ariaLabel }: Props) {
+  const gaps = steps
+    .slice(0, -1)
+    .map((step, index) => gapColor(step.status, steps[index + 1].status))
+
   return (
     <ol aria-label={ariaLabel} className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-0">
       {steps.map((step, index) => {
         const isFirst = index === 0
         const isLast = index === steps.length - 1
-        const prevStatus = steps[index - 1]?.status
-        const nextStatus = steps[index + 1]?.status
-        const railLeftClass = isFirst
-          ? 'sm:invisible'
-          : railColorFor(step.status === 'waiting' ? 'waiting' : prevStatus)
-        const railRightClass = isLast ? 'sm:invisible' : railColorFor(nextStatus)
+        const railLeftClass = isFirst ? 'sm:invisible' : gaps[index - 1]
+        const railRightClass = isLast ? 'sm:invisible' : gaps[index]
         return (
           <li
             key={step.id}
