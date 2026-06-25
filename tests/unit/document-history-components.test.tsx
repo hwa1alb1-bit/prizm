@@ -303,6 +303,26 @@ describe('DocumentReview', () => {
     expect(screen.queryByText('textract_failed_123')).not.toBeInTheDocument()
   })
 
+  it('does not cascade blocked status to downstream timeline steps after extraction fails', () => {
+    render(<DocumentReview document={ocrProcessingFailedDocument()} />)
+
+    const blockedSrLabels = screen.getAllByText(/^blocked$/i)
+    expect(blockedSrLabels).toHaveLength(1)
+
+    const pendingSrLabels = screen.getAllByText(/^pending$/i)
+    expect(pendingSrLabels.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('routes Kotlin worker normalization failures to the extraction processing recovery card', () => {
+    render(<DocumentReview document={kotlinNormalizationFailedDocument()} />)
+
+    expect(screen.getAllByText('Extraction processing failed').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Upload failed')).not.toBeInTheDocument()
+
+    const blockedSrLabels = screen.getAllByText(/^blocked$/i)
+    expect(blockedSrLabels).toHaveLength(1)
+  })
+
   it('shows extraction incomplete and reconciliation mismatch recovery before export', () => {
     render(<DocumentReview document={incompleteMismatchDocument()} />)
 
@@ -540,6 +560,18 @@ function ocrProcessingFailedDocument(): HistoryDocumentView {
     extractionEngine: 'textract',
     extractionJobId: 'textract_failed_123',
     textractJobId: 'textract_failed_123',
+  }
+}
+
+function kotlinNormalizationFailedDocument(): HistoryDocumentView {
+  return {
+    ...failedDocument(),
+    id: 'doc_kotlin_normalization_failed',
+    filename: 'Kotlin Normalization Failed.pdf',
+    failureReason: 'Kotlin worker returned invalid normalized statement data.',
+    extractionEngine: null,
+    extractionJobId: null,
+    textractJobId: null,
   }
 }
 

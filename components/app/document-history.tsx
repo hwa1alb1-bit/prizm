@@ -582,6 +582,26 @@ function evidenceTimelineFor(
   statement: StatementEvidenceView | null,
   exportReadiness: ExportReadiness,
 ): EvidenceTimelineStep[] {
+  const steps = buildEvidenceTimelineSteps(document, statement, exportReadiness)
+
+  // Once a step is blocked, the actionable failure has been surfaced. Downstream
+  // steps that are not independently complete fall back to 'waiting' so the
+  // timeline shows one failure point instead of a cascade of red Xs.
+  const firstBlockedIndex = steps.findIndex((step) => step.status === 'blocked')
+  if (firstBlockedIndex === -1) return steps
+
+  return steps.map((step, index) => {
+    if (index <= firstBlockedIndex) return step
+    if (step.status === 'complete') return step
+    return { ...step, status: 'waiting' }
+  })
+}
+
+function buildEvidenceTimelineSteps(
+  document: HistoryDocumentView,
+  statement: StatementEvidenceView | null,
+  exportReadiness: ExportReadiness,
+): EvidenceTimelineStep[] {
   const uploadRequestedAudit = findFirstAuditEvent(document.auditEvents, [
     'document.upload_requested',
   ])
@@ -1352,6 +1372,9 @@ function recoveryKindFromDocument(document: HistoryDocumentView): RecoveryKind {
     reason.includes('ocr') ||
     reason.includes('textract') ||
     reason.includes('extraction') ||
+    reason.includes('extractor') ||
+    reason.includes('kotlin') ||
+    reason.includes('normalized') ||
     reason.includes('processing')
   ) {
     return 'ocr_processing_failed'
