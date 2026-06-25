@@ -28,6 +28,12 @@ export type ParsedStatementTransaction = {
   review_reason?: string
 }
 
+export type ParsedStatementMetadataScalar = string | number | boolean | null
+export type ParsedStatementMetadataRecord = Record<string, ParsedStatementMetadataScalar>
+export type ParsedStatementMetadataValue =
+  | ParsedStatementMetadataScalar
+  | ParsedStatementMetadataRecord[]
+
 export type ParsedStatement = {
   statementType: 'bank' | 'credit_card'
   bankName: string | null
@@ -46,7 +52,7 @@ export type ParsedStatement = {
     transactions: number
   }
   reviewFlags: string[]
-  metadata: Record<string, string | number | boolean | null>
+  metadata: Record<string, ParsedStatementMetadataValue>
   billablePageCount: number
   transactions: ParsedStatementTransaction[]
 }

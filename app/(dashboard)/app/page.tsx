@@ -633,15 +633,25 @@ function PreflightConfirmation({ pendingPreflight }: { pendingPreflight: Pending
   const { preflight } = pendingPreflight
   const duplicateFound = preflight.duplicate.isDuplicate
   const balanceAfter = Math.max(0, preflight.currentBalance - preflight.quote.costCredits)
+  const blocked = !preflight.canConvert
+  const duplicateId = preflight.duplicate.existingDocumentId
   const blockedReason = duplicateFound
-    ? 'Resolve the duplicate or add credits before uploading.'
-    : 'Add credits before uploading.'
+    ? duplicateId
+      ? `This PDF was already converted as ${duplicateId}. Open that record or upload a different statement.`
+      : 'This PDF was already converted. Open the existing record or upload a different statement.'
+    : 'Your credit balance is not enough to convert this PDF. Add credits before uploading.'
+  const sectionClass = blocked
+    ? 'rounded-md border border-[var(--danger)] bg-[color-mix(in_oklch,var(--danger)_8%,var(--surface-muted))] p-3 text-sm'
+    : 'rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm'
+  const titleClass = blocked
+    ? 'font-semibold text-[var(--danger)]'
+    : 'font-medium text-[var(--accent)]'
   return (
-    <section className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 text-sm">
-      <p className="font-medium text-[var(--accent)]">
+    <section className={sectionClass}>
+      <p className={titleClass}>
         {preflight.canConvert ? 'Ready to convert' : 'Conversion blocked'}
       </p>
-      {!preflight.canConvert && <p className="mt-1 text-foreground/70">{blockedReason}</p>}
+      {blocked && <p className="mt-1 font-semibold text-[var(--danger)]">{blockedReason}</p>}
       <dl className="mt-3 grid gap-2 sm:grid-cols-2">
         <EvidenceRow
           label="Duplicate"
