@@ -85,6 +85,8 @@ const MAX_WORKER_STATEMENTS = 4
 const MAX_WORKER_TRANSACTIONS = 5000
 const MAX_WORKER_STRING_LENGTH = 1000
 const MAX_WORKER_REVIEW_FLAGS = 100
+const MAX_METADATA_ARRAY_LENGTH = 16
+const MAX_METADATA_RECORD_KEYS = 32
 
 export function createDefaultExtractionEngine(
   input: CreateDefaultExtractionEngineInput = {},
@@ -503,13 +505,30 @@ function isConfidence(value: unknown): value is ParsedStatement['confidence'] {
 
 function isMetadata(value: unknown): value is ParsedStatement['metadata'] {
   if (!isRecord(value)) return false
-  return Object.values(value).every(
-    (entry) =>
-      entry === null ||
-      isBoundedString(entry) ||
-      isFiniteNumber(entry) ||
-      typeof entry === 'boolean',
+  return Object.values(value).every(isMetadataValue)
+}
+
+function isMetadataValue(entry: unknown): boolean {
+  if (isMetadataScalar(entry)) return true
+  // BankEngine emits metadata.additionalAccounts as List<Map<String, scalar>> for combined
+  // statements. Allow one-level arrays of scalar records. Reject any deeper nesting.
+  if (Array.isArray(entry)) {
+    return entry.length <= MAX_METADATA_ARRAY_LENGTH && entry.every(isMetadataScalarRecord)
+  }
+  return false
+}
+
+function isMetadataScalar(value: unknown): boolean {
+  return (
+    value === null || isBoundedString(value) || isFiniteNumber(value) || typeof value === 'boolean'
   )
+}
+
+function isMetadataScalarRecord(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  const keys = Object.keys(value)
+  if (keys.length > MAX_METADATA_RECORD_KEYS) return false
+  return Object.values(value).every(isMetadataScalar)
 }
 
 function isStringArray(value: unknown): value is string[] {

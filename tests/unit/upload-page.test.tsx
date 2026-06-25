@@ -162,12 +162,17 @@ describe('UploadPage', () => {
       new File(['statement'], 'May Statement.pdf', { type: 'application/pdf' }),
     )
 
-    expect(await screen.findByText('Conversion blocked')).toBeInTheDocument()
+    const blockedTitle = await screen.findByText('Conversion blocked')
+    expect(blockedTitle).toBeInTheDocument()
+    expect(blockedTitle.className).toMatch(/--danger/)
     expect(screen.queryByRole('button', { name: 'Confirm conversion' })).not.toBeInTheDocument()
     expect(screen.getByText('Duplicate doc_existing')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Resolve the duplicate or add credits before uploading/),
-    ).toBeInTheDocument()
+    const blockedReason = screen.getByText(
+      /This PDF was already converted as doc_existing\. Open that record or upload a different statement\./,
+    )
+    expect(blockedReason).toBeInTheDocument()
+    expect(blockedReason.className).toMatch(/--danger/)
+    expect(blockedReason.className).toMatch(/font-semibold/)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 

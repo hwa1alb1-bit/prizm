@@ -206,6 +206,73 @@ describe('Kotlin worker extraction engine', () => {
       failureReason: 'Kotlin worker returned invalid normalized statement data.',
     })
   })
+
+  it('accepts BOA combined-statement metadata with additionalAccounts as an array of scalar records', async () => {
+    // BankEngine.kt emits metadata.additionalAccounts as List<Map<String, Any?>> for combined
+    // statements (e.g. BOA Adv Plus + Regular Savings). Wire normalizer must not reject the
+    // structured value. Regression for the "invalid normalized statement data" failure on real
+    // BOA combined PDFs.
+    const worker = workerReturning({
+      ...kotlinBankFixture,
+      statements: [
+        {
+          ...kotlinBankFixture.statements[0],
+          metadata: {
+            issuer: 'Bank of America',
+            beginningBalance: 4402.2,
+            endingBalance: 2697.12,
+            genericLayoutUsed: false,
+            additionalAccounts: [
+              {
+                accountLast4: '0857',
+                statementType: 'bank',
+                transactionCount: 1,
+                openingBalance: 65.04,
+                closingBalance: 0.04,
+              },
+            ],
+          },
+          reviewFlags: ['additional_accounts_detected'],
+        },
+      ],
+    })
+
+    const result = await createKotlinWorkerExtractionEngine({ worker }).poll({
+      jobId: 'worker_boa_combined_123',
+    })
+
+    expect(result).toMatchObject({
+      status: 'succeeded',
+      engine: 'kotlin_worker',
+    })
+    const additional =
+      result.status === 'succeeded' ? result.statements[0]?.metadata.additionalAccounts : null
+    expect(Array.isArray(additional)).toBe(true)
+    expect((additional as Array<Record<string, unknown>>)[0].accountLast4).toBe('0857')
+  })
+
+  it('rejects metadata values that are deeply nested objects beyond one level', async () => {
+    const worker = workerReturning({
+      ...kotlinBankFixture,
+      statements: [
+        {
+          ...kotlinBankFixture.statements[0],
+          metadata: {
+            additionalAccounts: [{ accountLast4: { nested: { deep: 'value' } } }],
+          },
+        },
+      ],
+    })
+
+    const result = await createKotlinWorkerExtractionEngine({ worker }).poll({
+      jobId: 'worker_nested_metadata',
+    })
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      failureReason: 'Kotlin worker returned invalid normalized statement data.',
+    })
+  })
 })
 
 function textractClientReturning(output: unknown) {
