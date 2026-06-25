@@ -4,7 +4,6 @@ import { useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } fr
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ConversionStatusCard } from './conversion-status-card'
-import { OUTPUTS } from './output-formats'
 
 export type UploadStatus =
   | { kind: 'idle' }
@@ -36,24 +35,6 @@ export function takePendingUpload(): File | null {
 export function hasPendingUpload(): boolean {
   if (typeof window === 'undefined') return false
   return window.sessionStorage.getItem(PENDING_UPLOAD_KEY) === '1'
-}
-
-function CheckCircle() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 shrink-0 text-[var(--primary)]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" fill="var(--primary-soft)" />
-      <path d="M8 12.5l2.6 2.6L16 9.5" />
-    </svg>
-  )
 }
 
 function PdfGlyph() {
@@ -197,44 +178,8 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
               : 'border-[var(--border)] bg-[var(--surface-soft)] hover:border-[var(--border-strong)] hover:bg-[var(--primary-soft)]/60 hover:shadow-[var(--elevation-hover)]'
 
   return (
-    <section className="mx-auto grid w-full max-w-7xl gap-10 px-6 py-14 lg:grid-cols-[minmax(0,1.1fr)_minmax(22rem,1fr)] lg:items-start lg:gap-12 lg:px-8 lg:py-18">
+    <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(22rem,1fr)] lg:items-start lg:gap-12">
       <div className="min-w-0">
-        <p className="inline-flex items-center gap-2 rounded-full bg-[var(--primary-soft)] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">
-          <CheckCircle />
-          BANK &amp; CREDIT CARD STATEMENT CONVERTER
-        </p>
-
-        <h1 className="mt-6 font-bold leading-[1.04] tracking-[-0.03em] text-[var(--text-primary)] text-[clamp(2.25rem,5.5vw,4.25rem)]">
-          Turn PDF Statements into{' '}
-          <span className="text-[var(--primary)]">QuickBooks and Xero</span>
-          <wbr />
-          -Ready Files
-        </h1>
-
-        <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--text-secondary)] sm:text-lg">
-          Convert bank, credit card, and financial statements into clean transaction files for
-          QuickBooks, Xero, CSV, and Excel, without manual data entry.
-        </p>
-
-        <ul
-          aria-label="Supported export formats"
-          className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium text-[var(--text-secondary)]"
-        >
-          {OUTPUTS.map((format) => (
-            <li key={format.label} className="flex items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={format.icon}
-                alt={format.alt}
-                width={20}
-                height={20}
-                className="h-5 w-5 shrink-0 rounded-sm object-contain"
-              />
-              <span>{format.label}</span>
-            </li>
-          ))}
-        </ul>
-
         <div
           onDragOver={(event) => {
             if (!isInteractive) return
@@ -259,7 +204,7 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
           aria-disabled={!isInteractive}
           data-status={status.kind}
           style={{ minHeight: '18rem' }}
-          className={`mt-8 flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--focus-ring)] ${dropzoneClass}`}
+          className={`flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--focus-ring)] ${dropzoneClass}`}
         >
           {status.kind === 'uploading' || status.kind === 'processing' ? (
             <Spinner />
@@ -393,6 +338,6 @@ export function UploadHero({ isAuthenticated, rightRailExtras, initialStatus }: 
         />
         {rightRailExtras ? <div className="flex flex-1 flex-col">{rightRailExtras}</div> : null}
       </div>
-    </section>
+    </div>
   )
 }

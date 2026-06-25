@@ -26,24 +26,9 @@ function pickFile() {
 }
 
 describe('UploadHero', () => {
-  it('renders the eyebrow chip and headline', () => {
+  it('does not render an H1 — marketing copy lives in the server-rendered LandingHeroCopy', () => {
     render(<UploadHero isAuthenticated={false} />)
-    expect(screen.getByText(/BANK & CREDIT CARD STATEMENT CONVERTER/)).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: /Turn PDF Statements into QuickBooks and Xero.*Ready Files/i,
-      }),
-    ).toBeInTheDocument()
-  })
-
-  it('renders the four supported export formats inline', () => {
-    render(<UploadHero isAuthenticated={false} />)
-    const formats = screen.getByRole('list', { name: /Supported export formats/i })
-    expect(within(formats).getByText('CSV')).toBeInTheDocument()
-    expect(within(formats).getByText('Excel (XLSX)')).toBeInTheDocument()
-    expect(within(formats).getByText('QuickBooks CSV')).toBeInTheDocument()
-    expect(within(formats).getByText('Xero CSV')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
   })
 
   it('renders an accessible dropzone with file input', () => {

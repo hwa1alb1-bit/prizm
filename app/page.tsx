@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/layout/app-header'
 import { WorkflowStepsRail } from '@/components/marketing/workflow-steps-rail'
 import { TrustCards } from '@/components/marketing/trust-cards'
 import { UploadHero } from '@/components/marketing/upload-hero'
+import { LandingHeroCopy } from '@/components/marketing/landing-hero-copy'
 import { getBillingSummaryForUser } from '@/lib/server/billing/summary'
 import { FREE_DAILY_PAGE_LIMIT, getDailyUsage, todayInUtc } from '@/lib/server/billing/daily-usage'
 import {
@@ -17,9 +18,9 @@ import {
 } from '@/lib/seo/site'
 
 export const metadata = buildPageMetadata({
-  title: 'Bank Statement Converter to Excel and CSV | StatementStudio',
+  title: 'Bank Statement Converter: PDF to Excel, CSV, QuickBooks, Xero | StatementStudio',
   description:
-    'Fast, accurate, and secure conversion of bank and credit card statements. Get clean data you can trust in seconds.',
+    'Convert PDF bank and credit card statements into QuickBooks, Xero, Excel, and CSV files. Automatic mathematical reconciliation to the cent with 24-hour auto-deletion.',
   path: '/',
 })
 
@@ -79,12 +80,15 @@ export default async function Home() {
       <AppHeader authed={visitor.authenticated} credits={visitor.credits} />
 
       <main className="flex-1 bg-[var(--background)] text-[var(--text-primary)]">
-        <Suspense fallback={null}>
-          <UploadHero
-            isAuthenticated={visitor.authenticated}
-            rightRailExtras={<WorkflowStepsRail />}
-          />
-        </Suspense>
+        <section className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-14 lg:gap-12 lg:px-8 lg:py-18">
+          <LandingHeroCopy />
+          <Suspense fallback={null}>
+            <UploadHero
+              isAuthenticated={visitor.authenticated}
+              rightRailExtras={<WorkflowStepsRail />}
+            />
+          </Suspense>
+        </section>
         <TrustCards />
         <PricingSection isAuthenticated={visitor.authenticated} />
       </main>
