@@ -31,4 +31,9 @@ describe('Root layout metadata', () => {
     expect(metadata.openGraph?.title).not.toMatch(/PrizmView/)
     expect((metadata.twitter as { title?: string } | undefined)?.title).not.toMatch(/PrizmView/)
   })
+
+  it('declares the Google Search Console verification token in the root metadata', () => {
+    const verification = metadata.verification as { google?: string } | undefined
+    expect(verification?.google).toBe('6tfBgCcthX5dEemkyM1tbtNRMGmuLYNIsgAJPAGmAuQ')
+  })
 })
