@@ -1,7 +1,9 @@
 import type { NextRequest } from 'next/server'
 import {
   buildStatementExport,
+  SIGN_CONVENTIONS,
   STATEMENT_EXPORT_FORMATS,
+  type SignConvention,
   type StatementExportFormat,
 } from '@/lib/server/statement-export'
 import { createRouteContext, getClientIp, problemResponse, routeHeaders } from '@/lib/server/http'
@@ -37,6 +39,19 @@ export async function GET(
     })
   }
 
+  const signConventionParam = url.searchParams.get('signConvention')
+  if (
+    signConventionParam !== null &&
+    !SIGN_CONVENTIONS.includes(signConventionParam as SignConvention)
+  ) {
+    return problemResponse(context, {
+      status: 400,
+      code: 'PRZM_VALIDATION_SIGN_CONVENTION',
+      title: 'Invalid sign convention',
+      detail: 'signConvention must be auto, bank, or credit_card.',
+    })
+  }
+
   const { documentId } = await params
   const result = await buildStatementExport({
     documentId,
@@ -45,6 +60,7 @@ export async function GET(
     actorIp: getClientIp(request),
     actorUserAgent: request.headers.get('user-agent'),
     routeContext: context,
+    signConvention: (signConventionParam ?? undefined) as SignConvention | undefined,
   })
 
   if (!result.ok) {

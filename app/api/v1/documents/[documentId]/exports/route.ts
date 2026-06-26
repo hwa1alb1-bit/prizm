@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { createStatementExportArtifact } from '@/lib/server/statement-export'
+import { createStatementExportArtifact, SIGN_CONVENTIONS } from '@/lib/server/statement-export'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
 import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
@@ -10,6 +10,7 @@ export const runtime = 'nodejs'
 
 const exportRequestSchema = z.object({
   format: z.literal('csv').optional(),
+  signConvention: z.enum(SIGN_CONVENTIONS).optional(),
 })
 
 export async function POST(
@@ -58,6 +59,7 @@ export async function POST(
     actorIp: getClientIp(request),
     actorUserAgent: request.headers.get('user-agent'),
     routeContext: context,
+    signConvention: parsed.data.signConvention,
   })
 
   if (!result.ok) {

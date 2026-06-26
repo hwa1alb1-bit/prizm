@@ -14,6 +14,16 @@ export const STATEMENT_EXPORT_FORMATS = ['csv', 'xlsx', 'quickbooks_csv', 'xero_
 
 export type StatementExportFormat = (typeof STATEMENT_EXPORT_FORMATS)[number]
 
+/**
+ * Caller-facing override for sign convention. 'auto' uses the statement's stored
+ * statement_type (the historical default). 'bank' / 'credit_card' force the export pipeline
+ * to apply the named convention regardless of statement_type. Constants live in
+ * lib/shared/sign-convention.ts so the UI can import them without crossing the server-only
+ * barrier.
+ */
+export { SIGN_CONVENTIONS, type SignConvention } from '../shared/sign-convention'
+import { resolveSignConvention, type SignConvention } from '../shared/sign-convention'
+
 export type BuildStatementExportInput = {
   documentId: string
   format: StatementExportFormat
@@ -21,6 +31,8 @@ export type BuildStatementExportInput = {
   actorIp: string | null
   actorUserAgent: string | null
   routeContext: RouteContext
+  /** Override the statement's stored statement_type for sign-mapping. Defaults to 'auto'. */
+  signConvention?: SignConvention
   store?: StatementExportStore
 }
 
@@ -31,6 +43,8 @@ export type CreateStatementExportArtifactInput = {
   actorIp: string | null
   actorUserAgent: string | null
   routeContext: RouteContext
+  /** Override the statement's stored statement_type for sign-mapping. Defaults to 'auto'. */
+  signConvention?: SignConvention
   idFactory?: () => string
   store?: StatementExportArtifactStore
   objectStore?: StatementExportObjectStore
@@ -302,7 +316,11 @@ export async function buildStatementExport(
       'Resolve reconciliation before exporting ledger output.',
     )
 
-  const rows = exportRows(statement.transactions, statement.statement_type)
+  const rows = exportRows(
+    statement.transactions,
+    statement.statement_type,
+    input.signConvention,
+  )
   const invalidRows = rows.filter(rowIsInvalid)
   if (invalidRows.length > 0) {
     return problem(
@@ -412,7 +430,11 @@ export async function createStatementExportArtifact(
       'Resolve reconciliation before exporting ledger output.',
     )
 
-  const rows = exportRows(statement.transactions, statement.statement_type)
+  const rows = exportRows(
+    statement.transactions,
+    statement.statement_type,
+    input.signConvention,
+  )
   const invalidRows = rows.filter(rowIsInvalid)
   if (invalidRows.length > 0) {
     return problem(
@@ -699,9 +721,14 @@ function isNumericLiteral(value: string): boolean {
   return /^-\d+(?:\.\d+)?$/.test(value.trim())
 }
 
-function exportRows(value: Json, statementType: string | null | undefined): ExportRow[] {
+function exportRows(
+  value: Json,
+  statementType: string | null | undefined,
+  signConvention: SignConvention = 'auto',
+): ExportRow[] {
   if (!Array.isArray(value)) return []
-  return value.map((row) => exportRow(row, statementType === 'credit_card'))
+  const isCreditCard = resolveSignConvention(statementType, signConvention) === 'credit_card'
+  return value.map((row) => exportRow(row, isCreditCard))
 }
 
 function exportRow(value: Json, isCreditCard: boolean): ExportRow {
