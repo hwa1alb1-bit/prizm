@@ -45,6 +45,7 @@ export const marketingProofRoutes = [
   '/throughput',
   '/sample-output',
   '/issuers',
+  '/bank',
 ] as const
 
 export const publicSitemapRoutes = [
