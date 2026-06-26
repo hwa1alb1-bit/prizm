@@ -88,7 +88,7 @@ object BankRowExtractor {
               pendingDescription.append(trailing.descriptionRemainder)
             }
             commit(trailing.amount)
-          } else {
+          } else if (!isInterstitialBanner(line)) {
             if (pendingDescription.isNotEmpty()) pendingDescription.append(' ')
             pendingDescription.append(line)
           }
@@ -113,7 +113,26 @@ object BankRowExtractor {
     if (line.contains("   !   ", ignoreCase = false)) return true
     return false
   }
+
+  /**
+   * True when [line] looks like a non-transactional interstitial banner inserted between
+   * page breaks — marketing URLs, FDIC/Equal-Housing-Lender disclaimers, etc. Used inside
+   * the description-continuation branch so banner text cannot leak into a wrapped row.
+   * Conservative on purpose: real transaction lines have a trailing amount and never reach
+   * this path (they branch through [trailingAmountOrNull] first).
+   */
+  private fun isInterstitialBanner(line: String): Boolean {
+    if (INTERSTITIAL_URL_PATTERN.containsMatchIn(line)) return true
+    if (INTERSTITIAL_DISCLAIMER_PATTERN.containsMatchIn(line)) return true
+    return false
+  }
 }
+
+private val INTERSTITIAL_URL_PATTERN = Regex("""[a-zA-Z][a-zA-Z0-9]*\.(?:com|org|net|gov)\b""", RegexOption.IGNORE_CASE)
+private val INTERSTITIAL_DISCLAIMER_PATTERN = Regex(
+  """Member\s+FDIC|Equal\s+Housing\s+Lender""",
+  RegexOption.IGNORE_CASE,
+)
 
 private data class TrailingAmount(val amount: Double, val descriptionRemainder: String)
 
