@@ -45,6 +45,8 @@ export const marketingProofRoutes = [
   '/throughput',
   '/sample-output',
   '/issuers',
+  '/bank',
+  '/integrate',
 ] as const
 
 export const publicSitemapRoutes = [
@@ -103,10 +105,15 @@ export function buildSoftwareApplicationJsonLd() {
     '@type': 'SoftwareApplication',
     name: siteName,
     applicationCategory: 'BusinessApplication',
-    operatingSystem: 'Web',
+    operatingSystem: 'All',
     url: siteUrl,
     description:
       'StatementStudio converts PDF bank statements into reviewable Excel and CSV-ready transaction data.',
+    offers: {
+      '@type': 'Offer',
+      price: '0.00',
+      priceCurrency: 'USD',
+    },
     featureList: [
       'PDF bank statement upload',
       'Transaction review before export',

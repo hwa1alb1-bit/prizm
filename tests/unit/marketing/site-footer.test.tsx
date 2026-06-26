@@ -24,4 +24,34 @@ describe('SiteFooter', () => {
     const contact = screen.getByRole('link', { name: 'Contact' })
     expect(contact.getAttribute('href')).toMatch(/^mailto:/)
   })
+
+  it('flows link equity to the proof and conversion pages from the footer', () => {
+    render(<SiteFooter />)
+    expect(screen.getByRole('link', { name: /How we verify/i })).toHaveAttribute(
+      'href',
+      '/how-we-verify',
+    )
+    expect(screen.getByRole('link', { name: /Throughput/i })).toHaveAttribute('href', '/throughput')
+    expect(screen.getByRole('link', { name: /Supported issuers/i })).toHaveAttribute(
+      'href',
+      '/issuers',
+    )
+    expect(screen.getByRole('link', { name: /Sample output/i })).toHaveAttribute(
+      'href',
+      '/sample-output',
+    )
+    expect(screen.getByRole('link', { name: /Conversion FAQ/i })).toHaveAttribute(
+      'href',
+      '/faq/bank-statement-conversion',
+    )
+    expect(screen.getByRole('link', { name: /Billing FAQ/i })).toHaveAttribute('href', '/help')
+  })
+
+  it('exposes Product, Trust, Resources, and Legal column landmarks', () => {
+    render(<SiteFooter />)
+    expect(screen.getByRole('navigation', { name: /Product/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /Trust/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /Resources/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /Legal/i })).toBeInTheDocument()
+  })
 })

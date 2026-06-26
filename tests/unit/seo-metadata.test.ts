@@ -36,6 +36,19 @@ describe('SEO metadata helpers', () => {
     expect(serialized).not.toMatch(/PrizmView/)
   })
 
+  it('declares Offer + cross-platform operatingSystem so Google can render the free-app rich result', () => {
+    const schema = buildSoftwareApplicationJsonLd() as Record<string, unknown>
+
+    expect(schema.applicationCategory).toBe('BusinessApplication')
+    expect(schema.operatingSystem).toBe('All')
+
+    const offers = schema.offers as Record<string, unknown> | undefined
+    expect(offers).toBeDefined()
+    expect(offers?.['@type']).toBe('Offer')
+    expect(offers?.price).toBe('0.00')
+    expect(offers?.priceCurrency).toBe('USD')
+  })
+
   it('builds organization, breadcrumb, and FAQ schema for public pages', () => {
     expect(buildOrganizationJsonLd()).toMatchObject({
       '@type': 'Organization',

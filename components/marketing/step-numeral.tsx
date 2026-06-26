@@ -1,13 +1,15 @@
-// Shared numeral pill used by the marketing workflow steps rail on the landing page.
+// Numeric badge for the marketing workflow steps band.
+//
+// Flat Audit Teal per DESIGN.md: the Rare Accent Rule forbids gradient washes
+// or large brand fields; numerals are the smallest possible accent surface,
+// solid color, no shadow. Number is decorative — the ordered list semantics
+// carry order to assistive tech.
 
 export function StepNumeral({ n }: { n: number }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-[0_3px_8px_rgba(79,70,229,0.24)]"
-      style={{
-        background: 'radial-gradient(circle at 28% 26%, #2DD4BF 0%, #4F46E5 55%, #3730A3 100%)',
-      }}
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-sm font-semibold text-[var(--accent-foreground)]"
     >
       {n}
     </span>

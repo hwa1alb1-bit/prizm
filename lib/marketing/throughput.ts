@@ -56,3 +56,39 @@ export function loadLatestBenchmark(): Benchmark | null {
     return null
   }
 }
+
+export type BenchmarkSummary = {
+  peakConcurrency: number
+  timeToReadyP95Ms: number
+  timeToReadyP95Display: string
+  acceptanceP95Ms: number
+  generatedAt: string
+}
+
+/**
+ * Picks the highest-concurrency run (most stressful test) as the headline
+ * figure for marketing copy and formats time-to-ready P95 for display.
+ *
+ * Returns null when there is no benchmark to summarize, so callers can fall
+ * back to abstract copy without runtime errors.
+ */
+export function formatBenchmarkSummary(benchmark: Benchmark | null): BenchmarkSummary | null {
+  if (!benchmark) return null
+  const runs = benchmark.runs
+  if (!runs || runs.length === 0) return null
+
+  const headline = runs.reduce((best, current) =>
+    current.concurrency > best.concurrency ? current : best,
+  )
+
+  const seconds = headline.timeToReadyP95Ms / 1000
+  const timeToReadyP95Display = seconds < 1 ? `${seconds.toFixed(2)}s` : `${seconds.toFixed(1)}s`
+
+  return {
+    peakConcurrency: headline.concurrency,
+    timeToReadyP95Ms: headline.timeToReadyP95Ms,
+    timeToReadyP95Display,
+    acceptanceP95Ms: headline.convertAcceptanceP95Ms,
+    generatedAt: benchmark.generatedAt,
+  }
+}
