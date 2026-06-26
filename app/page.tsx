@@ -83,12 +83,10 @@ export default async function Home() {
         <section className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-14 lg:gap-12 lg:px-8 lg:py-18">
           <LandingHeroCopy />
           <Suspense fallback={null}>
-            <UploadHero
-              isAuthenticated={visitor.authenticated}
-              rightRailExtras={<WorkflowStepsRail />}
-            />
+            <UploadHero isAuthenticated={visitor.authenticated} />
           </Suspense>
         </section>
+        <WorkflowStepsRail />
         <TrustCards />
         <PricingSection isAuthenticated={visitor.authenticated} />
       </main>

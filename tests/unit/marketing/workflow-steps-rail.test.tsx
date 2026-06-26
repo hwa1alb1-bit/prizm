@@ -30,4 +30,24 @@ describe('WorkflowStepsRail', () => {
     render(<WorkflowStepsRail />)
     expect(screen.queryByText(/TLS 1\.2/)).toBeNull()
   })
+
+  it('exposes the workflow as a discoverable landmark region', () => {
+    render(<WorkflowStepsRail />)
+    expect(screen.getByRole('region', { name: /workflow/i })).toBeInTheDocument()
+  })
+
+  it('renders numeric badges 1 through 4 inline with each step', () => {
+    render(<WorkflowStepsRail />)
+    const items = screen.getAllByRole('listitem')
+    expect(items).toHaveLength(4)
+    items.forEach((item, index) => {
+      expect(item.textContent).toContain(String(index + 1))
+    })
+  })
+
+  it('does not paint the step numerals with a decorative gradient (DESIGN.md Rare Accent Rule)', () => {
+    const { container } = render(<WorkflowStepsRail />)
+    const html = container.innerHTML
+    expect(html).not.toMatch(/radial-gradient|linear-gradient/i)
+  })
 })
