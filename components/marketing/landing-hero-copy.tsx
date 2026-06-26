@@ -1,22 +1,5 @@
+import { CheckCircle } from '@/components/shared/check-circle'
 import { OUTPUTS } from './output-formats'
-
-function CheckCircle() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="h-4 w-4 shrink-0 text-[var(--primary)]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" fill="var(--primary-soft)" />
-      <path d="M8 12.5l2.6 2.6L16 9.5" />
-    </svg>
-  )
-}
 
 export function LandingHeroCopy() {
   return (

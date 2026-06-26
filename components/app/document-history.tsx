@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { CheckCircle } from '@/components/shared/check-circle'
 import { EditableReviewWorkflow } from './editable-review-workflow'
 import { ExportActions } from './export-actions'
 import { ProcessingStatusRefresh } from './processing-status-refresh'
@@ -138,6 +139,10 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
           <EvidenceTimeline steps={timeline} />
         </EvidenceSection>
 
+        <EvidenceSection title="Export Status">
+          <ExportReadinessPanel document={document} readiness={exportReadiness} />
+        </EvidenceSection>
+
         <EvidenceSection title="Statement summary">
           <StatementSummary
             document={document}
@@ -163,52 +168,12 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
           <TransactionTable document={document} statement={primaryStatement} />
         </EvidenceSection>
 
-        <EvidenceSection title="Export readiness">
-          <ExportReadinessPanel document={document} readiness={exportReadiness} />
-        </EvidenceSection>
-
         <DisclosureSection
           title="Exceptions"
           hint={exceptions.length > 0 ? `${exceptions.length} open` : 'Clear'}
           defaultOpen={exceptions.length > 0}
         >
           <ExceptionsPanel exceptions={exceptions} statement={primaryStatement} />
-        </DisclosureSection>
-
-        <DisclosureSection
-          title="Reconciliation result"
-          hint={reconciliationLabel(primaryStatement?.reconciles ?? null)}
-          defaultOpen={primaryStatement ? primaryStatement.reconciles !== true : false}
-        >
-          <ReconciliationResult statement={primaryStatement} />
-        </DisclosureSection>
-
-        <div className="grid gap-5 lg:grid-cols-2">
-          <DisclosureSection
-            title="Document record"
-            hint={documentIsDeleted(document) ? 'Removed' : 'Retained'}
-          >
-            <DocumentEvidence document={document} />
-          </DisclosureSection>
-
-          <DisclosureSection title="Review position">
-            <dl className="space-y-3 text-sm">
-              <EvidenceRow label="State" value={documentStateLabel(document.state)} />
-              <EvidenceRow
-                label="Statement rows"
-                value={formatCount(primaryStatement?.transactionCount ?? 0, 'transaction')}
-              />
-              <EvidenceRow
-                label="Reconciliation"
-                value={reconciliationLabel(primaryStatement?.reconciles ?? null)}
-              />
-              <EvidenceRow label="Export state" value={exportReadiness.label} />
-            </dl>
-          </DisclosureSection>
-        </div>
-
-        <DisclosureSection title="Audit trail" hint={`${document.auditEvents.length} events`}>
-          <AuditTrail events={document.auditEvents} />
         </DisclosureSection>
       </div>
     </div>
@@ -886,7 +851,6 @@ type ExportReadiness = {
 
 type ExportAction = {
   format: 'csv' | 'xlsx' | 'quickbooks_csv' | 'xero_csv'
-  label: string
 }
 
 function FailureRecoveryStack({ cards }: { cards: RecoveryCardData[] }) {
@@ -1066,50 +1030,6 @@ function ExceptionsPanel({
   )
 }
 
-function ReconciliationResult({ statement }: { statement: StatementEvidenceView | null }) {
-  if (!statement) {
-    return (
-      <p className="text-sm text-foreground/60">
-        Reconciliation will run after statement totals and transactions are available.
-      </p>
-    )
-  }
-
-  const delta = reconciliationDelta(statement)
-  const tone =
-    statement.reconciles === true
-      ? 'success'
-      : statement.reconciles === false
-        ? 'danger'
-        : 'warning'
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold">{reconciliationLabel(statement.reconciles)}</p>
-          <p className="mt-1 text-sm leading-6 text-foreground/65">
-            Reported total is compared with the computed total from extracted rows.
-          </p>
-        </div>
-        <ReviewToneBadge tone={tone}>{reconciliationLabel(statement.reconciles)}</ReviewToneBadge>
-      </div>
-      <EvidenceGrid>
-        <EvidenceRow label="Reported total" value={formatMoney(statement.reportedTotal)} />
-        <EvidenceRow label="Computed total" value={formatMoney(statement.computedTotal)} />
-        <EvidenceRow label="Delta" value={formatMoney(delta)} />
-        <EvidenceRow label="Statement ID" value={statement.id} />
-      </EvidenceGrid>
-      {statement.reconciles === false && (
-        <p className="text-sm leading-6 text-[var(--danger)]">
-          Next action: compare the source PDF against rows marked for review, then resolve missing
-          or duplicate transactions before export.
-        </p>
-      )}
-    </div>
-  )
-}
-
 function ExportReadinessPanel({
   document,
   readiness,
@@ -1121,7 +1041,10 @@ function ExportReadinessPanel({
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-semibold">{readiness.label}</p>
+          <p className="inline-flex items-center gap-2 text-sm font-semibold">
+            {readiness.tone === 'success' && <CheckCircle tone="success" className="h-4 w-4" />}
+            <span>{readiness.label}</span>
+          </p>
           <p className="mt-1 text-sm leading-6 text-foreground/65">Cause: {readiness.cause}</p>
         </div>
         <ReviewToneBadge tone={readiness.tone}>{readiness.label}</ReviewToneBadge>
@@ -1141,87 +1064,6 @@ function ExportReadinessPanel({
         <ExportActions documentId={document.id} actions={readiness.actions} />
       )}
     </div>
-  )
-}
-
-function DocumentEvidence({ document }: { document: HistoryDocumentView }) {
-  return (
-    <EvidenceGrid>
-      {/* SECURITY-AUDIT: relabeled Document ID to Support reference; removed raw mime Content type row */}
-      <EvidenceRow label="Support reference" value={document.id} />
-      <EvidenceRow label="Uploaded" value={formatDateTime(document.createdAt)} />
-      <EvidenceRow label="Expires" value={formatDateTime(document.expiresAt)} />
-      <EvidenceRow label="Deletion" value={deletionStateCopy(document)} />
-      <EvidenceRow label="Size" value={formatBytes(document.sizeBytes)} />
-      <EvidenceRow label="Pages" value={document.pages?.toString() ?? 'Not counted'} />
-    </EvidenceGrid>
-  )
-}
-
-function documentIsDeleted(document: HistoryDocumentView): boolean {
-  return Boolean(
-    document.deletedAt ||
-    document.deletionEvidence?.deletionAuditedAt ||
-    document.deletionEvidence?.receiptSentAt ||
-    document.deletionEvidence?.receiptStatus === 'sent',
-  )
-}
-
-function deletionStateCopy(document: HistoryDocumentView): string {
-  if (documentIsDeleted(document)) {
-    return 'Deleted'
-  }
-
-  return `Scheduled to auto-delete until ${formatDateTime(document.expiresAt)}`
-}
-
-function AuditTrail({ events }: { events: AuditEventEvidenceView[] }) {
-  if (events.length === 0) {
-    return <p className="text-sm text-foreground/60">No audit events are attached yet.</p>
-  }
-
-  return (
-    <ol className="divide-y divide-[var(--border-subtle)]">
-      {events.map((event) => (
-        <AuditEventItem key={event.id} event={event} />
-      ))}
-    </ol>
-  )
-}
-
-function auditEventLabel(eventType: string): string {
-  const map: Record<string, string> = {
-    'document.upload_requested': 'Upload requested',
-    'document.upload_completed': 'Upload complete',
-    'document.processing_started': 'Processing started',
-    'document.ocr_completed': 'Document read',
-    'document.processing_completed': 'Document read',
-    'document.ready': 'Ready for review',
-    'document.export_generated': 'Export ready',
-    'statement.export_generated': 'Export ready',
-    'export.generated': 'Export ready',
-    'document.deleted': 'Document deleted',
-    'document.processing_failed': 'Processing failed',
-    'document.failed': 'Failed',
-  }
-  if (map[eventType]) return map[eventType]
-  const words = eventType.replace(/[._]/g, ' ').trim()
-  return words.charAt(0).toUpperCase() + words.slice(1)
-}
-
-function AuditEventItem({ event }: { event: AuditEventEvidenceView }) {
-  return (
-    <li className="py-3 first:pt-0 last:pb-0">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        {/* SECURITY-AUDIT: humanized raw audit event type for users */}
-        <p className="font-medium">{auditEventLabel(event.eventType)}</p>
-        <p className="text-xs text-foreground/55">{formatDateTime(event.createdAt)}</p>
-      </div>
-      <dl className="mt-2 grid gap-2 text-xs">
-        {/* SECURITY-AUDIT: removed Request/Trace ID/Actor rows; kept opaque audit event id as Support reference */}
-        <EvidenceRow label="Support reference" value={event.id} />
-      </dl>
-    </li>
   )
 }
 
@@ -1563,10 +1405,10 @@ export function exportActionsFor(statement: StatementEvidenceView): ExportAction
   const reviewStatus = statementReviewStatus(statement)
   if (reviewStatus !== 'reviewed') return []
   return [
-    { format: 'csv', label: 'CSV' },
-    { format: 'xlsx', label: 'XLSX' },
-    { format: 'quickbooks_csv', label: 'QuickBooks CSV' },
-    { format: 'xero_csv', label: 'Xero CSV' },
+    { format: 'csv' },
+    { format: 'xlsx' },
+    { format: 'quickbooks_csv' },
+    { format: 'xero_csv' },
   ]
 }
 
@@ -1816,11 +1658,6 @@ function reconciliationLabel(value: boolean | null): string {
   if (value === true) return 'Reconciles'
   if (value === false) return 'Needs review'
   return 'Not checked'
-}
-
-function formatBytes(size: number): string {
-  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function formatCount(count: number, singular: string): string {
