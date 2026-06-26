@@ -26,6 +26,7 @@ const COLUMNS: ReadonlyArray<FooterColumn> = [
     heading: 'Resources',
     links: [
       { label: 'Conversion FAQ', href: '/faq/bank-statement-conversion' },
+      { label: 'Billing FAQ', href: '/help' },
       { label: 'API Docs', href: '/docs/errors' },
       { label: 'Rate limits', href: '/docs/rate-limits' },
     ],

@@ -44,6 +44,7 @@ describe('SiteFooter', () => {
       'href',
       '/faq/bank-statement-conversion',
     )
+    expect(screen.getByRole('link', { name: /Billing FAQ/i })).toHaveAttribute('href', '/help')
   })
 
   it('exposes Product, Trust, Resources, and Legal column landmarks', () => {

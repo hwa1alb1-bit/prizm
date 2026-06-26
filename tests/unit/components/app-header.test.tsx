@@ -64,13 +64,13 @@ describe('AppHeader', () => {
     expect(screen.queryByText(/today/i)).toBeNull()
   })
 
-  it('shows a FAQ link in the header when unauthenticated', () => {
+  it('does not render an FAQ link in the header — billing FAQ now lives in the footer Resources column', () => {
     render(<AppHeader authed={false} />)
-    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/help')
+    expect(screen.queryByRole('link', { name: 'FAQ' })).toBeNull()
   })
 
-  it('shows a FAQ link in the header when authenticated', () => {
+  it('does not render an FAQ link in the header when authenticated either', () => {
     render(<AppHeader authed />)
-    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/help')
+    expect(screen.queryByRole('link', { name: 'FAQ' })).toBeNull()
   })
 })
