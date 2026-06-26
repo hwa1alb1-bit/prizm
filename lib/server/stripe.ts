@@ -15,7 +15,7 @@ export function getStripeClient(): Stripe {
     throw new Error('STRIPE_SECRET_KEY not configured')
   }
   cached = new Stripe(key, {
-    apiVersion: '2026-04-22.dahlia',
+    apiVersion: Stripe.API_VERSION,
     typescript: true,
     appInfo: {
       name: 'prizm',
