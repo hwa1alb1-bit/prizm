@@ -1,12 +1,7 @@
-export type OutputFormat = {
-  label: string
-  icon: string
-  alt: string
-}
+import { EXPORT_FORMAT_ORDER, FORMAT_META, type FormatMeta } from '@/components/shared/format-meta'
 
-export const OUTPUTS: ReadonlyArray<OutputFormat> = [
-  { label: 'CSV', icon: '/marketing/logos/excel.png', alt: 'Microsoft Excel CSV' },
-  { label: 'Excel (XLSX)', icon: '/marketing/logos/excel.png', alt: 'Microsoft Excel XLSX' },
-  { label: 'QuickBooks CSV', icon: '/marketing/logos/quickbooks.png', alt: 'QuickBooks' },
-  { label: 'Xero CSV', icon: '/marketing/logos/xero.png', alt: 'Xero' },
-]
+export type OutputFormat = FormatMeta
+
+export const OUTPUTS: ReadonlyArray<OutputFormat> = EXPORT_FORMAT_ORDER.map(
+  (format) => FORMAT_META[format],
+)

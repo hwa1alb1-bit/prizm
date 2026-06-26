@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ExportActions } from '@/components/app/export-actions'
+import { ExportActions, type ExportActionItem } from '@/components/app/export-actions'
 
 const { fetchMock, refresh } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
@@ -12,11 +12,11 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh }),
 }))
 
-const actions = [
-  { format: 'csv', label: 'CSV' },
-  { format: 'xlsx', label: 'XLSX' },
-  { format: 'quickbooks_csv', label: 'QuickBooks CSV' },
-  { format: 'xero_csv', label: 'Xero CSV' },
+const actions: ExportActionItem[] = [
+  { format: 'csv' },
+  { format: 'xlsx' },
+  { format: 'quickbooks_csv' },
+  { format: 'xero_csv' },
 ]
 
 beforeEach(() => {
@@ -51,7 +51,7 @@ describe('ExportActions', () => {
     render(<ExportActions documentId="doc_ready" actions={actions} />)
 
     expect(screen.getByRole('button', { name: 'CSV' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'XLSX' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Excel (XLSX)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'QuickBooks CSV' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Xero CSV' })).toBeInTheDocument()
   })
@@ -79,7 +79,7 @@ describe('ExportActions', () => {
 
       expect(fetchMock).toHaveBeenCalledWith(`/api/v1/documents/doc_ready/export?format=${format}`)
       await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
-      expect(screen.getByRole('status')).toHaveTextContent('Export downloaded.')
+      expect(screen.getByRole('status')).toHaveTextContent(/export downloaded\.$/)
     },
   )
 
@@ -93,7 +93,7 @@ describe('ExportActions', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/documents/doc_ready/export?format=csv')
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('status')).toHaveTextContent('Export downloaded.')
+    expect(screen.getByRole('status')).toHaveTextContent(/export downloaded\.$/)
   })
 
   it('surfaces a recoverable error and does not refresh when the export fails', async () => {
@@ -102,7 +102,7 @@ describe('ExportActions', () => {
 
     render(<ExportActions documentId="doc_ready" actions={actions} />)
 
-    await user.click(screen.getByRole('button', { name: 'XLSX' }))
+    await user.click(screen.getByRole('button', { name: 'Excel (XLSX)' }))
 
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(

@@ -133,7 +133,7 @@ describe('DocumentReview', () => {
     expect(screen.getByText('Deletion completed')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Statement summary' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Transaction table' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Export readiness' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Export Status' })).toBeInTheDocument()
     expect(
       screen.getByText(/StatementStudio has proven the upload request, document verification/),
     ).toBeInTheDocument()
@@ -142,8 +142,6 @@ describe('DocumentReview', () => {
     expect(screen.queryByText('textract_job_123')).not.toBeInTheDocument()
     expect(screen.queryByText('Trace ID')).not.toBeInTheDocument()
     expect(screen.queryByText('0123456789abcdef0123456789abcdef')).not.toBeInTheDocument()
-    expect(screen.getByText('Upload complete')).toBeInTheDocument()
-    expect(screen.getByText('Processing started')).toBeInTheDocument()
     expect(screen.getAllByText('Elapsed time')).toHaveLength(1)
     expect(screen.getAllByText('Retention deadline').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Statement extraction pending')).toBeInTheDocument()
@@ -189,8 +187,11 @@ describe('DocumentReview', () => {
     expect(screen.getByRole('heading', { name: 'Statement summary' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Transaction table' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Exceptions' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Reconciliation result' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Export readiness' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Export Status' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Reconciliation result' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Audit trail' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Document record' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Review position' })).not.toBeInTheDocument()
     expect(screen.getByText('ACH Payroll')).toBeInTheDocument()
     expect(screen.getByText('Bank service fee')).toBeInTheDocument()
     expect(screen.getByText('No exceptions flagged')).toBeInTheDocument()
@@ -209,28 +210,19 @@ describe('DocumentReview', () => {
 
     expect(screen.getByRole('heading', { name: 'Statement summary' }).closest('details')).toBeNull()
     expect(screen.getByRole('heading', { name: 'Transaction table' }).closest('details')).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Export readiness' }).closest('details')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Export Status' }).closest('details')).toBeNull()
 
-    expect(
-      screen.getByRole('heading', { name: 'Audit trail' }).closest('details'),
-    ).not.toHaveAttribute('open')
-    expect(
-      screen.getByRole('heading', { name: 'Document record' }).closest('details'),
-    ).not.toHaveAttribute('open')
     expect(
       screen.getByRole('heading', { name: 'Exceptions' }).closest('details'),
     ).not.toHaveAttribute('open')
   })
 
-  it('auto-opens exceptions and reconciliation when they need attention', () => {
+  it('auto-opens exceptions when they need attention', () => {
     render(<DocumentReview document={incompleteMismatchDocument()} />)
 
     expect(screen.getByRole('heading', { name: 'Exceptions' }).closest('details')).toHaveAttribute(
       'open',
     )
-    expect(
-      screen.getByRole('heading', { name: 'Reconciliation result' }).closest('details'),
-    ).toHaveAttribute('open')
   })
 
   it('renders credit-card statement metadata and visible export actions', () => {
@@ -248,7 +240,7 @@ describe('DocumentReview', () => {
     expect(screen.getByText('Interest charged')).toBeInTheDocument()
     expect(screen.getByText('Download as')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'CSV' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'XLSX' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Excel (XLSX)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'QuickBooks CSV' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Xero CSV' })).toBeInTheDocument()
   })
@@ -261,7 +253,7 @@ describe('DocumentReview', () => {
       screen.getByText(/Statement review must be completed before export\./),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'CSV' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'XLSX' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Excel (XLSX)' })).not.toBeInTheDocument()
   })
 
   it('blocks visible export actions when review status is missing', () => {
@@ -331,17 +323,6 @@ describe('DocumentReview', () => {
     expect(screen.getByText(/missing account last 4, statement period/)).toBeInTheDocument()
     expect(screen.getAllByText('Transaction row 1').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Export blocked').length).toBeGreaterThan(0)
-  })
-
-  it('uses scheduled auto-delete copy until deletion evidence exists', () => {
-    const { rerender } = render(<DocumentReview document={notExpiringDocument()} />)
-
-    expect(screen.getByText(/Scheduled to auto-delete until/)).toBeInTheDocument()
-    expect(screen.queryByText('Deleted')).not.toBeInTheDocument()
-
-    rerender(<DocumentReview document={historyDocument()} />)
-
-    expect(screen.getByText('Deleted')).toBeInTheDocument()
   })
 })
 

@@ -30,10 +30,10 @@ function statement(overrides: Partial<StatementEvidenceView> = {}): StatementEvi
 describe('exportActionsFor', () => {
   it('returns the four supported export formats in CSV, XLSX, QuickBooks, Xero order for reviewed statements', () => {
     expect(exportActionsFor(statement())).toEqual([
-      { format: 'csv', label: 'CSV' },
-      { format: 'xlsx', label: 'XLSX' },
-      { format: 'quickbooks_csv', label: 'QuickBooks CSV' },
-      { format: 'xero_csv', label: 'Xero CSV' },
+      { format: 'csv' },
+      { format: 'xlsx' },
+      { format: 'quickbooks_csv' },
+      { format: 'xero_csv' },
     ])
   })
 

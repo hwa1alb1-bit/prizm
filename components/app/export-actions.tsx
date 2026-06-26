@@ -2,10 +2,11 @@
 
 import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CheckCircle } from '@/components/shared/check-circle'
+import { FORMAT_META, type ExportFormat } from '@/components/shared/format-meta'
 
-type ExportActionItem = {
-  format: string
-  label: string
+export type ExportActionItem = {
+  format: ExportFormat
 }
 
 function filenameFromDisposition(header: string | null, fallback: string): string {
@@ -23,9 +24,9 @@ export function ExportActions({
 }) {
   const router = useRouter()
   const statusId = useId()
-  const [busyFormat, setBusyFormat] = useState<string | null>(null)
-  const [downloadedFormat, setDownloadedFormat] = useState<string | null>(null)
-  const [failedFormat, setFailedFormat] = useState<string | null>(null)
+  const [busyFormat, setBusyFormat] = useState<ExportFormat | null>(null)
+  const [downloadedFormat, setDownloadedFormat] = useState<ExportFormat | null>(null)
+  const [failedFormat, setFailedFormat] = useState<ExportFormat | null>(null)
 
   async function runExport(action: ExportActionItem) {
     if (busyFormat) return
@@ -65,21 +66,21 @@ export function ExportActions({
     }
   }
 
+  const downloadedLabel = downloadedFormat ? FORMAT_META[downloadedFormat].label : null
   const statusMessage = failedFormat
     ? 'Export could not be prepared. Try again.'
     : busyFormat
-      ? 'Preparing your export.'
-      : downloadedFormat
-        ? 'Export downloaded.'
+      ? `Preparing your ${FORMAT_META[busyFormat].label} export.`
+      : downloadedLabel
+        ? `${downloadedLabel} export downloaded.`
         : ''
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-foreground/55">
-        Download as
-      </p>
-      <div className="flex flex-wrap gap-2" aria-label="Export actions">
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-[var(--text-primary)]">Download as</p>
+      <div className="flex flex-wrap gap-2.5" aria-label="Export actions">
         {actions.map((action) => {
+          const meta = FORMAT_META[action.format]
           const busy = busyFormat === action.format
           const done = downloadedFormat === action.format && !busy
           return (
@@ -90,14 +91,21 @@ export function ExportActions({
               disabled={Boolean(busyFormat)}
               aria-busy={busy}
               aria-describedby={statusId}
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--border-subtle)] px-3 text-sm font-medium hover:bg-[var(--surface-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {done && (
-                <span aria-hidden="true" className="text-[var(--success)]">
-                  ✓
-                </span>
+              {done ? (
+                <CheckCircle tone="success" className="h-4 w-4" />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={meta.icon}
+                  alt=""
+                  width={18}
+                  height={18}
+                  className="h-[18px] w-[18px] shrink-0 rounded-sm bg-white object-contain p-0.5"
+                />
               )}
-              <span>{busy ? `Preparing ${action.label}` : action.label}</span>
+              <span>{busy ? `Preparing ${meta.label}` : meta.label}</span>
             </button>
           )
         })}
