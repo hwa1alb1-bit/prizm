@@ -48,4 +48,16 @@ describe('TrustCards', () => {
       'https://observatory.mozilla.org/analyze/pdftoexcelstatementconverter.com',
     )
   })
+
+  it('surfaces a concrete P95 number in the throughput tile (E-E-A-T)', () => {
+    render(<TrustCards />)
+    const throughputTile = document.querySelector('[data-card="throughput"]')
+    if (!throughputTile) throw new Error('throughput tile not found')
+    expect(throughputTile.textContent).toMatch(/P95.*\d+(\.\d+)?\s?(ms|s)/i)
+  })
+
+  it('states explicitly that no humans review uploaded statements (retention/privacy tile)', () => {
+    render(<TrustCards />)
+    expect(screen.getByText(/no humans? (review|read)/i)).toBeInTheDocument()
+  })
 })
