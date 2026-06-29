@@ -317,11 +317,7 @@ export async function buildStatementExport(
       'Resolve reconciliation before exporting ledger output.',
     )
 
-  const rows = exportRows(
-    statement.transactions,
-    statement.statement_type,
-    input.signConvention,
-  )
+  const rows = exportRows(statement.transactions, statement.statement_type, input.signConvention)
   const invalidRows = rows.filter(rowIsInvalid)
   if (invalidRows.length > 0) {
     return problem(
@@ -431,11 +427,7 @@ export async function createStatementExportArtifact(
       'Resolve reconciliation before exporting ledger output.',
     )
 
-  const rows = exportRows(
-    statement.transactions,
-    statement.statement_type,
-    input.signConvention,
-  )
+  const rows = exportRows(statement.transactions, statement.statement_type, input.signConvention)
   const invalidRows = rows.filter(rowIsInvalid)
   if (invalidRows.length > 0) {
     return problem(
