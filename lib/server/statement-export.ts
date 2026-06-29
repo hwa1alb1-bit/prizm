@@ -9,6 +9,8 @@ import { getS3Client, getKmsKeyId, getUploadBucket } from './s3'
 import { getServiceRoleClient } from './supabase'
 import type { Json } from '../shared/db-types'
 import type { RouteContext } from './http'
+import { resolveSignConvention } from '../shared/sign-convention'
+import type { SignConvention } from '../shared/sign-convention'
 
 export const STATEMENT_EXPORT_FORMATS = ['csv', 'xlsx', 'quickbooks_csv', 'xero_csv'] as const
 
@@ -21,6 +23,8 @@ export type BuildStatementExportInput = {
   actorIp: string | null
   actorUserAgent: string | null
   routeContext: RouteContext
+  /** Override the statement's stored statement_type for sign-mapping. Defaults to 'auto'. */
+  signConvention?: SignConvention
   store?: StatementExportStore
 }
 
@@ -31,6 +35,8 @@ export type CreateStatementExportArtifactInput = {
   actorIp: string | null
   actorUserAgent: string | null
   routeContext: RouteContext
+  /** Override the statement's stored statement_type for sign-mapping. Defaults to 'auto'. */
+  signConvention?: SignConvention
   idFactory?: () => string
   store?: StatementExportArtifactStore
   objectStore?: StatementExportObjectStore
@@ -302,7 +308,7 @@ export async function buildStatementExport(
       'Resolve reconciliation before exporting ledger output.',
     )
 
-  const rows = exportRows(statement.transactions, statement.statement_type)
+  const rows = exportRows(statement.transactions, statement.statement_type, input.signConvention)
   const invalidRows = rows.filter(rowIsInvalid)
   if (invalidRows.length > 0) {
     return problem(
@@ -412,7 +418,7 @@ export async function createStatementExportArtifact(
       'Resolve reconciliation before exporting ledger output.',
     )
 
-  const rows = exportRows(statement.transactions, statement.statement_type)
+  const rows = exportRows(statement.transactions, statement.statement_type, input.signConvention)
   const invalidRows = rows.filter(rowIsInvalid)
   if (invalidRows.length > 0) {
     return problem(
@@ -699,9 +705,14 @@ function isNumericLiteral(value: string): boolean {
   return /^-\d+(?:\.\d+)?$/.test(value.trim())
 }
 
-function exportRows(value: Json, statementType: string | null | undefined): ExportRow[] {
+function exportRows(
+  value: Json,
+  statementType: string | null | undefined,
+  signConvention: SignConvention = 'auto',
+): ExportRow[] {
   if (!Array.isArray(value)) return []
-  return value.map((row) => exportRow(row, statementType === 'credit_card'))
+  const isCreditCard = resolveSignConvention(statementType, signConvention) === 'credit_card'
+  return value.map((row) => exportRow(row, isCreditCard))
 }
 
 function exportRow(value: Json, isCreditCard: boolean): ExportRow {

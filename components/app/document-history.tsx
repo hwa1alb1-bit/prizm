@@ -140,7 +140,13 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
         </EvidenceSection>
 
         <EvidenceSection title="Export Status">
-          <ExportReadinessPanel document={document} readiness={exportReadiness} />
+          <ExportReadinessPanel
+            document={document}
+            readiness={exportReadiness}
+            statementType={
+              primaryStatement ? narrowStatementType(statementType(primaryStatement)) : null
+            }
+          />
         </EvidenceSection>
 
         <EvidenceSection title="Statement summary">
@@ -1033,9 +1039,11 @@ function ExceptionsPanel({
 function ExportReadinessPanel({
   document,
   readiness,
+  statementType,
 }: {
   document: HistoryDocumentView
   readiness: ExportReadiness
+  statementType: 'bank' | 'credit_card' | null
 }) {
   return (
     <div className="space-y-4">
@@ -1061,7 +1069,11 @@ function ExportReadinessPanel({
         <span className="font-medium text-foreground">Next action:</span> {readiness.nextAction}
       </p>
       {readiness.actions.length > 0 && (
-        <ExportActions documentId={document.id} actions={readiness.actions} />
+        <ExportActions
+          documentId={document.id}
+          actions={readiness.actions}
+          statementType={statementType}
+        />
       )}
     </div>
   )
@@ -1450,6 +1462,10 @@ function transactionReviewLabel(transaction: StatementTransactionView): string {
 function statementType(statement: StatementEvidenceView): StatementType | null {
   const withFields = statement as StatementWithOptionalCardFields
   return withFields.statementType ?? withFields.statement_type ?? null
+}
+
+function narrowStatementType(value: StatementType | null): 'bank' | 'credit_card' | null {
+  return value === 'bank' || value === 'credit_card' ? value : null
 }
 
 function statementReviewStatus(statement: StatementEvidenceView): string | null {

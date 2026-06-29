@@ -4,6 +4,7 @@ import {
   STATEMENT_EXPORT_FORMATS,
   type StatementExportFormat,
 } from '@/lib/server/statement-export'
+import { SIGN_CONVENTIONS, type SignConvention } from '@/lib/shared/sign-convention'
 import { createRouteContext, getClientIp, problemResponse, routeHeaders } from '@/lib/server/http'
 import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
@@ -37,6 +38,19 @@ export async function GET(
     })
   }
 
+  const signConventionParam = url.searchParams.get('signConvention')
+  if (
+    signConventionParam !== null &&
+    !SIGN_CONVENTIONS.includes(signConventionParam as SignConvention)
+  ) {
+    return problemResponse(context, {
+      status: 400,
+      code: 'PRZM_VALIDATION_SIGN_CONVENTION',
+      title: 'Invalid sign convention',
+      detail: 'signConvention must be auto, bank, or credit_card.',
+    })
+  }
+
   const { documentId } = await params
   const result = await buildStatementExport({
     documentId,
@@ -45,6 +59,7 @@ export async function GET(
     actorIp: getClientIp(request),
     actorUserAgent: request.headers.get('user-agent'),
     routeContext: context,
+    signConvention: (signConventionParam ?? undefined) as SignConvention | undefined,
   })
 
   if (!result.ok) {

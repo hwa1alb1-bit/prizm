@@ -247,6 +247,67 @@ describe('statement export service', () => {
     },
   )
 
+  it('honours signConvention override when caller forces credit_card on a bank statement', async () => {
+    // Default (no override): bank convention keeps the positive amount column as-is.
+    const defaultResult = await buildStatementExport({
+      documentId: 'doc_123',
+      format: 'quickbooks_csv',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      store: exportStore({
+        statement: {
+          statement_type: 'bank',
+          transactions: [
+            {
+              id: 'txn_misclassified_purchase',
+              posted_at: '2026-05-02',
+              description: 'Misclassified purchase',
+              amount: 50,
+              debit: 50,
+              credit: null,
+              needs_review: false,
+            },
+          ],
+        },
+      }),
+    })
+    expect(defaultResult.ok && defaultResult.body).toBe(
+      'Date,Description,Amount\r\n2026-05-02,Misclassified purchase,50\r\n',
+    )
+
+    // Override: signConvention='credit_card' flips the debit row to negative.
+    const overriddenResult = await buildStatementExport({
+      documentId: 'doc_123',
+      format: 'quickbooks_csv',
+      actorUserId: 'user_123',
+      actorIp: null,
+      actorUserAgent: null,
+      routeContext: routeContext(),
+      signConvention: 'credit_card',
+      store: exportStore({
+        statement: {
+          statement_type: 'bank',
+          transactions: [
+            {
+              id: 'txn_misclassified_purchase',
+              posted_at: '2026-05-02',
+              description: 'Misclassified purchase',
+              amount: 50,
+              debit: 50,
+              credit: null,
+              needs_review: false,
+            },
+          ],
+        },
+      }),
+    })
+    expect(overriddenResult.ok && overriddenResult.body).toBe(
+      'Date,Description,Amount\r\n2026-05-02,Misclassified purchase,-50\r\n',
+    )
+  })
+
   it('keeps bank statement exports unchanged when an amount is already present', async () => {
     const result = await buildStatementExport({
       documentId: 'doc_123',
