@@ -473,9 +473,7 @@ function statementView(row: StatementRow): StatementEvidenceView {
   }
 }
 
-function extractReconciliationReport(
-  metadata: StatementMetadata,
-): ReconciliationReportView | null {
+function extractReconciliationReport(metadata: StatementMetadata): ReconciliationReportView | null {
   const raw = (metadata as Record<string, unknown>).__reconciliationReport
   if (!raw || typeof raw !== 'object') return null
   const candidate = raw as Record<string, unknown>
