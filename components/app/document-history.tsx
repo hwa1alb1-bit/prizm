@@ -1098,13 +1098,23 @@ function reviewExceptionsFor(statement: StatementEvidenceView | null): ReviewExc
   })
 
   if (statement.reconciles === false) {
+    const report = statement.reconciliationReport
+    const cause =
+      report?.direction === 'short' || report?.direction === 'over'
+        ? report.summary
+        : 'Reported statement total does not match the computed total from extracted rows.'
+    const nextAction =
+      report?.direction === 'short'
+        ? 'Likely a missing or undercounted row — compare the source PDF to the extracted rows before marking export ready.'
+        : report?.direction === 'over'
+          ? 'Likely a duplicated row or an inverted sign — review extracted rows before marking export ready.'
+          : 'Find missing, duplicated, or sign-flipped transactions before marking export ready.'
     exceptions.push({
       id: 'reconciliation:mismatch',
       title: 'Reconciliation mismatch',
-      cause: 'Reported statement total does not match the computed total from extracted rows.',
+      cause,
       evidence: `Statement ${statement.id}`,
-      nextAction:
-        'Find missing, duplicated, or sign-flipped transactions before marking export ready.',
+      nextAction,
       tone: 'danger',
     })
   } else if (statement.reconciles === null) {

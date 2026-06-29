@@ -388,6 +388,7 @@ function historyDocument(): HistoryDocumentView {
         reportedTotal: 2490,
         computedTotal: 2490,
         reconciles: true,
+        reconciliationReport: null,
         transactionCount: 2,
         transactions: [
           {
@@ -581,6 +582,12 @@ function incompleteMismatchDocument(): HistoryDocumentView {
         reportedTotal: 250,
         computedTotal: 240,
         reconciles: false,
+        reconciliationReport: {
+          totalDelta: 10,
+          direction: 'short',
+          summary:
+            'Extracted transactions sum to $10.00 short of the statement total — likely a missing or undercounted row.',
+        },
         transactions: [
           {
             id: 'txn_missing',

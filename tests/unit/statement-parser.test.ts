@@ -30,6 +30,7 @@ describe('parseTextractStatement', () => {
           reviewFlags: ['low_confidence_transactions'],
           metadata: {},
           billablePageCount: 1,
+          reconciliationReport: null,
           transactions: [
             {
               date: '2026-04-03',

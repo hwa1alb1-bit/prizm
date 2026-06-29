@@ -97,6 +97,11 @@ class BankEngine : FamilyEngine {
       reviewFlags = reviewFlags(transactions, reconciliation.reconciles, issuer),
       metadata = metadata(issuer, totals),
       transactions = scoredTransactions,
+      reconciliationReport = ReconciliationReportWire(
+        totalDelta = reconciliation.report.totalDelta,
+        direction = reconciliation.report.direction.name.lowercase(),
+        summary = reconciliation.report.summary,
+      ),
     )
     return ParsedAccount(statement)
   }

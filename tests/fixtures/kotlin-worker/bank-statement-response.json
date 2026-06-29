@@ -39,7 +39,12 @@
           "confidence": 0.95,
           "source": "kotlin_worker"
         }
-      ]
+      ],
+      "reconciliationReport": {
+        "totalDelta": 0,
+        "direction": "matched",
+        "summary": "Balances reconcile."
+      }
     }
   ]
 }

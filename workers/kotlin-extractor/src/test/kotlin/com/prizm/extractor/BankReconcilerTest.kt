@@ -36,6 +36,46 @@ class BankReconcilerTest {
     assertFalse(result.reconciles)
   }
 
+  @Test
+  fun `emits a discrepancy report with direction short when sum is below expected`() {
+    val totals = BankTotals(beginningBalance = 100.00, endingBalance = 175.00)
+    val rows = listOf(row(amount = 60.00))
+    val result = BankReconciler.reconcile(totals, rows)
+
+    assertFalse(result.reconciles)
+    val report = result.report
+    assertEquals(15.00, report.totalDelta, absoluteTolerance = 0.001)
+    assertEquals(DiscrepancyDirection.SHORT, report.direction)
+    assertTrue(
+      report.summary.contains("\$15.00") && report.summary.contains("short", ignoreCase = true),
+      "summary should plainly name the dollar amount and direction: ${'$'}{report.summary}",
+    )
+  }
+
+  @Test
+  fun `emits a discrepancy report with direction over when sum is above expected`() {
+    val totals = BankTotals(beginningBalance = 100.00, endingBalance = 175.00)
+    val rows = listOf(row(amount = 90.00))
+    val result = BankReconciler.reconcile(totals, rows)
+
+    assertFalse(result.reconciles)
+    val report = result.report
+    assertEquals(15.00, report.totalDelta, absoluteTolerance = 0.001)
+    assertEquals(DiscrepancyDirection.OVER, report.direction)
+    assertTrue(report.summary.contains("over", ignoreCase = true))
+  }
+
+  @Test
+  fun `emits a matched report when reconciliation succeeds`() {
+    val totals = BankTotals(beginningBalance = 100.00, endingBalance = 175.00)
+    val rows = listOf(row(amount = 75.00))
+    val result = BankReconciler.reconcile(totals, rows)
+
+    assertTrue(result.reconciles)
+    assertEquals(DiscrepancyDirection.MATCHED, result.report.direction)
+    assertEquals(0.00, result.report.totalDelta, absoluteTolerance = 0.001)
+  }
+
   private fun row(amount: Double): ExtractedRow =
     ExtractedRow(
       date = LocalDate.of(2026, 5, 1),
