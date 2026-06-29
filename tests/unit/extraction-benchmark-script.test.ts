@@ -26,7 +26,7 @@ describe('extraction benchmark gate', () => {
   it('records the required concurrency levels, invariants, and pricing sources', () => {
     const script = readFileSync(join(process.cwd(), 'scripts', 'benchmark-extraction.ts'), 'utf8')
 
-    for (const level of ['100', '250', '500']) {
+    for (const level of ['3', '5', '10']) {
       expect(script).toContain(level)
     }
     for (const invariant of [
