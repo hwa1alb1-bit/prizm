@@ -38,16 +38,17 @@ type TargetBenchmarkConfig = {
 }
 
 // Capacity-honest levels. The deployed container application caps at
-// max_instances=10 (workers/cloudflare-extractor/wrangler.jsonc). At ~5-15s per
-// Kotlin extraction with JVM warm-up cost, the realistic ceiling sits around
-// 50 concurrent. The previous [100, 250, 500] levels assumed an instance fleet
-// 5x larger than we run and produced unactionable failures.
-const CONCURRENCY_LEVELS = [10, 25, 50]
+// max_instances=10 (workers/cloudflare-extractor/wrangler.jsonc). The first
+// live target-url measurements on 2026-06-29 showed reliable processing up to
+// 10 concurrent (10/10 ready in 18.8s P95), with 2-of-25 and 30-of-50 jobs
+// failing outright above that ceiling — not slow, failed. Tiers stay at or
+// below 10 until the >10 ceiling is investigated and lifted in a follow-up.
+const CONCURRENCY_LEVELS = [3, 5, 10]
 const CONVERT_ACCEPTANCE_P95_THRESHOLD_MS = 2_000
 const TIME_TO_READY_THRESHOLDS_MS: Record<number, number> = {
+  3: 15_000,
+  5: 20_000,
   10: 30_000,
-  25: 60_000,
-  50: 120_000,
 }
 
 const PRICING_SOURCES = {
