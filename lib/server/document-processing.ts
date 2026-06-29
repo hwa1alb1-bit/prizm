@@ -482,8 +482,11 @@ function statementPersistenceFields(statement: ParsedStatement): StatementPersis
     metadata?: unknown
   }
   const baseMetadata = isStatementMetadata(candidate.metadata) ? candidate.metadata : {}
-  const metadata = statement.reconciliationReport
-    ? { ...baseMetadata, __reconciliationReport: statement.reconciliationReport }
+  const metadata: StatementMetadata = statement.reconciliationReport
+    ? ({
+        ...baseMetadata,
+        __reconciliationReport: statement.reconciliationReport,
+      } as unknown as StatementMetadata)
     : baseMetadata
 
   return {
