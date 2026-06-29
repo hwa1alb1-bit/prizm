@@ -34,6 +34,12 @@ export type ParsedStatementMetadataValue =
   | ParsedStatementMetadataScalar
   | ParsedStatementMetadataRecord[]
 
+export type ReconciliationReport = {
+  totalDelta: number
+  direction: 'matched' | 'short' | 'over'
+  summary: string
+}
+
 export type ParsedStatement = {
   statementType: 'bank' | 'credit_card'
   bankName: string | null
@@ -55,6 +61,7 @@ export type ParsedStatement = {
   metadata: Record<string, ParsedStatementMetadataValue>
   billablePageCount: number
   transactions: ParsedStatementTransaction[]
+  reconciliationReport: ReconciliationReport | null
 }
 
 export type ParsedTextractStatementResult = {
@@ -156,6 +163,7 @@ export function parseTextractStatement(output: TextractOutput): ParsedTextractSt
         metadata,
         billablePageCount,
         transactions,
+        reconciliationReport: null,
       },
     ],
   }

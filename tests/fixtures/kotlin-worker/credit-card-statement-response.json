@@ -51,7 +51,8 @@
           "confidence": 0.96,
           "source": "kotlin_worker"
         }
-      ]
+      ],
+      "reconciliationReport": null
     }
   ]
 }

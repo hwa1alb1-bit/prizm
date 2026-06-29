@@ -481,10 +481,14 @@ function statementPersistenceFields(statement: ParsedStatement): StatementPersis
     statementType?: unknown
     metadata?: unknown
   }
+  const baseMetadata = isStatementMetadata(candidate.metadata) ? candidate.metadata : {}
+  const metadata = statement.reconciliationReport
+    ? { ...baseMetadata, __reconciliationReport: statement.reconciliationReport }
+    : baseMetadata
 
   return {
     statementType: candidate.statementType === 'credit_card' ? 'credit_card' : 'bank',
-    metadata: isStatementMetadata(candidate.metadata) ? candidate.metadata : {},
+    metadata,
   }
 }
 

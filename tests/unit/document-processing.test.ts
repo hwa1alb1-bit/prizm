@@ -218,6 +218,7 @@ describe('processExtractionDocuments', () => {
       confidence: { overall: 0.98, fields: 0.98, transactions: 0.98 },
       reviewFlags: [],
       billablePageCount: 1,
+      reconciliationReport: null,
       transactions: [
         {
           date: '2026-04-15',
@@ -740,6 +741,7 @@ function parsedStatement(overrides: Partial<ParsedStatement> = {}): ParsedStatem
     confidence: { overall: 0.96, fields: 0.98, transactions: 0.89 },
     reviewFlags: ['low_confidence_transactions'],
     billablePageCount: 1,
+    reconciliationReport: null,
     transactions: [
       {
         date: '2026-04-03',

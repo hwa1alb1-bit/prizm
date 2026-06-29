@@ -85,6 +85,7 @@ function readyDocument(): HistoryDocumentView {
         reportedTotal: 2490,
         computedTotal: 2490,
         reconciles: true,
+        reconciliationReport: null,
         transactionCount: 1,
         transactions: [
           {

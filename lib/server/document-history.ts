@@ -29,6 +29,12 @@ export type StatementTransactionView = {
   reviewReason: string | null
 }
 
+export type ReconciliationReportView = {
+  totalDelta: number
+  direction: 'matched' | 'short' | 'over'
+  summary: string
+}
+
 export type StatementEvidenceView = {
   id: string
   revision: number
@@ -44,6 +50,7 @@ export type StatementEvidenceView = {
   reportedTotal: number | string | null
   computedTotal: number | string | null
   reconciles: boolean | null
+  reconciliationReport: ReconciliationReportView | null
   transactionCount: number
   transactions: StatementTransactionView[]
   createdAt: string
@@ -440,12 +447,13 @@ function normalizeDocumentState(status: string): DocumentState {
 
 function statementView(row: StatementRow): StatementEvidenceView {
   const transactions = transactionViews(row.transactions)
+  const statementMetadata = normalizeStatementMetadata(row.statement_metadata)
 
   return {
     id: row.id,
     revision: row.revision ?? 0,
     statementType: normalizeStatementType(row.statement_type),
-    statementMetadata: normalizeStatementMetadata(row.statement_metadata),
+    statementMetadata,
     reviewStatus: row.review_status ?? null,
     bankName: row.bank_name,
     accountLast4: row.account_last4,
@@ -456,11 +464,34 @@ function statementView(row: StatementRow): StatementEvidenceView {
     reportedTotal: row.reported_total,
     computedTotal: row.computed_total,
     reconciles: row.reconciles,
+    reconciliationReport: extractReconciliationReport(statementMetadata),
     transactionCount: transactions.length,
     transactions,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     deletedAt: row.deleted_at,
+  }
+}
+
+function extractReconciliationReport(
+  metadata: StatementMetadata,
+): ReconciliationReportView | null {
+  const raw = (metadata as Record<string, unknown>).__reconciliationReport
+  if (!raw || typeof raw !== 'object') return null
+  const candidate = raw as Record<string, unknown>
+  if (typeof candidate.totalDelta !== 'number' || !Number.isFinite(candidate.totalDelta)) return null
+  if (
+    candidate.direction !== 'matched' &&
+    candidate.direction !== 'short' &&
+    candidate.direction !== 'over'
+  ) {
+    return null
+  }
+  if (typeof candidate.summary !== 'string' || candidate.summary.length === 0) return null
+  return {
+    totalDelta: candidate.totalDelta,
+    direction: candidate.direction,
+    summary: candidate.summary,
   }
 }
 

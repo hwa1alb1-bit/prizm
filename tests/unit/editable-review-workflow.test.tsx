@@ -258,6 +258,7 @@ function statement(): StatementEvidenceView & { revision: number } {
     reportedTotal: 25,
     computedTotal: 25,
     reconciles: true,
+    reconciliationReport: null,
     transactionCount: 1,
     transactions: [
       {

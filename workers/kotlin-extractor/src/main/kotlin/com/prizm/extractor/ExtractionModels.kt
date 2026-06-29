@@ -23,6 +23,18 @@ data class ParsedStatement(
   val reviewFlags: List<String>,
   val metadata: Map<String, Any?>,
   val transactions: List<ParsedTransaction>,
+  /**
+   * Structured breakdown of the reconciliation drift. Present even when [reconciles] is true
+   * (direction will be MATCHED). Null only on credit-card paths until that reconciler grows
+   * the same surface.
+   */
+  val reconciliationReport: ReconciliationReportWire? = null,
+)
+
+data class ReconciliationReportWire(
+  val totalDelta: Double,
+  val direction: String,
+  val summary: String,
 )
 
 data class Confidence(

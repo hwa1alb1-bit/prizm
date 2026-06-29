@@ -432,6 +432,22 @@ function normalizeParsedStatement(input: unknown): ParsedStatement | null {
     metadata: input.metadata,
     billablePageCount,
     transactions: usableTransactions,
+    reconciliationReport: normalizeReconciliationReport(input.reconciliationReport),
+  }
+}
+
+function normalizeReconciliationReport(input: unknown): ParsedStatement['reconciliationReport'] {
+  if (input === null || input === undefined) return null
+  if (!isRecord(input)) return null
+  if (!isFiniteNumber(input.totalDelta)) return null
+  if (input.direction !== 'matched' && input.direction !== 'short' && input.direction !== 'over') {
+    return null
+  }
+  if (typeof input.summary !== 'string' || input.summary.length === 0) return null
+  return {
+    totalDelta: input.totalDelta,
+    direction: input.direction,
+    summary: input.summary,
   }
 }
 
