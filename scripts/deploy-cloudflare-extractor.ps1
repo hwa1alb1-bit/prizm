@@ -132,11 +132,9 @@ if (-not (Test-Path '.env.production.local')) {
   if ($LASTEXITCODE -ne 0) { throw "vercel env pull failed with exit code $LASTEXITCODE" }
 }
 
-$extractorToken = (
-  Get-Content .env.production.local
-    | Where-Object { $_ -match '^CLOUDFLARE_EXTRACTOR_TOKEN=' }
-    | ForEach-Object { ($_ -split '=', 2)[1].Trim('"') }
-)
+$extractorToken = Get-Content .env.production.local |
+  Where-Object { $_ -match '^CLOUDFLARE_EXTRACTOR_TOKEN=' } |
+  ForEach-Object { ($_ -split '=', 2)[1].Trim('"') }
 if (-not $extractorToken) {
   throw 'CLOUDFLARE_EXTRACTOR_TOKEN missing from .env.production.local. Re-run: npx vercel@latest env pull --environment=production .env.production.local'
 }
