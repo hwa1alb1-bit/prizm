@@ -343,7 +343,9 @@ function buildCostReport() {
       awsTextractTablesFormsPerPageUsd: textractPerPageTablesFormsUsd,
       cloudflareWorkersPaidMonthlyFloorUsd: 5,
       cloudflareBurstNote:
-        `The ${CONCURRENCY_LEVELS.join('/')} submission launch burst fits within included Workers Paid, R2, Queues, and Containers monthly allotments when no prior monthly usage has consumed those allotments.`,
+        `The ${CONCURRENCY_LEVELS.join('/')} submission launch burst fits within included ` +
+        'Workers Paid, R2, Queues, and Containers monthly allotments when no prior ' +
+        'monthly usage has consumed those allotments.',
     },
     comparisons: CONCURRENCY_LEVELS.map((pdfCount) => ({
       pdfCount,
