@@ -143,7 +143,9 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
           <ExportReadinessPanel
             document={document}
             readiness={exportReadiness}
-            statementType={primaryStatement ? statementType(primaryStatement) : null}
+            statementType={
+              primaryStatement ? narrowStatementType(statementType(primaryStatement)) : null
+            }
           />
         </EvidenceSection>
 
@@ -1460,6 +1462,10 @@ function transactionReviewLabel(transaction: StatementTransactionView): string {
 function statementType(statement: StatementEvidenceView): StatementType | null {
   const withFields = statement as StatementWithOptionalCardFields
   return withFields.statementType ?? withFields.statement_type ?? null
+}
+
+function narrowStatementType(value: StatementType | null): 'bank' | 'credit_card' | null {
+  return value === 'bank' || value === 'credit_card' ? value : null
 }
 
 function statementReviewStatus(statement: StatementEvidenceView): string | null {
