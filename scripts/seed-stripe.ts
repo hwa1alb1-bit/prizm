@@ -15,7 +15,7 @@ if (!key) {
   process.exit(1)
 }
 
-const stripe = new Stripe(key, { apiVersion: '2026-04-22.dahlia', typescript: true })
+const stripe = new Stripe(key, { apiVersion: Stripe.API_VERSION, typescript: true })
 
 type ProductSpec = {
   sku: string
