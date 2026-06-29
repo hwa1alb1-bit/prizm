@@ -37,12 +37,17 @@ type TargetBenchmarkConfig = {
   pollIntervalMs: number
 }
 
-const CONCURRENCY_LEVELS = [100, 250, 500]
+// Capacity-honest levels. The deployed container application caps at
+// max_instances=10 (workers/cloudflare-extractor/wrangler.jsonc). At ~5-15s per
+// Kotlin extraction with JVM warm-up cost, the realistic ceiling sits around
+// 50 concurrent. The previous [100, 250, 500] levels assumed an instance fleet
+// 5x larger than we run and produced unactionable failures.
+const CONCURRENCY_LEVELS = [10, 25, 50]
 const CONVERT_ACCEPTANCE_P95_THRESHOLD_MS = 2_000
 const TIME_TO_READY_THRESHOLDS_MS: Record<number, number> = {
-  100: 60_000,
-  250: 120_000,
-  500: 180_000,
+  10: 30_000,
+  25: 60_000,
+  50: 120_000,
 }
 
 const PRICING_SOURCES = {
@@ -222,7 +227,7 @@ async function pollTargetExtraction(
   jobId: string,
   startedAt: number,
 ): Promise<{ readyAt: number; statement: unknown }> {
-  const timeoutMs = TIME_TO_READY_THRESHOLDS_MS[500]
+  const timeoutMs = Math.max(...Object.values(TIME_TO_READY_THRESHOLDS_MS))
   const deadline = startedAt + timeoutMs
 
   while (performance.now() < deadline) {
@@ -338,7 +343,9 @@ function buildCostReport() {
       awsTextractTablesFormsPerPageUsd: textractPerPageTablesFormsUsd,
       cloudflareWorkersPaidMonthlyFloorUsd: 5,
       cloudflareBurstNote:
-        'The 100/250/500 submission launch burst fits within included Workers Paid, R2, Queues, and Containers monthly allotments when no prior monthly usage has consumed those allotments.',
+        `The ${CONCURRENCY_LEVELS.join('/')} submission launch burst fits within included ` +
+        'Workers Paid, R2, Queues, and Containers monthly allotments when no prior ' +
+        'monthly usage has consumed those allotments.',
     },
     comparisons: CONCURRENCY_LEVELS.map((pdfCount) => ({
       pdfCount,
