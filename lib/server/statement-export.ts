@@ -9,6 +9,11 @@ import { getS3Client, getKmsKeyId, getUploadBucket } from './s3'
 import { getServiceRoleClient } from './supabase'
 import type { Json } from '../shared/db-types'
 import type { RouteContext } from './http'
+import {
+  resolveSignConvention,
+  SIGN_CONVENTIONS,
+  type SignConvention,
+} from '../shared/sign-convention'
 
 export const STATEMENT_EXPORT_FORMATS = ['csv', 'xlsx', 'quickbooks_csv', 'xero_csv'] as const
 
@@ -21,8 +26,8 @@ export type StatementExportFormat = (typeof STATEMENT_EXPORT_FORMATS)[number]
  * lib/shared/sign-convention.ts so the UI can import them without crossing the server-only
  * barrier.
  */
-export { SIGN_CONVENTIONS, type SignConvention } from '../shared/sign-convention'
-import { resolveSignConvention, type SignConvention } from '../shared/sign-convention'
+export { SIGN_CONVENTIONS }
+export type { SignConvention }
 
 export type BuildStatementExportInput = {
   documentId: string
