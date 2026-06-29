@@ -1043,7 +1043,7 @@ function ExportReadinessPanel({
 }: {
   document: HistoryDocumentView
   readiness: ExportReadiness
-  statementType: StatementType | null
+  statementType: 'bank' | 'credit_card' | null
 }) {
   return (
     <div className="space-y-4">
