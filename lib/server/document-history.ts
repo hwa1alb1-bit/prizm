@@ -479,20 +479,13 @@ function extractReconciliationReport(
   const raw = (metadata as Record<string, unknown>).__reconciliationReport
   if (!raw || typeof raw !== 'object') return null
   const candidate = raw as Record<string, unknown>
-  if (typeof candidate.totalDelta !== 'number' || !Number.isFinite(candidate.totalDelta)) return null
-  if (
-    candidate.direction !== 'matched' &&
-    candidate.direction !== 'short' &&
-    candidate.direction !== 'over'
-  ) {
-    return null
-  }
-  if (typeof candidate.summary !== 'string' || candidate.summary.length === 0) return null
-  return {
-    totalDelta: candidate.totalDelta,
-    direction: candidate.direction,
-    summary: candidate.summary,
-  }
+  const totalDelta = candidate.totalDelta
+  if (typeof totalDelta !== 'number' || !Number.isFinite(totalDelta)) return null
+  const direction = candidate.direction
+  if (direction !== 'matched' && direction !== 'short' && direction !== 'over') return null
+  const summary = candidate.summary
+  if (typeof summary !== 'string' || summary.length === 0) return null
+  return { totalDelta, direction, summary }
 }
 
 function normalizeStatementType(value: string | null | undefined): StatementType {
