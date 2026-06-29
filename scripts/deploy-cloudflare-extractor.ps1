@@ -95,10 +95,10 @@ if (-not $SkipDirtyCheck) {
 }
 Write-Host '[ok] working tree clean (or check skipped)'
 
-Invoke-Step 'wrangler whoami' { & $pnpm exec wrangler whoami }
+Invoke-Step 'wrangler whoami' { & wrangler whoami }
 
 # Capture the currently-deployed Worker version so we can print the rollback command later.
-$previousVersionLine = (& $pnpm exec wrangler deployments list --name prizm-cloudflare-extractor 2>$null `
+$previousVersionLine = (& wrangler deployments list --name prizm-cloudflare-extractor 2>$null `
   | Select-String -Pattern 'Version\(s\)' -Context 0, 2 `
   | Select-Object -First 1)
 $previousVersionHint = if ($previousVersionLine) { $previousVersionLine.Context.PostContext -join ' ' } else { '(unable to read previous version; rollback via wrangler dashboard)' }
@@ -109,7 +109,7 @@ Write-Host "[ok] previous deployment hint: $previousVersionHint"
 Write-Section 'Deploy'
 
 Invoke-Step "wrangler deploy --config $wranglerConfig" {
-  & $pnpm exec wrangler deploy --config $wranglerConfig
+  & wrangler deploy --config $wranglerConfig
 }
 
 Write-Host '[ok] container + Worker deployed. Waiting 15 s for warmup...'
@@ -148,7 +148,7 @@ try {
 } catch {
   Write-Host ''
   Write-Host '!!! Benchmark FAILED. Rollback the container before announcing the deploy:' -ForegroundColor Red
-  Write-Host "    & '$pnpm' exec wrangler rollback --config $wranglerConfig" -ForegroundColor Red
+  Write-Host "    npx --yes wrangler@4 rollback --config $wranglerConfig" -ForegroundColor Red
   Write-Host ''
   Write-Host "Previous deployment hint:" -ForegroundColor Yellow
   Write-Host "    $previousVersionHint" -ForegroundColor Yellow
