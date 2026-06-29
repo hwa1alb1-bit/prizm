@@ -9,21 +9,12 @@ import { getS3Client, getKmsKeyId, getUploadBucket } from './s3'
 import { getServiceRoleClient } from './supabase'
 import type { Json } from '../shared/db-types'
 import type { RouteContext } from './http'
-import { resolveSignConvention, SIGN_CONVENTIONS } from '../shared/sign-convention'
+import { resolveSignConvention } from '../shared/sign-convention'
 import type { SignConvention } from '../shared/sign-convention'
 
 export const STATEMENT_EXPORT_FORMATS = ['csv', 'xlsx', 'quickbooks_csv', 'xero_csv'] as const
 
 export type StatementExportFormat = (typeof STATEMENT_EXPORT_FORMATS)[number]
-
-/**
- * Caller-facing override for sign convention. 'auto' uses the statement's stored
- * statement_type (the historical default). 'bank' / 'credit_card' force the export pipeline
- * to apply the named convention regardless of statement_type. Constants live in
- * lib/shared/sign-convention.ts so the UI can import them without crossing the server-only
- * barrier.
- */
-export { SIGN_CONVENTIONS, type SignConvention }
 
 export type BuildStatementExportInput = {
   documentId: string

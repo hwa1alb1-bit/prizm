@@ -1,11 +1,10 @@
 import type { NextRequest } from 'next/server'
 import {
   buildStatementExport,
-  SIGN_CONVENTIONS,
   STATEMENT_EXPORT_FORMATS,
-  type SignConvention,
   type StatementExportFormat,
 } from '@/lib/server/statement-export'
+import { SIGN_CONVENTIONS, type SignConvention } from '@/lib/shared/sign-convention'
 import { createRouteContext, getClientIp, problemResponse, routeHeaders } from '@/lib/server/http'
 import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'

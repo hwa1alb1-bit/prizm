@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { createStatementExportArtifact, SIGN_CONVENTIONS } from '@/lib/server/statement-export'
+import { createStatementExportArtifact } from '@/lib/server/statement-export'
+import { SIGN_CONVENTIONS } from '@/lib/shared/sign-convention'
 import { createRouteContext, getClientIp, jsonResponse, problemResponse } from '@/lib/server/http'
 import { applyAuthenticatedRateLimit, withRateLimitHeaders } from '@/lib/server/route-rate-limit'
 import { requireAuthenticatedUser } from '@/lib/server/route-auth'
