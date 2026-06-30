@@ -19,7 +19,17 @@ const description =
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://pdftoexcelstatementconverter.com'
 
-const homeTitle = 'Bank Statement Converter for QuickBooks, Xero, Excel, CSV | StatementStudio'
+const homeTitle = 'PDF Bank Statement Converter | StatementStudio'
+
+// Default OG image. Square brand mark is a temporary fallback that satisfies the
+// og:image / twitter:image presence requirement; replace with a 1200x630 banner
+// at /marketing/og/default.png when design lands. See PR-D plan.
+const defaultOgImage = {
+  url: '/marketing/logos/statementstudio-mark.png',
+  width: 512,
+  height: 512,
+  alt: 'StatementStudio',
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -39,11 +49,13 @@ export const metadata: Metadata = {
     siteName: 'StatementStudio',
     type: 'website',
     locale: 'en_US',
+    images: [defaultOgImage],
   },
   twitter: {
     card: 'summary_large_image',
     title: homeTitle,
     description,
+    images: [defaultOgImage.url],
   },
   robots: { index: true, follow: true },
   icons: {

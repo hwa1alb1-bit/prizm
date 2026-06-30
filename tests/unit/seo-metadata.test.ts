@@ -26,6 +26,20 @@ describe('SEO metadata helpers', () => {
     expect(metadata.twitter).toMatchObject({ card: 'summary_large_image' })
   })
 
+  it('attaches a default og:image and twitter:image to every page so Ahrefs OpenGraph completeness passes', () => {
+    const metadata = buildPageMetadata({
+      title: 'Any | StatementStudio',
+      description:
+        'Any description long enough to pass the regression test that checks for the og image plumbing on every helper-built metadata block.',
+      path: '/any',
+    })
+    const ogImages = Array.isArray(metadata.openGraph?.images)
+      ? metadata.openGraph?.images
+      : [metadata.openGraph?.images]
+    expect(ogImages?.length).toBeGreaterThan(0)
+    expect(metadata.twitter?.images).toBeDefined()
+  })
+
   it('builds product schema without unsupported public claims', () => {
     const schema = buildSoftwareApplicationJsonLd()
     const serialized = JSON.stringify(schema)
