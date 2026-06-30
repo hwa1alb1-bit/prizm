@@ -6,6 +6,7 @@ import { SiteFooter } from '@/components/marketing/site-footer'
 import { JsonLd } from '@/components/marketing/json-ld'
 import { buildBreadcrumbJsonLd, buildPageMetadata } from '@/lib/seo/site'
 import { buildConvertSlugs, parseConvertSlug } from '@/lib/marketing/supported-issuers'
+import { RelatedPagesRail } from '@/components/marketing/related-pages-rail'
 
 type ConvertParams = {
   params: Promise<{ slug: string }>
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: ConvertParams): Promise<Metad
   const { issuer, format } = parsed
   return buildPageMetadata({
     title: `${issuer.name} statement to ${format.label} | StatementStudio`,
-    description: `Convert ${issuer.name} PDF statements to ${format.label}. Reconciled exports, deterministic parser, audit-friendly output.`,
+    description: `Convert ${issuer.name} PDF bank and credit card statements to ${format.label}. Deterministic reconciliation math, audit-friendly columns, 24-hour auto-deletion.`,
     path: `/convert/${slug}`,
   })
 }
@@ -125,6 +126,8 @@ export default async function ConvertSlugPage({ params }: ConvertParams) {
             </p>
           </div>
         </section>
+
+        <RelatedPagesRail kind="convert" currentSlug={slug} />
       </main>
       <SiteFooter />
     </>

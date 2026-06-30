@@ -1,9 +1,12 @@
 import { TrustPage, TrustSection } from '@/components/trust/trust-page'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata = {
-  title: 'Error Responses',
-  description: 'StatementStudio API error response format.',
-}
+export const metadata = buildPageMetadata({
+  title: 'API error response format | StatementStudio',
+  description:
+    'StatementStudio API error format: RFC 7807 problem detail JSON, HTTP status mapping, machine-readable type URIs, and every error code the API can return.',
+  path: '/docs/errors',
+})
 
 export default function ErrorDocsPage() {
   return (

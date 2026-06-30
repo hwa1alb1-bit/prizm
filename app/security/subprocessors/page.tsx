@@ -1,4 +1,12 @@
 import { TrustPage, TrustSection } from '@/components/trust/trust-page'
+import { buildPageMetadata } from '@/lib/seo/site'
+
+export const metadata = buildPageMetadata({
+  title: 'Subprocessors and vendor inventory | StatementStudio',
+  description:
+    'Every third-party vendor StatementStudio uses, the purpose of each, and a link to their data processing agreement (DPA) for compliance review.',
+  path: '/security/subprocessors',
+})
 
 const subprocessors = [
   {
@@ -42,11 +50,6 @@ const subprocessors = [
     dpaUrl: 'https://www.cloudflare.com/cloudflare-customer-dpa/',
   },
 ]
-
-export const metadata = {
-  title: 'Subprocessors',
-  description: 'StatementStudio vendor and subprocessor inventory.',
-}
 
 export default function SubprocessorsPage() {
   return (

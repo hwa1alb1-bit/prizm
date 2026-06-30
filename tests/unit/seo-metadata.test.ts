@@ -26,6 +26,20 @@ describe('SEO metadata helpers', () => {
     expect(metadata.twitter).toMatchObject({ card: 'summary_large_image' })
   })
 
+  it('attaches a default og:image and twitter:image to every page so Ahrefs OpenGraph completeness passes', () => {
+    const metadata = buildPageMetadata({
+      title: 'Any | StatementStudio',
+      description:
+        'Any description long enough to pass the regression test that checks for the og image plumbing on every helper-built metadata block.',
+      path: '/any',
+    })
+    const ogImages = Array.isArray(metadata.openGraph?.images)
+      ? metadata.openGraph?.images
+      : [metadata.openGraph?.images]
+    expect(ogImages?.length).toBeGreaterThan(0)
+    expect(metadata.twitter?.images).toBeDefined()
+  })
+
   it('builds product schema without unsupported public claims', () => {
     const schema = buildSoftwareApplicationJsonLd()
     const serialized = JSON.stringify(schema)
@@ -41,12 +55,20 @@ describe('SEO metadata helpers', () => {
 
     expect(schema.applicationCategory).toBe('BusinessApplication')
     expect(schema.operatingSystem).toBe('All')
+    expect(schema.image).toMatch(/^https?:\/\//)
 
     const offers = schema.offers as Record<string, unknown> | undefined
     expect(offers).toBeDefined()
     expect(offers?.['@type']).toBe('Offer')
     expect(offers?.price).toBe('0.00')
     expect(offers?.priceCurrency).toBe('USD')
+    expect(offers?.url).toMatch(/^https?:\/\//)
+    expect(offers?.availability).toBe('https://schema.org/InStock')
+  })
+
+  it('Organization JSON-LD includes a logo URL so Google Search knowledge-panel validates', () => {
+    const schema = buildOrganizationJsonLd() as Record<string, unknown>
+    expect(schema.logo).toMatch(/^https?:\/\//)
   })
 
   it('builds organization, breadcrumb, and FAQ schema for public pages', () => {

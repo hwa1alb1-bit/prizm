@@ -1,9 +1,12 @@
 import { TrustPage, TrustSection } from '@/components/trust/trust-page'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata = {
-  title: 'Terms',
-  description: 'StatementStudio alpha service terms.',
-}
+export const metadata = buildPageMetadata({
+  title: 'Alpha service terms | StatementStudio',
+  description:
+    'StatementStudio alpha service terms: acceptable use, billing semantics, operational limits, and customer obligations on the path to production launch.',
+  path: '/terms',
+})
 
 export default function TermsPage() {
   return (

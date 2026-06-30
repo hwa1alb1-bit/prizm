@@ -38,14 +38,12 @@ describe('Integrate slug page', () => {
 })
 
 describe('Integrate slug metadata', () => {
-  it('builds a Convert PDF to {Software} CSV title pattern', async () => {
+  it('builds the trimmed PDF-to-{Software}-CSV title pattern that fits SEO length limits', async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'quickbooks-online' }),
     })
     const title = metadata.title as { absolute: string }
-    expect(title.absolute).toBe(
-      'Convert PDF Bank Statements to QuickBooks Online CSV | StatementStudio',
-    )
+    expect(title.absolute).toBe('PDF statement to QuickBooks Online CSV | StatementStudio')
     expect(metadata.alternates?.canonical).toBe('/integrate/quickbooks-online')
   })
 })

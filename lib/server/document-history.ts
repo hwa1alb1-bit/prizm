@@ -173,6 +173,7 @@ type StatementRow = {
 type AuditEventRow = {
   id: string
   target_id: string | null
+  target_type: string | null
   event_type: string
   created_at: string
   actor_user_id: string | null
@@ -314,16 +315,31 @@ async function hydrateDocuments(
   if (documents.length === 0) return []
 
   const documentIds = documents.map((document) => document.id)
-  const [statements, auditEvents, deletionEvidence] = await Promise.all([
-    listStatementsForDocuments(workspaceId, documentIds),
-    listAuditEventsForDocuments(workspaceId, documentIds),
+  const statements = await listStatementsForDocuments(workspaceId, documentIds)
+  const statementIds = statements.map((statement) => statement.id)
+  const statementToDocument = new Map(
+    statements.map((statement) => [statement.id, statement.document_id]),
+  )
+
+  const [auditEvents, deletionEvidence] = await Promise.all([
+    listAuditEventsForDocuments(workspaceId, documentIds, statementIds),
     listDeletionEvidenceForDocuments(workspaceId, documentIds),
   ])
 
   const statementsByDocument = groupBy(statements, (statement) => statement.document_id)
   const auditEventsByDocument = groupBy(
-    auditEvents.filter((event) => event.target_id),
-    (event) => event.target_id ?? '',
+    auditEvents.filter((event) => {
+      if (event.target_type === 'document') return Boolean(event.target_id)
+      if (event.target_type === 'statement')
+        return event.target_id ? statementToDocument.has(event.target_id) : false
+      return false
+    }),
+    (event) => {
+      if (event.target_type === 'statement' && event.target_id) {
+        return statementToDocument.get(event.target_id) ?? ''
+      }
+      return event.target_id ?? ''
+    },
   )
   const deletionByDocument = new Map(
     deletionEvidence.map((evidence) => [evidence.document_id, evidence]),
@@ -392,18 +408,40 @@ async function listStatementsForDocuments(
 async function listAuditEventsForDocuments(
   workspaceId: string,
   documentIds: readonly string[],
+  statementIds: readonly string[],
 ): Promise<AuditEventRow[]> {
-  const { data, error } = await getHistoryStoreClient()
+  const client = getHistoryStoreClient()
+  const documentEventsPromise = client
     .from('audit_event')
-    .select<AuditEventRow>('id, target_id, event_type, created_at, actor_user_id, metadata')
+    .select<AuditEventRow>(
+      'id, target_id, target_type, event_type, created_at, actor_user_id, metadata',
+    )
     .eq('workspace_id', workspaceId)
     .eq('target_type', 'document')
     .in('target_id', documentIds)
     .order('created_at', { ascending: false })
     .limit(Math.max(100, documentIds.length * 10))
 
-  if (error) throw new Error('audit_history_read_failed')
-  return data ?? []
+  const statementEventsPromise =
+    statementIds.length > 0
+      ? client
+          .from('audit_event')
+          .select<AuditEventRow>(
+            'id, target_id, target_type, event_type, created_at, actor_user_id, metadata',
+          )
+          .eq('workspace_id', workspaceId)
+          .eq('target_type', 'statement')
+          .in('target_id', statementIds)
+          .order('created_at', { ascending: false })
+          .limit(Math.max(100, statementIds.length * 10))
+      : Promise.resolve({ data: [] as AuditEventRow[], error: null })
+
+  const [documentEvents, statementEvents] = await Promise.all([
+    documentEventsPromise,
+    statementEventsPromise,
+  ])
+  if (documentEvents.error || statementEvents.error) throw new Error('audit_history_read_failed')
+  return [...(documentEvents.data ?? []), ...(statementEvents.data ?? [])]
 }
 
 async function listDeletionEvidenceForDocuments(

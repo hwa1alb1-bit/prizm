@@ -18,9 +18,9 @@ import {
 } from '@/lib/seo/site'
 
 export const metadata = buildPageMetadata({
-  title: 'Bank Statement Converter: PDF to Excel, CSV, QuickBooks, Xero | StatementStudio',
+  title: 'PDF Bank Statement Converter | StatementStudio',
   description:
-    'Convert PDF bank and credit card statements into QuickBooks, Xero, Excel, and CSV files. Automatic mathematical reconciliation to the cent with 24-hour auto-deletion.',
+    'Convert PDF bank and credit card statements into QuickBooks, Xero, Excel, and CSV. Reconciled to the cent. 24-hour auto-deletion.',
   path: '/',
 })
 

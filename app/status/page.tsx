@@ -1,10 +1,13 @@
 import Link from 'next/link'
 import { TrustPage, TrustSection } from '@/components/trust/trust-page'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata = {
-  title: 'Status',
-  description: 'StatementStudio launch readiness and operational status.',
-}
+export const metadata = buildPageMetadata({
+  title: 'Launch readiness and operational status | StatementStudio',
+  description:
+    'StatementStudio launch readiness: operational status, incident posture, change-management practice, and remaining items on the path to general availability.',
+  path: '/status',
+})
 
 export default function StatusPage() {
   return (

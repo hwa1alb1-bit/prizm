@@ -61,6 +61,18 @@ export function absoluteUrl(path: string): string {
   return `${siteUrl}${normalizedPath}`
 }
 
+// Default OG / Twitter image surfaced on every page that opts into buildPageMetadata.
+// Mirrors the default in app/layout.tsx; Next.js does NOT merge per-page openGraph
+// with the root layout — it replaces. So if a page sets openGraph without images,
+// the inheritance breaks. Keeping this in the helper means every marketing page
+// gets a card image for free.
+export const defaultSocialImage = {
+  url: '/marketing/logos/statementstudio-mark.png',
+  width: 512,
+  height: 512,
+  alt: 'StatementStudio',
+} as const
+
 export function buildPageMetadata(input: PageMetadataInput): Metadata {
   const url = absoluteUrl(input.path)
 
@@ -79,14 +91,18 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
       siteName,
       type: 'website',
       locale: 'en_US',
+      images: [defaultSocialImage],
     },
     twitter: {
       card: 'summary_large_image',
       title: input.title,
       description: input.description,
+      images: [defaultSocialImage.url],
     },
   }
 }
+
+const brandLogoUrl = absoluteUrl('/marketing/logos/statementstudio-mark.png')
 
 export function buildOrganizationJsonLd() {
   return {
@@ -95,6 +111,7 @@ export function buildOrganizationJsonLd() {
     name: siteName,
     url: siteUrl,
     email: 'support@pdftoexcelstatementconverter.com',
+    logo: brandLogoUrl,
     sameAs: [absoluteUrl('/security'), absoluteUrl('/privacy')],
   }
 }
@@ -107,12 +124,15 @@ export function buildSoftwareApplicationJsonLd() {
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'All',
     url: siteUrl,
+    image: brandLogoUrl,
     description:
       'StatementStudio converts PDF bank statements into reviewable Excel and CSV-ready transaction data.',
     offers: {
       '@type': 'Offer',
       price: '0.00',
       priceCurrency: 'USD',
+      url: siteUrl,
+      availability: 'https://schema.org/InStock',
     },
     featureList: [
       'PDF bank statement upload',

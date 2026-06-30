@@ -1,10 +1,12 @@
-import type { Metadata } from 'next'
 import { AppHeader } from '@/components/layout/app-header'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata: Metadata = {
-  title: 'FAQ — StatementStudio',
-  description: 'Common questions about StatementStudio billing, page quotas, and cancellations.',
-}
+export const metadata = buildPageMetadata({
+  title: 'Billing FAQ and account help | StatementStudio',
+  description:
+    'StatementStudio billing FAQ and account help: what counts as a page, monthly vs daily quotas, cancellations, refunds, and how to reach support.',
+  path: '/help',
+})
 
 const faqs = [
   {

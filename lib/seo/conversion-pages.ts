@@ -170,7 +170,7 @@ export const conversionPages: Record<ConversionPageKey, ConversionPageData> = {
   scanned: {
     key: 'scanned',
     path: '/convert-scanned-bank-statements',
-    title: 'Convert Scanned Bank Statements to Spreadsheet | StatementStudio',
+    title: 'Convert scanned bank statements | StatementStudio',
     description:
       'Convert scanned bank statements into spreadsheet data with honest OCR limits, review steps, and balance-check evidence.',
     eyebrow: 'Scanned statements',

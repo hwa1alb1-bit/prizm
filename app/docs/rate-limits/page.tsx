@@ -1,9 +1,12 @@
 import { TrustPage, TrustSection } from '@/components/trust/trust-page'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata = {
-  title: 'Rate Limits',
-  description: 'StatementStudio rate-limit semantics.',
-}
+export const metadata = buildPageMetadata({
+  title: 'API rate-limit semantics | StatementStudio',
+  description:
+    'StatementStudio API rate-limit semantics: per-workspace caps, burst windows, Retry-After conventions, X-RateLimit headers, and recommended client backoff.',
+  path: '/docs/rate-limits',
+})
 
 export default function RateLimitsPage() {
   return (

@@ -17,6 +17,7 @@ import {
   getIssuerBySlug,
   type SupportedFormat,
 } from '@/lib/marketing/supported-issuers'
+import { RelatedPagesRail } from '@/components/marketing/related-pages-rail'
 
 type BankSlugParams = {
   params: Promise<{ slug: string }>
@@ -40,8 +41,8 @@ export async function generateMetadata({ params }: BankSlugParams): Promise<Meta
     })
   }
   return buildPageMetadata({
-    title: `${bank.name} PDF to Excel, CSV, QuickBooks, Xero | StatementStudio`,
-    description: `Convert ${bank.name} PDF bank and credit card statements to Excel, CSV, QuickBooks, or Xero. Automatic mathematical reconciliation to the cent with 24-hour auto-deletion.`,
+    title: `${bank.name} PDF statement converter | StatementStudio`,
+    description: `Convert ${bank.name} PDF statements to Excel, CSV, QuickBooks, or Xero. Reconciled to the cent. 24-hour auto-deletion. Audit-friendly output.`,
     path: `/bank/${slug}`,
   })
 }
@@ -157,20 +158,7 @@ export default async function BankSlugPage({ params }: BankSlugParams) {
           </div>
         </section>
 
-        <section className="border-t border-[var(--border)]">
-          <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
-            <h2 className="text-xl font-semibold">More supported banks</h2>
-            <p className="mt-3 max-w-3xl text-sm text-[var(--text-secondary)]">
-              See the full list and pick another issuer.{' '}
-              <Link
-                href="/bank"
-                className="font-semibold text-[var(--primary)] underline-offset-4 hover:underline focus:outline-none focus-visible:underline"
-              >
-                All supported banks →
-              </Link>
-            </p>
-          </div>
-        </section>
+        <RelatedPagesRail kind="bank" currentSlug={bank.slug} />
       </main>
       <SiteFooter />
     </>

@@ -61,13 +61,15 @@ describe('DocumentHistoryList', () => {
 
     expect(screen.getAllByText('Processing').length).toBeGreaterThan(0)
     expect(screen.getByText('Extraction running')).toBeInTheDocument()
-    expect(screen.getByText('Extraction completed')).toBeInTheDocument()
+    expect(screen.getByText('Statement extracted')).toBeInTheDocument()
     expect(
       screen.getByText(
         /StatementStudio has proven upload, document verification, and conversion start/,
       ),
     ).toBeInTheDocument()
-    expect(screen.getByText(/waiting for the conversion to complete/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/waiting for extraction output to attach statement fields/),
+    ).toBeInTheDocument()
     expect(screen.getAllByText('Now').length).toBeGreaterThan(0)
   })
 
@@ -127,7 +129,7 @@ describe('DocumentReview', () => {
     expect(screen.getByRole('heading', { name: 'Evidence timeline' })).toBeInTheDocument()
     expect(screen.getByText('Upload requested')).toBeInTheDocument()
     expect(screen.getByText('Document verified')).toBeInTheDocument()
-    expect(screen.getByText('Extraction completed')).toBeInTheDocument()
+    expect(screen.queryByText('Extraction completed')).not.toBeInTheDocument()
     expect(screen.getByText('Statement extracted')).toBeInTheDocument()
     expect(screen.getByText('Export ready')).toBeInTheDocument()
     expect(screen.getByText('Deletion completed')).toBeInTheDocument()
@@ -209,12 +211,58 @@ describe('DocumentReview', () => {
     render(<DocumentReview document={historyDocument()} />)
 
     expect(screen.getByRole('heading', { name: 'Statement summary' }).closest('details')).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Transaction table' }).closest('details')).toBeNull()
     expect(screen.getByRole('heading', { name: 'Export Status' }).closest('details')).toBeNull()
 
     expect(
       screen.getByRole('heading', { name: 'Exceptions' }).closest('details'),
     ).not.toHaveAttribute('open')
+  })
+
+  it('renders Editable review and Transaction table as collapsible accordions', () => {
+    render(<DocumentReview document={historyDocument()} />)
+
+    const editableReview = screen
+      .getByRole('heading', { name: 'Editable review' })
+      .closest('details')
+    const transactionTable = screen
+      .getByRole('heading', { name: 'Transaction table' })
+      .closest('details')
+
+    expect(editableReview).not.toBeNull()
+    expect(transactionTable).not.toBeNull()
+    // Unreviewed documents render both accordions open by default
+    expect(editableReview).toHaveAttribute('open')
+    expect(transactionTable).toHaveAttribute('open')
+  })
+
+  it('collapses Editable review and Transaction table once the statement is marked reviewed', () => {
+    render(<DocumentReview document={reviewedDocument()} />)
+
+    const editableReview = screen
+      .getByRole('heading', { name: 'Editable review' })
+      .closest('details')
+    const transactionTable = screen
+      .getByRole('heading', { name: 'Transaction table' })
+      .closest('details')
+
+    expect(editableReview).not.toHaveAttribute('open')
+    expect(transactionTable).not.toHaveAttribute('open')
+  })
+
+  it('advances the Export ready timeline step to complete when statement is marked reviewed', () => {
+    // Find the Export ready step's <li> in the HorizontalStepper and assert
+    // its sr-only status text is "complete". For an unreviewed doc the same
+    // step renders "pending"; the reviewed audit event is the only thing that
+    // flips it. This is the user-visible signal of the timeline advancing.
+    const { rerender } = render(<DocumentReview document={historyDocument()} />)
+    const unreviewedStep = screen.getByText('Export ready').closest('li')
+    expect(unreviewedStep).not.toBeNull()
+    expect(unreviewedStep?.textContent?.toLowerCase()).toMatch(/pending/)
+
+    rerender(<DocumentReview document={reviewedDocument()} />)
+    const reviewedStep = screen.getByText('Export ready').closest('li')
+    expect(reviewedStep).not.toBeNull()
+    expect(reviewedStep?.textContent?.toLowerCase()).toMatch(/complete/)
   })
 
   it('auto-opens exceptions when they need attention', () => {
@@ -302,7 +350,7 @@ describe('DocumentReview', () => {
     expect(blockedSrLabels).toHaveLength(1)
 
     const pendingSrLabels = screen.getAllByText(/^pending$/i)
-    expect(pendingSrLabels.length).toBeGreaterThanOrEqual(3)
+    expect(pendingSrLabels.length).toBeGreaterThanOrEqual(2)
   })
 
   it('routes Kotlin worker normalization failures to the extraction processing recovery card', () => {
@@ -439,6 +487,26 @@ function historyDocument(): HistoryDocumentView {
       receiptErrorCode: null,
       deletionAuditedAt: '2026-05-07T14:01:10.000Z',
     },
+  }
+}
+
+function reviewedDocument(): HistoryDocumentView {
+  const base = historyDocument()
+  return {
+    ...base,
+    id: 'doc_reviewed',
+    filename: 'Reviewed Statement.pdf',
+    auditEvents: [
+      ...base.auditEvents,
+      {
+        id: 'audit_reviewed_123',
+        eventType: 'statement.reviewed',
+        createdAt: '2026-05-06T14:20:00.000Z',
+        actorUserId: 'user_123',
+        requestId: 'req_review',
+        traceId: 'trace_review',
+      },
+    ],
   }
 }
 

@@ -162,3 +162,23 @@ jobs:
           if [ "$STATUS" != "200" ]; then
             echo "::warning::Apex did not return 200 immediately after promote (HTTP $STATUS). Edge may still be propagating." >&2
           fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies (no scripts, no frozen-lockfile for cross-platform CI)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Submit URLs to IndexNow (Bing + Yandex)
+        # Non-blocking: a failed IndexNow ping should not fail the promote.
+        # Bing + Yandex consume IndexNow directly; Google ignores it.
+        continue-on-error: true
+        run: pnpm tsx scripts/indexnow-ping.ts

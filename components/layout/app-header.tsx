@@ -42,6 +42,7 @@ function Wordmark() {
       <img
         src="/marketing/logos/statementstudio-mark.png"
         alt=""
+        aria-hidden="true"
         width={72}
         height={72}
         className="h-[72px] w-[72px] object-contain mix-blend-multiply"
