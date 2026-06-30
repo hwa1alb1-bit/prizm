@@ -163,6 +163,15 @@ jobs:
             echo "::warning::Apex did not return 200 immediately after promote (HTTP $STATUS). Edge may still be propagating." >&2
           fi
 
+      # promote-production.yml is workflow_run-triggered with no PR / branch
+      # context, so actions/checkout has to be explicit. The IndexNow steps
+      # below need the repo on disk (pnpm-lock.yaml, scripts/indexnow-ping.ts).
+      # The earlier alias steps run on curl + Vercel API only, so they ran
+      # fine even without checkout — but the Setup Node step that follows
+      # requires the lockfile and fails the whole workflow without it.
+      - name: Checkout (for IndexNow ping)
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
