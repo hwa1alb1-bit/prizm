@@ -78,9 +78,11 @@ export function TrustCards() {
               data-card={tile.key}
               className="flex flex-1 flex-col items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--elevation-card)] lg:items-center lg:text-center"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={tile.icon}
                 alt=""
+                aria-hidden="true"
                 width={32}
                 height={32}
                 className="h-8 w-8 object-contain"

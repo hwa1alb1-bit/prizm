@@ -173,6 +173,7 @@ export function ExportActions({
                 <img
                   src={meta.icon}
                   alt=""
+                  aria-hidden="true"
                   width={18}
                   height={18}
                   className="h-[18px] w-[18px] shrink-0 rounded-sm bg-white object-contain p-0.5"
