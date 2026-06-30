@@ -19,7 +19,8 @@ describe('IndexNow', () => {
 
   it('builds a submission with host, key, keyLocation, and a non-empty urlList', () => {
     const submission = buildIndexNowSubmission()
-    expect(submission.host).toMatch(/^[\w.-]+$/)
+    // host may include ":port" in CI/test envs (NEXT_PUBLIC_SITE_URL=http://localhost:3030)
+    expect(submission.host).toMatch(/^[\w.-]+(?::\d+)?$/)
     expect(submission.key).toBe(INDEXNOW_KEY)
     expect(submission.keyLocation).toBe(`https://${submission.host}/${INDEXNOW_KEY}.txt`)
     expect(submission.urlList.length).toBeGreaterThan(0)

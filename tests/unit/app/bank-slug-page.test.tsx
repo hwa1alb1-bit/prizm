@@ -47,10 +47,10 @@ describe('Bank slug page', () => {
 })
 
 describe('Bank slug metadata', () => {
-  it('builds the Gemini-recommended title pattern for each bank', async () => {
+  it('builds the trimmed bank-converter title pattern that fits SEO length limits', async () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: 'chase' }) })
     const title = metadata.title as { absolute: string }
-    expect(title.absolute).toBe('Chase PDF to Excel, CSV, QuickBooks, Xero | StatementStudio')
+    expect(title.absolute).toBe('Chase PDF statement converter | StatementStudio')
     expect(metadata.alternates?.canonical).toBe('/bank/chase')
   })
 
