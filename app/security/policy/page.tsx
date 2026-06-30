@@ -1,10 +1,13 @@
 import Link from 'next/link'
 import { TrustPage, TrustSection } from '@/components/trust/trust-page'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata = {
-  title: 'Security Policy',
-  description: 'StatementStudio vulnerability disclosure and security reporting policy.',
-}
+export const metadata = buildPageMetadata({
+  title: 'Security policy and disclosure | StatementStudio',
+  description:
+    'StatementStudio vulnerability disclosure policy, safe harbor commitments, security reporting contacts, and response timelines for researchers and customers.',
+  path: '/security/policy',
+})
 
 export default function SecurityPolicyPage() {
   return (

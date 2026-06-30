@@ -34,8 +34,8 @@ export async function generateMetadata({ params }: IntegrateParams): Promise<Met
     })
   }
   return buildPageMetadata({
-    title: `Convert PDF Bank Statements to ${integration.name} CSV | StatementStudio`,
-    description: `Turn PDF bank and credit card statements into ${integration.name}-ready CSV imports with reconciliation to the cent and 24-hour auto-deletion.`,
+    title: `PDF statement to ${integration.name} CSV | StatementStudio`,
+    description: `Turn PDF bank and credit card statements into ${integration.name}-ready CSV imports. Reconciled to the cent. 24-hour auto-deletion. Built for bookkeepers.`,
     path: `/integrate/${slug}`,
   })
 }

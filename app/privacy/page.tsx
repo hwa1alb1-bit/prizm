@@ -1,10 +1,13 @@
 import Link from 'next/link'
 import { TrustPage, TrustSection } from '@/components/trust/trust-page'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata = {
-  title: 'Privacy',
-  description: 'StatementStudio privacy commitments, retention, and data rights workflows.',
-}
+export const metadata = buildPageMetadata({
+  title: 'Privacy commitments and data rights | StatementStudio',
+  description:
+    'StatementStudio privacy: 24-hour document retention, no model training, encryption in transit and at rest, and how to exercise data-rights requests.',
+  path: '/privacy',
+})
 
 export default function PrivacyPage() {
   return (

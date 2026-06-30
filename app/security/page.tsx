@@ -1,10 +1,12 @@
 import Link from 'next/link'
+import { buildPageMetadata } from '@/lib/seo/site'
 
-export const metadata = {
-  title: 'Security',
+export const metadata = buildPageMetadata({
+  title: 'Security controls and disclosure | StatementStudio',
   description:
-    'Current StatementStudio security controls, disclosure contacts, and planned controls.',
-}
+    'StatementStudio security controls, vulnerability disclosure contacts, encryption posture, retention windows, and planned controls on the path to production.',
+  path: '/security',
+})
 
 export default function SecurityPage() {
   return (

@@ -6,9 +6,9 @@ import { buildBreadcrumbJsonLd, buildPageMetadata } from '@/lib/seo/site'
 import { MARKETING_BANKS } from '@/lib/marketing/marketing-banks'
 
 export const metadata = buildPageMetadata({
-  title: 'Supported banks for PDF statement conversion | StatementStudio',
+  title: 'Supported banks for PDF conversion | StatementStudio',
   description:
-    'Convert PDF bank and credit card statements from Chase, Bank of America, Wells Fargo, Capital One, Citi, American Express, U.S. Bank, PNC, TD, and Discover into Excel, CSV, QuickBooks, and Xero.',
+    'Convert PDF statements from Chase, Bank of America, Wells Fargo, Capital One, Citi, Amex, U.S. Bank, PNC, TD, and Discover into Excel, CSV, QuickBooks, or Xero.',
   path: '/bank',
 })
 

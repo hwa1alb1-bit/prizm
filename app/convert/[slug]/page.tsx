@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: ConvertParams): Promise<Metad
   const { issuer, format } = parsed
   return buildPageMetadata({
     title: `${issuer.name} statement to ${format.label} | StatementStudio`,
-    description: `Convert ${issuer.name} PDF statements to ${format.label}. Reconciled exports, deterministic parser, audit-friendly output.`,
+    description: `Convert ${issuer.name} PDF bank and credit card statements to ${format.label}. Deterministic reconciliation math, audit-friendly columns, 24-hour auto-deletion.`,
     path: `/convert/${slug}`,
   })
 }
