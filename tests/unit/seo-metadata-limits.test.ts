@@ -2,11 +2,15 @@
  * Walks every page that emits SEO metadata and asserts title/description fall
  * within the limits in `lib/seo/limits.ts`. Failing this test means a new page
  * or programmatic-route variant exceeds Ahrefs/Google guidance and will
- * surface in the next site audit.
+ * surface in the next site audit. Also asserts that every page sets its own
+ * canonical via buildPageMetadata — bare `metadata = { title }` exports inherit
+ * the root layout's `/` canonical, which Ahrefs flags as "Non-canonical page
+ * in sitemap".
  */
 import { describe, expect, it } from 'vitest'
 
 import { TITLE_MAX, DESCRIPTION_MIN, DESCRIPTION_MAX } from '@/lib/seo/limits'
+import { buildPageMetadata } from '@/lib/seo/site'
 import { MARKETING_BANKS } from '@/lib/marketing/marketing-banks'
 import { MARKETING_INTEGRATIONS } from '@/lib/marketing/marketing-integrations'
 import {
@@ -187,5 +191,20 @@ describe('SEO metadata limits', () => {
     for (const page of staticPages) {
       it(`${page.path}`, () => expectWithinLimits(page))
     }
+
+    // Regression guard: trust + docs pages previously bypassed buildPageMetadata
+    // and inherited the root layout's canonical='/', producing Ahrefs's
+    // "Non-canonical page in sitemap" flag on 8 routes. Confirm every page's
+    // helper-generated canonical points at its own path, not /.
+    describe('canonical points at the page itself, not the root', () => {
+      for (const page of staticPages) {
+        if (page.path === '/') continue
+        it(`${page.path}`, () => {
+          const meta = buildPageMetadata(page) as { alternates?: { canonical?: string } }
+          expect(meta.alternates?.canonical).toBe(page.path)
+          expect(meta.alternates?.canonical).not.toBe('/')
+        })
+      }
+    })
   })
 })
