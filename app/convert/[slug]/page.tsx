@@ -6,6 +6,7 @@ import { SiteFooter } from '@/components/marketing/site-footer'
 import { JsonLd } from '@/components/marketing/json-ld'
 import { buildBreadcrumbJsonLd, buildPageMetadata } from '@/lib/seo/site'
 import { buildConvertSlugs, parseConvertSlug } from '@/lib/marketing/supported-issuers'
+import { RelatedPagesRail } from '@/components/marketing/related-pages-rail'
 
 type ConvertParams = {
   params: Promise<{ slug: string }>
@@ -125,6 +126,8 @@ export default async function ConvertSlugPage({ params }: ConvertParams) {
             </p>
           </div>
         </section>
+
+        <RelatedPagesRail kind="convert" currentSlug={slug} />
       </main>
       <SiteFooter />
     </>

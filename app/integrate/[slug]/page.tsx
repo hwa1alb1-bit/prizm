@@ -12,6 +12,7 @@ import {
   buildSoftwareApplicationJsonLd,
 } from '@/lib/seo/site'
 import { buildIntegrationSlugs, getIntegrationBySlug } from '@/lib/marketing/marketing-integrations'
+import { RelatedPagesRail } from '@/components/marketing/related-pages-rail'
 
 type IntegrateParams = {
   params: Promise<{ slug: string }>
@@ -124,6 +125,8 @@ export default async function IntegrateSlugPage({ params }: IntegrateParams) {
             </p>
           </div>
         </section>
+
+        <RelatedPagesRail kind="integration" currentSlug={integration.slug} />
       </main>
       <SiteFooter />
     </>
