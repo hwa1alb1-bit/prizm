@@ -55,12 +55,20 @@ describe('SEO metadata helpers', () => {
 
     expect(schema.applicationCategory).toBe('BusinessApplication')
     expect(schema.operatingSystem).toBe('All')
+    expect(schema.image).toMatch(/^https?:\/\//)
 
     const offers = schema.offers as Record<string, unknown> | undefined
     expect(offers).toBeDefined()
     expect(offers?.['@type']).toBe('Offer')
     expect(offers?.price).toBe('0.00')
     expect(offers?.priceCurrency).toBe('USD')
+    expect(offers?.url).toMatch(/^https?:\/\//)
+    expect(offers?.availability).toBe('https://schema.org/InStock')
+  })
+
+  it('Organization JSON-LD includes a logo URL so Google Search knowledge-panel validates', () => {
+    const schema = buildOrganizationJsonLd() as Record<string, unknown>
+    expect(schema.logo).toMatch(/^https?:\/\//)
   })
 
   it('builds organization, breadcrumb, and FAQ schema for public pages', () => {

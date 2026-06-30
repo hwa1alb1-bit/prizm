@@ -102,6 +102,8 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
   }
 }
 
+const brandLogoUrl = absoluteUrl('/marketing/logos/statementstudio-mark.png')
+
 export function buildOrganizationJsonLd() {
   return {
     '@context': 'https://schema.org',
@@ -109,6 +111,7 @@ export function buildOrganizationJsonLd() {
     name: siteName,
     url: siteUrl,
     email: 'support@pdftoexcelstatementconverter.com',
+    logo: brandLogoUrl,
     sameAs: [absoluteUrl('/security'), absoluteUrl('/privacy')],
   }
 }
@@ -121,12 +124,15 @@ export function buildSoftwareApplicationJsonLd() {
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'All',
     url: siteUrl,
+    image: brandLogoUrl,
     description:
       'StatementStudio converts PDF bank statements into reviewable Excel and CSV-ready transaction data.',
     offers: {
       '@type': 'Offer',
       price: '0.00',
       priceCurrency: 'USD',
+      url: siteUrl,
+      availability: 'https://schema.org/InStock',
     },
     featureList: [
       'PDF bank statement upload',
