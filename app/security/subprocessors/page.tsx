@@ -51,11 +51,6 @@ const subprocessors = [
   },
 ]
 
-export const metadata = {
-  title: 'Subprocessors',
-  description: 'StatementStudio vendor and subprocessor inventory.',
-}
-
 export default function SubprocessorsPage() {
   return (
     <TrustPage

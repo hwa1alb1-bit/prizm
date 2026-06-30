@@ -34,8 +34,13 @@ describe('IndexNow', () => {
   })
 
   it('POSTs to the IndexNow endpoint with the submission body and reports ok on 200', async () => {
-    const fetchMock = vi.fn(async () => new Response('', { status: 200 })) as unknown as typeof fetch
-    const result = await submitToIndexNow(['https://example.com/a', 'https://example.com/b'], fetchMock)
+    const fetchMock = vi.fn(
+      async () => new Response('', { status: 200 }),
+    ) as unknown as typeof fetch
+    const result = await submitToIndexNow(
+      ['https://example.com/a', 'https://example.com/b'],
+      fetchMock,
+    )
     expect(result.ok).toBe(true)
     expect(result.status).toBe(200)
     expect(result.submitted).toBe(2)

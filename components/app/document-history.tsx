@@ -735,8 +735,7 @@ function buildEvidenceTimelineSteps(
           : exportReadiness.label === 'Ready to export'
             ? 'Statement evidence is ready. StatementStudio is waiting for a generated export event.'
             : exportReadiness.cause,
-      timestamp:
-        exportGeneratedAudit?.createdAt ?? statementReviewedAudit?.createdAt ?? null,
+      timestamp: exportGeneratedAudit?.createdAt ?? statementReviewedAudit?.createdAt ?? null,
       // SECURITY-AUDIT: removed Request id evidence row; kept opaque audit event id as Support reference
       evidence: exportGeneratedAudit
         ? [{ label: 'Support reference', value: exportGeneratedAudit.id }]

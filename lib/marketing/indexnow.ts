@@ -20,9 +20,7 @@ export const INDEXNOW_ENDPOINT = 'https://api.indexnow.org/IndexNow'
 export function buildAllSitemapUrls(): string[] {
   const staticUrls = publicSitemapRoutes.map((route) => absoluteUrl(route))
   const bankUrls = buildBankSlugs().map((slug) => absoluteUrl(`/bank/${slug}`))
-  const integrationUrls = buildIntegrationSlugs().map((slug) =>
-    absoluteUrl(`/integrate/${slug}`),
-  )
+  const integrationUrls = buildIntegrationSlugs().map((slug) => absoluteUrl(`/integrate/${slug}`))
   const convertUrls = buildConvertSlugs().map((slug) => absoluteUrl(`/convert/${slug}`))
   return [...staticUrls, ...bankUrls, ...integrationUrls, ...convertUrls]
 }
@@ -34,7 +32,9 @@ export type IndexNowSubmission = {
   urlList: string[]
 }
 
-export function buildIndexNowSubmission(urls: string[] = buildAllSitemapUrls()): IndexNowSubmission {
+export function buildIndexNowSubmission(
+  urls: string[] = buildAllSitemapUrls(),
+): IndexNowSubmission {
   if (urls.length === 0) throw new Error('indexnow_empty_url_list')
   const host = new URL(urls[0]).host
   return {

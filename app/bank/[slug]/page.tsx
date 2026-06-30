@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: BankSlugParams): Promise<Meta
   }
   return buildPageMetadata({
     title: `${bank.name} PDF statement converter | StatementStudio`,
-    description: `Convert ${bank.name} PDF statements to Excel, CSV, QuickBooks, or Xero. Reconciled to the cent. 24-hour auto-deletion. Audit-friendly output for bookkeepers.`,
+    description: `Convert ${bank.name} PDF statements to Excel, CSV, QuickBooks, or Xero. Reconciled to the cent. 24-hour auto-deletion. Audit-friendly output.`,
     path: `/bank/${slug}`,
   })
 }

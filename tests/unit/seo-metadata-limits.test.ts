@@ -13,10 +13,7 @@ import { TITLE_MAX, DESCRIPTION_MIN, DESCRIPTION_MAX } from '@/lib/seo/limits'
 import { buildPageMetadata } from '@/lib/seo/site'
 import { MARKETING_BANKS } from '@/lib/marketing/marketing-banks'
 import { MARKETING_INTEGRATIONS } from '@/lib/marketing/marketing-integrations'
-import {
-  SUPPORTED_ISSUERS,
-  SUPPORTED_FORMATS,
-} from '@/lib/marketing/supported-issuers'
+import { SUPPORTED_ISSUERS, SUPPORTED_FORMATS } from '@/lib/marketing/supported-issuers'
 import { conversionPages } from '@/lib/seo/conversion-pages'
 
 type Metadata = { title: string; description: string; path: string }
@@ -25,10 +22,7 @@ function expectWithinLimits(meta: Metadata) {
   expect(meta.title.length, `title too long for ${meta.path}: "${meta.title}"`).toBeLessThanOrEqual(
     TITLE_MAX,
   )
-  expect(
-    meta.title.length,
-    `title empty for ${meta.path}`,
-  ).toBeGreaterThan(0)
+  expect(meta.title.length, `title empty for ${meta.path}`).toBeGreaterThan(0)
   expect(
     meta.description.length,
     `description too short for ${meta.path}: "${meta.description}"`,
@@ -47,7 +41,7 @@ describe('SEO metadata limits', () => {
       it(`${bank.name}`, () => {
         expectWithinLimits({
           title: `${bank.name} PDF statement converter | StatementStudio`,
-          description: `Convert ${bank.name} PDF statements to Excel, CSV, QuickBooks, or Xero. Reconciled to the cent. 24-hour auto-deletion. Audit-friendly output for bookkeepers.`,
+          description: `Convert ${bank.name} PDF statements to Excel, CSV, QuickBooks, or Xero. Reconciled to the cent. 24-hour auto-deletion. Audit-friendly output.`,
           path: `/bank/${bank.slug}`,
         })
       })

@@ -221,8 +221,12 @@ describe('DocumentReview', () => {
   it('renders Editable review and Transaction table as collapsible accordions', () => {
     render(<DocumentReview document={historyDocument()} />)
 
-    const editableReview = screen.getByRole('heading', { name: 'Editable review' }).closest('details')
-    const transactionTable = screen.getByRole('heading', { name: 'Transaction table' }).closest('details')
+    const editableReview = screen
+      .getByRole('heading', { name: 'Editable review' })
+      .closest('details')
+    const transactionTable = screen
+      .getByRole('heading', { name: 'Transaction table' })
+      .closest('details')
 
     expect(editableReview).not.toBeNull()
     expect(transactionTable).not.toBeNull()
@@ -234,17 +238,31 @@ describe('DocumentReview', () => {
   it('collapses Editable review and Transaction table once the statement is marked reviewed', () => {
     render(<DocumentReview document={reviewedDocument()} />)
 
-    const editableReview = screen.getByRole('heading', { name: 'Editable review' }).closest('details')
-    const transactionTable = screen.getByRole('heading', { name: 'Transaction table' }).closest('details')
+    const editableReview = screen
+      .getByRole('heading', { name: 'Editable review' })
+      .closest('details')
+    const transactionTable = screen
+      .getByRole('heading', { name: 'Transaction table' })
+      .closest('details')
 
     expect(editableReview).not.toHaveAttribute('open')
     expect(transactionTable).not.toHaveAttribute('open')
   })
 
   it('advances the Export ready timeline step to complete when statement is marked reviewed', () => {
-    render(<DocumentReview document={reviewedDocument()} />)
+    // Find the Export ready step's <li> in the HorizontalStepper and assert
+    // its sr-only status text is "complete". For an unreviewed doc the same
+    // step renders "pending"; the reviewed audit event is the only thing that
+    // flips it. This is the user-visible signal of the timeline advancing.
+    const { rerender } = render(<DocumentReview document={historyDocument()} />)
+    const unreviewedStep = screen.getByText('Export ready').closest('li')
+    expect(unreviewedStep).not.toBeNull()
+    expect(unreviewedStep?.textContent?.toLowerCase()).toMatch(/pending/)
 
-    expect(screen.getByText(/Statement reviewed — ready to export/)).toBeInTheDocument()
+    rerender(<DocumentReview document={reviewedDocument()} />)
+    const reviewedStep = screen.getByText('Export ready').closest('li')
+    expect(reviewedStep).not.toBeNull()
+    expect(reviewedStep?.textContent?.toLowerCase()).toMatch(/complete/)
   })
 
   it('auto-opens exceptions when they need attention', () => {

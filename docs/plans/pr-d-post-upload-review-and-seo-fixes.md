@@ -13,6 +13,7 @@ This branch ships as a single PR-D bundling the planning doc that frames it plus
 5. Ahrefs site audit returned 18 distinct issue types across the site.
 
 Decisions already locked with the user:
+
 - Issue #2 → **merge** the two events into a single user-facing "Statement extracted" step (audit records preserved under the hood).
 - Issue #5 → user provided Ahrefs screenshot; ship code fixes in PR-D for everything actionable in-app.
 
@@ -23,12 +24,14 @@ Branch naming: `feat/post-upload-review-and-seo-fixes` off latest `main`.
 ## Issue #1 — "Mark reviewed" advances timeline to Export ready
 
 **Where it lives today**
+
 - Button: `components/app/editable-review-workflow.tsx:358-366` (`Mark reviewed`, calls `save(true)`).
 - API: `PATCH /api/v1/documents/{id}/statement` at `app/api/v1/documents/[documentId]/statement/route.ts` with `reviewed: true`.
 - Persistence: `lib/server/statement-edit.ts:329-334` records an audit event with `eventType: 'statement.reviewed'`.
 - Timeline step: `components/app/document-history.tsx:715-735` — `export_generated` only flips to `complete` when an `exportGeneratedAudit` event exists; ignores `statement.reviewed`.
 
 **Fix**
+
 - In the document fetcher that produces `document.auditEvents` (whichever currently sources `exportGeneratedAudit`), also surface the latest `statement.reviewed` event as `statementReviewedAudit`.
 - In `document-history.tsx:715-735`, update the `export_generated` status branch: if `exportGeneratedAudit` OR `statementReviewedAudit` exists → `complete`. Adjust the `detail` copy:
   - downloaded: keep "Your export is ready for download."
@@ -37,6 +40,7 @@ Branch naming: `feat/post-upload-review-and-seo-fixes` off latest `main`.
 - Use the reviewed audit's `createdAt` for the step timestamp when no export event exists yet.
 
 **Tests**
+
 - Extend `tests/unit/document-history-components.test.tsx` to render with a `statement.reviewed` audit event and assert the `Export ready` step status is `complete`.
 - Existing `tests/unit/editable-review-workflow.test.tsx` (lines 89, 143, 218) keeps verifying the button itself.
 
@@ -45,9 +49,11 @@ Branch naming: `feat/post-upload-review-and-seo-fixes` off latest `main`.
 ## Issue #2 — Merge "Extraction completed" + "Statement extracted"
 
 **Where it lives**
+
 - `components/app/document-history.tsx:669-714` defines the two steps `ocr_completed` (label "Extraction completed") and `statement_extracted` (label "Statement extracted").
 
 **Fix (merge per user decision)**
+
 - Delete the `ocr_completed` step block from the timeline.
 - Keep `statement_extracted` and broaden its `status` / `detail` to absorb both signals:
   - `complete` when `statement` exists.
@@ -58,6 +64,7 @@ Branch naming: `feat/post-upload-review-and-seo-fixes` off latest `main`.
 - Audit records and DB events are **not** dropped — only the user-facing label is collapsed.
 
 **Tests**
+
 - `tests/unit/document-history-components.test.tsx:52–132` currently asserts both labels appear; rewrite to assert only "Statement extracted" and that page count / bank name evidence both show under it.
 - `app/(dashboard)/app/history/loading.tsx:70-71` and `app/(dashboard)/app/history/[documentId]/loading.tsx:53-54` already only render "Statement extracted" + "Export ready" — no change needed.
 
@@ -66,11 +73,13 @@ Branch naming: `feat/post-upload-review-and-seo-fixes` off latest `main`.
 ## Issue #3 — Editable Review + Transaction Table as accordions
 
 **Where it lives**
+
 - `components/app/document-history.tsx:325-353` already defines `DisclosureSection` (native `<details>`+`<summary>`, chevron, `defaultOpen` prop). Pattern proven by the Exceptions panel at `:177-183`.
 - `EditableReviewWorkflow` mounted at `components/app/document-history.tsx:161`.
 - `TransactionTable` defined at `components/app/document-history.tsx:902-989`, mounted in the same `DocumentReview` body.
 
 **Fix**
+
 - Wrap both panels in `DisclosureSection` instead of `EvidenceSection`.
 - Defaults:
   - Editable Review → `defaultOpen={!statementReviewedAudit}` (collapses once reviewed).
@@ -79,6 +88,7 @@ Branch naming: `feat/post-upload-review-and-seo-fixes` off latest `main`.
 - No new dep — `<details>` is native.
 
 **Tests**
+
 - Update `tests/unit/document-history-components.test.tsx` and `tests/unit/document-review-page.test.tsx` to expect `<details>`+`<summary>` instead of bare section for these two panels. `tests/unit/editable-review-workflow.test.tsx` is unaffected (tests the inner workflow, not the wrapper).
 
 ---
@@ -91,13 +101,13 @@ The Cloudflare MCP connector available in this session exposes only D1 / KV / R2
 
 Split the five flags accordingly:
 
-| # | Flag | Severity | Status in PR-D |
-|---|---|---|---|
-| 1 | Review and block AI bots from accessing your assets | Moderate | **Partial in code** (robots.txt) + **deferred dashboard toggle** |
-| 2 | Unproxied A Record detected | Moderate | **Deferred / likely false positive** (Vercel requires DNS-only apex `76.76.21.21`) |
-| 3 | Unproxied CNAME Record detected | Moderate | **Deferred / likely false positive** (`www` → `cname.vercel-dns.com` requires DNS-only) |
-| 4 | Disrupt unwanted AI crawlers with AI Labyrinth | Low | **Deferred** (dashboard-only feature, no MCP / no zone access) |
-| 5 | Configure your website's Security.txt | Low | **Shipped in code** |
+| #   | Flag                                                | Severity | Status in PR-D                                                                          |
+| --- | --------------------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
+| 1   | Review and block AI bots from accessing your assets | Moderate | **Partial in code** (robots.txt) + **deferred dashboard toggle**                        |
+| 2   | Unproxied A Record detected                         | Moderate | **Deferred / likely false positive** (Vercel requires DNS-only apex `76.76.21.21`)      |
+| 3   | Unproxied CNAME Record detected                     | Moderate | **Deferred / likely false positive** (`www` → `cname.vercel-dns.com` requires DNS-only) |
+| 4   | Disrupt unwanted AI crawlers with AI Labyrinth      | Low      | **Deferred** (dashboard-only feature, no MCP / no zone access)                          |
+| 5   | Configure your website's Security.txt               | Low      | **Shipped in code**                                                                     |
 
 **Shippable in PR-D**
 
@@ -126,26 +136,26 @@ Split the five flags accordingly:
 
 Ahrefs MCP returned `"Insufficient plan"` on every call — API key wired into the connector lacks Site Audit entitlement. User provided a screenshot of the issue list, classified below.
 
-| # | Issue | Count | Class | Fix in PR-D |
-|---|---|---|---|---|
-| 1 | Orphan page (no incoming internal links) | 1 | Code | Identify via Ahrefs URL drilldown; add an internal link from a relevant hub (likely a `/bank/[slug]` orphan — add to footer or `/issuers` index). |
-| 2 | Page has only one dofollow incoming internal link (indexable) | 12 | Code | Cross-link `/bank/[slug]` ↔ `/convert/[slug]` ↔ `/integrate/[slug]` via a "Related" rail on each programmatic page. |
-| 3 | Page has only one dofollow incoming internal link (not-indexable) | 16 | Likely safe to ignore (auth / utility routes); confirm via URL list. |
-| 4 | Page has no outgoing links | 6 | Code | Add at least one footer or contextual link to thin utility pages. |
-| 5 | Page has links to redirect | 2 | Code | Replace internal links pointing at redirect targets with the final URL. |
-| 6 | 3XX redirect | 4 | Likely intentional (trailing-slash, http→https); verify and either keep or fix in `next.config` redirects. |
-| 7 | HTTP to HTTPS redirect | 2 | Safe (handled at edge); ignore. |
-| 8 | Meta description too long (indexable) | 12 | Code | Trim descriptions in `app/**/page.tsx` `metadata.description` to ≤160 chars. |
-| 9 | Title too long (indexable) | 1 | Code | Trim title in the offending page metadata to ≤60 chars. |
-| 10 | Meta description too short | 18 | Code | Expand short descriptions to 120–160 chars where they exist. |
-| 11 | Title too long (not-indexable) | 11 | Code | Same trim rule on utility-page titles. |
-| 12 | Low word count | 10 | Content + Code | Add body copy to thin pages (likely some `/integrate/*` or `/convert/*` slugs) — 300+ words minimum. |
-| 13 | Meta description too long (not-indexable) | 1 | Code | Trim. |
-| 14 | Open Graph tags incomplete | 32 | Code | Add `openGraph` block (title, description, url, type, images) to every page-level `metadata` export. Centralize defaults in `app/layout.tsx`. |
-| 15 | Missing alt text | 42 | Code | Audit every `next/image` + `<img>` usage; add `alt=""` for decorative and meaningful `alt` for content images. Largest violator is likely `public/marketing/icons/` PNGs rendered without alt. |
-| 16 | Non-canonical page in sitemap | 8 | Code | Either remove non-canonical URLs from `app/sitemap.ts` or set the `canonical` meta on the offending pages to the in-sitemap URL. Likely the trailing-slash / case variants. |
-| 17 | Pages to submit to IndexNow | 32 | Config | Add `public/<indexnow-key>.txt` + integrate IndexNow ping in the deploy workflow. (Bing/Yandex compatible, free.) |
-| 18 | Structured data has Google rich results validation error | 24 | Code | Fix JSON-LD on `app/layout.tsx` / `app/page.tsx` / per-route schemas. Most likely the `Organization` or `Product` blocks; re-validate via Google Rich Results Test. |
+| #   | Issue                                                             | Count | Class                                                                                                      | Fix in PR-D                                                                                                                                                                                    |
+| --- | ----------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Orphan page (no incoming internal links)                          | 1     | Code                                                                                                       | Identify via Ahrefs URL drilldown; add an internal link from a relevant hub (likely a `/bank/[slug]` orphan — add to footer or `/issuers` index).                                              |
+| 2   | Page has only one dofollow incoming internal link (indexable)     | 12    | Code                                                                                                       | Cross-link `/bank/[slug]` ↔ `/convert/[slug]` ↔ `/integrate/[slug]` via a "Related" rail on each programmatic page.                                                                            |
+| 3   | Page has only one dofollow incoming internal link (not-indexable) | 16    | Likely safe to ignore (auth / utility routes); confirm via URL list.                                       |
+| 4   | Page has no outgoing links                                        | 6     | Code                                                                                                       | Add at least one footer or contextual link to thin utility pages.                                                                                                                              |
+| 5   | Page has links to redirect                                        | 2     | Code                                                                                                       | Replace internal links pointing at redirect targets with the final URL.                                                                                                                        |
+| 6   | 3XX redirect                                                      | 4     | Likely intentional (trailing-slash, http→https); verify and either keep or fix in `next.config` redirects. |
+| 7   | HTTP to HTTPS redirect                                            | 2     | Safe (handled at edge); ignore.                                                                            |
+| 8   | Meta description too long (indexable)                             | 12    | Code                                                                                                       | Trim descriptions in `app/**/page.tsx` `metadata.description` to ≤160 chars.                                                                                                                   |
+| 9   | Title too long (indexable)                                        | 1     | Code                                                                                                       | Trim title in the offending page metadata to ≤60 chars.                                                                                                                                        |
+| 10  | Meta description too short                                        | 18    | Code                                                                                                       | Expand short descriptions to 120–160 chars where they exist.                                                                                                                                   |
+| 11  | Title too long (not-indexable)                                    | 11    | Code                                                                                                       | Same trim rule on utility-page titles.                                                                                                                                                         |
+| 12  | Low word count                                                    | 10    | Content + Code                                                                                             | Add body copy to thin pages (likely some `/integrate/*` or `/convert/*` slugs) — 300+ words minimum.                                                                                           |
+| 13  | Meta description too long (not-indexable)                         | 1     | Code                                                                                                       | Trim.                                                                                                                                                                                          |
+| 14  | Open Graph tags incomplete                                        | 32    | Code                                                                                                       | Add `openGraph` block (title, description, url, type, images) to every page-level `metadata` export. Centralize defaults in `app/layout.tsx`.                                                  |
+| 15  | Missing alt text                                                  | 42    | Code                                                                                                       | Audit every `next/image` + `<img>` usage; add `alt=""` for decorative and meaningful `alt` for content images. Largest violator is likely `public/marketing/icons/` PNGs rendered without alt. |
+| 16  | Non-canonical page in sitemap                                     | 8     | Code                                                                                                       | Either remove non-canonical URLs from `app/sitemap.ts` or set the `canonical` meta on the offending pages to the in-sitemap URL. Likely the trailing-slash / case variants.                    |
+| 17  | Pages to submit to IndexNow                                       | 32    | Config                                                                                                     | Add `public/<indexnow-key>.txt` + integrate IndexNow ping in the deploy workflow. (Bing/Yandex compatible, free.)                                                                              |
+| 18  | Structured data has Google rich results validation error          | 24    | Code                                                                                                       | Fix JSON-LD on `app/layout.tsx` / `app/page.tsx` / per-route schemas. Most likely the `Organization` or `Product` blocks; re-validate via Google Rich Results Test.                            |
 
 Approach: tackle in commit-sized waves so the PR stays reviewable.
 
