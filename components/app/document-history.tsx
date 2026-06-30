@@ -106,6 +106,7 @@ export function DocumentHistoryList({
 export function DocumentReview({ document }: { document: HistoryDocumentView }) {
   const primaryStatement = document.statements[0] ?? null
   const processingAudit = findAuditEvent(document.auditEvents, 'document.processing_started')
+  const reviewedAudit = findAuditEvent(document.auditEvents, 'statement.reviewed')
   const exceptions = reviewExceptionsFor(primaryStatement)
   const recoveryCards = recoveryCardsFor(document, primaryStatement, exceptions)
   const exportReadiness = exportReadinessFor(document, primaryStatement, exceptions)
@@ -157,7 +158,11 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
           />
         </EvidenceSection>
 
-        <EvidenceSection title="Editable review">
+        <DisclosureSection
+          title="Editable review"
+          hint={reviewedAudit ? 'Reviewed' : 'Open'}
+          defaultOpen={!reviewedAudit}
+        >
           <EditableReviewWorkflow
             key={primaryStatement ? `${primaryStatement.id}:${primaryStatement.revision}` : 'none'}
             documentId={document.id}
@@ -168,11 +173,19 @@ export function DocumentReview({ document }: { document: HistoryDocumentView }) 
               cause: exception.cause,
             }))}
           />
-        </EvidenceSection>
+        </DisclosureSection>
 
-        <EvidenceSection title="Transaction table">
+        <DisclosureSection
+          title="Transaction table"
+          hint={
+            primaryStatement
+              ? formatCount(primaryStatement.transactionCount, 'transaction')
+              : undefined
+          }
+          defaultOpen={!reviewedAudit}
+        >
           <TransactionTable document={document} statement={primaryStatement} />
-        </EvidenceSection>
+        </DisclosureSection>
 
         <DisclosureSection
           title="Exceptions"
@@ -592,6 +605,7 @@ function buildEvidenceTimelineSteps(
     'statement.export_generated',
     'export.generated',
   ])
+  const statementReviewedAudit = findFirstAuditEvent(document.auditEvents, ['statement.reviewed'])
   const deletionAudit = findFirstAuditEvent(document.auditEvents, ['document.deleted'])
   const recoveryKind = document.state === 'failed' ? recoveryKindFromDocument(document) : null
   const hasVerifiedS3 =
@@ -603,8 +617,6 @@ function buildEvidenceTimelineSteps(
     Boolean(statement)
   const hasOcrStarted =
     Boolean(processingStartedAudit) || displayExtractionJobId(document) !== 'Not assigned'
-  const hasOcrCompleted =
-    Boolean(ocrCompletedAudit) || document.state === 'ready' || Boolean(statement)
   const deletionTimestamp =
     document.deletedAt ??
     deletionAudit?.createdAt ??
@@ -667,44 +679,36 @@ function buildEvidenceTimelineSteps(
       evidence: [],
     },
     {
-      id: 'ocr_completed',
-      label: 'Extraction completed',
+      id: 'statement_extracted',
+      label: 'Statement extracted',
       status:
         recoveryKind === 'ocr_processing_failed'
           ? 'blocked'
-          : hasOcrCompleted
+          : statement
             ? 'complete'
-            : document.state === 'processing'
-              ? 'active'
-              : 'waiting',
+            : document.state === 'ready'
+              ? 'blocked'
+              : document.state === 'processing'
+                ? 'active'
+                : 'waiting',
       detail:
         recoveryKind === 'ocr_processing_failed'
           ? redactInfra(
               document.failureReason ?? 'Extraction started, but processing did not complete.',
             )
-          : hasOcrCompleted
-            ? 'Extraction has produced reviewable output for this document.'
-            : document.state === 'processing'
-              ? // SECURITY-AUDIT: removed S3 verification + extraction job id from processing copy
-                'StatementStudio has proven upload, document verification, and conversion start. It is waiting for the conversion to complete.'
-              : 'Extraction completion waits on a running job.',
-      timestamp: ocrCompletedAudit?.createdAt ?? statement?.createdAt ?? null,
-      evidence: [{ label: 'Pages', value: document.pages?.toString() ?? 'Not counted' }],
-    },
-    {
-      id: 'statement_extracted',
-      label: 'Statement extracted',
-      status: statement ? 'complete' : document.state === 'ready' ? 'blocked' : 'waiting',
-      detail: statement
-        ? `${statement.bankName ?? 'Statement'} data is attached with ${formatCount(
-            statement.transactionCount,
-            'transaction',
-          )}.`
-        : document.state === 'ready'
-          ? 'The document is ready, but no statement record is attached.'
-          : 'StatementStudio is waiting for extraction output to create statement fields and transaction rows.',
-      timestamp: statement?.createdAt ?? null,
+          : statement
+            ? `${statement.bankName ?? 'Statement'} data is attached with ${formatCount(
+                statement.transactionCount,
+                'transaction',
+              )}.`
+            : document.state === 'ready'
+              ? 'The document is ready, but no statement record is attached.'
+              : document.state === 'processing'
+                ? 'StatementStudio has proven upload, document verification, and conversion start. It is waiting for extraction output to attach statement fields and transaction rows.'
+                : 'StatementStudio is waiting for extraction output to create statement fields and transaction rows.',
+      timestamp: statement?.createdAt ?? ocrCompletedAudit?.createdAt ?? null,
       evidence: [
+        { label: 'Pages', value: document.pages?.toString() ?? 'Not counted' },
         { label: 'Statement ID', value: statement?.id ?? 'Not created' },
         {
           label: 'Reconciliation',
@@ -717,21 +721,28 @@ function buildEvidenceTimelineSteps(
       label: 'Export ready',
       status: exportGeneratedAudit
         ? 'complete'
-        : exportReadiness.label === 'Ready to export'
-          ? 'waiting'
-          : exportReadiness.tone === 'danger' || exportReadiness.tone === 'warning'
-            ? 'blocked'
-            : 'waiting',
+        : statementReviewedAudit
+          ? 'complete'
+          : exportReadiness.label === 'Ready to export'
+            ? 'waiting'
+            : exportReadiness.tone === 'danger' || exportReadiness.tone === 'warning'
+              ? 'blocked'
+              : 'waiting',
       detail: exportGeneratedAudit
         ? 'Your export is ready for download.'
-        : exportReadiness.label === 'Ready to export'
-          ? 'Statement evidence is ready. StatementStudio is waiting for a generated export event.'
-          : exportReadiness.cause,
-      timestamp: exportGeneratedAudit?.createdAt ?? null,
+        : statementReviewedAudit
+          ? 'Statement reviewed — ready to export.'
+          : exportReadiness.label === 'Ready to export'
+            ? 'Statement evidence is ready. StatementStudio is waiting for a generated export event.'
+            : exportReadiness.cause,
+      timestamp:
+        exportGeneratedAudit?.createdAt ?? statementReviewedAudit?.createdAt ?? null,
       // SECURITY-AUDIT: removed Request id evidence row; kept opaque audit event id as Support reference
       evidence: exportGeneratedAudit
         ? [{ label: 'Support reference', value: exportGeneratedAudit.id }]
-        : [{ label: 'Export state', value: exportReadiness.label }],
+        : statementReviewedAudit
+          ? [{ label: 'Support reference', value: statementReviewedAudit.id }]
+          : [{ label: 'Export state', value: exportReadiness.label }],
     },
     {
       id: 'deletion_completed',
