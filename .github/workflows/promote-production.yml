@@ -170,7 +170,7 @@ jobs:
       # fine even without checkout — but the Setup Node step that follows
       # requires the lockfile and fails the whole workflow without it.
       - name: Checkout (for IndexNow ping)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
