@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/client/supabase'
-import { buildAuthCallbackUrl } from '@/lib/shared/auth-redirect'
+import { buildAuthConfirmUrl } from '@/lib/shared/auth-redirect'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
 
     const supabase = createClient()
     const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: buildAuthCallbackUrl({
+      redirectTo: buildAuthConfirmUrl({
         siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
         fallbackOrigin: window.location.origin,
         next: '/reset',

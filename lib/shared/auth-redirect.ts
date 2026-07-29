@@ -22,6 +22,24 @@ export function buildAuthCallbackUrl({
   return callbackUrl.toString()
 }
 
+export function buildAuthConfirmUrl({
+  siteUrl,
+  fallbackOrigin,
+  next,
+}: {
+  siteUrl: string | undefined
+  fallbackOrigin: string
+  next?: string
+}): string {
+  const confirmUrl = new URL('/auth/confirm', `${normalizeSiteUrl(siteUrl, fallbackOrigin)}/`)
+
+  if (next) {
+    confirmUrl.searchParams.set('next', next)
+  }
+
+  return confirmUrl.toString()
+}
+
 export function normalizeAuthNextPath(next: string | null | undefined): string | undefined {
   const trimmed = next?.trim()
   if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) return undefined
