@@ -56,7 +56,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/containers": "^0.3.3",
+    "@cloudflare/containers": "^0.3.7",
     "@playwright/test": "^1.60.0",
     "@sentry/cli": "^3.4.1",
     "@tailwindcss/postcss": "^4.3.0",
